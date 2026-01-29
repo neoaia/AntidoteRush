@@ -2,21 +2,10 @@ class InputMethodState {
   constructor(stateManager) {
     this.stateManager = stateManager;
 
-    this.buttons = [];
-
-    let mouseButton = {
-      label: "MOUSE",
-      method: INPUT_METHODS.MOUSE,
-      y: 0,
-    };
-    this.buttons.push(mouseButton);
-
-    let trackpadButton = {
-      label: "TRACKPAD",
-      method: INPUT_METHODS.TRACKPAD,
-      y: 0,
-    };
-    this.buttons.push(trackpadButton);
+    this.buttons = [
+      { label: "MOUSE", method: INPUT_METHODS.MOUSE, y: 0 },
+      { label: "TRACKPAD", method: INPUT_METHODS.TRACKPAD, y: 0 },
+    ];
 
     this.buttonWidth = 200;
     this.buttonHeight = 60;

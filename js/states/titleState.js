@@ -2,21 +2,10 @@ class TitleState {
   constructor(stateManager) {
     this.stateManager = stateManager;
 
-    this.buttons = [];
-
-    let endlessButton = {
-      label: "ENDLESS",
-      mode: GAME_MODES.ENDLESS,
-      y: 0,
-    };
-    this.buttons.push(endlessButton);
-
-    let progressiveButton = {
-      label: "PROGRESSIVE",
-      mode: GAME_MODES.PROGRESSIVE,
-      y: 0,
-    };
-    this.buttons.push(progressiveButton);
+    this.buttons = [
+      { label: "ENDLESS", mode: GAME_MODES.ENDLESS, y: 0 },
+      { label: "PROGRESSIVE", mode: GAME_MODES.PROGRESSIVE, y: 0 },
+    ];
 
     this.buttonWidth = 250;
     this.buttonHeight = 70;

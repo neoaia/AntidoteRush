@@ -2,31 +2,16 @@ class DifficultyState {
   constructor(stateManager) {
     this.stateManager = stateManager;
 
-    this.buttons = [];
-
-    let easyButton = {
-      label: "EASY",
-      difficulty: DIFFICULTIES.EASY,
-      y: 0,
-      color: "#00ff00",
-    };
-    this.buttons.push(easyButton);
-
-    let mediumButton = {
-      label: "MEDIUM",
-      difficulty: DIFFICULTIES.MEDIUM,
-      y: 0,
-      color: "#ffff00",
-    };
-    this.buttons.push(mediumButton);
-
-    let hardButton = {
-      label: "HARD",
-      difficulty: DIFFICULTIES.HARD,
-      y: 0,
-      color: "#ff0000",
-    };
-    this.buttons.push(hardButton);
+    this.buttons = [
+      { label: "EASY", difficulty: DIFFICULTIES.EASY, y: 0, color: "#00ff00" },
+      {
+        label: "MEDIUM",
+        difficulty: DIFFICULTIES.MEDIUM,
+        y: 0,
+        color: "#ffff00",
+      },
+      { label: "HARD", difficulty: DIFFICULTIES.HARD, y: 0, color: "#ff0000" },
+    ];
 
     this.buttonWidth = 200;
     this.buttonHeight = 60;
