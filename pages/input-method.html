@@ -1,0 +1,34 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Select Input Method</title>
+
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap" rel="stylesheet">
+
+    <link rel="stylesheet" href="style.css">
+</head>
+
+<body>
+    <div class="container">
+        <h1>SELECT INPUT METHOD</h1>
+
+        <div class="button-group">
+            <button onclick="selectInput('mouse')">MOUSE</button>
+            <button onclick="selectInput('trackpad')">TRACKPAD</button>
+        </div>
+    </div>
+
+    <script>
+        function selectInput(inputMethod) {
+            localStorage.setItem('inputMethod', inputMethod);
+            window.location.href = 'game.html';
+        }
+    </script>
+</body>
+
+</html>

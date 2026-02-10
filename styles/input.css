@@ -1,0 +1,70 @@
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+body {
+  min-height: 100vh;
+  background-color: #111827; /* gray-900 */
+  color: #22c55e; /* green-500 */
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  font-family: "Press Start 2P", cursive;
+}
+
+.container {
+  text-align: center;
+  padding: 2.5rem;
+}
+
+.title {
+  font-size: 1.875rem; /* text-3xl */
+  margin-bottom: 1.25rem;
+  color: #ffffff;
+}
+
+input {
+  width: 100%;
+  max-width: 400px;
+  font-family: "Press Start 2P", cursive;
+  font-size: 1.5rem;
+  padding: 1rem 1.25rem;
+  background-color: #000000;
+  border: 4px solid #22c55e;
+  color: #22c55e;
+  text-align: center;
+  outline: none;
+  margin-bottom: 1.25rem;
+}
+
+input::placeholder {
+  color: #16a34a;
+}
+
+.button-group {
+  display: flex;
+  flex-direction: column;
+  gap: 1.25rem;
+  align-items: center;
+  width: 100%;
+}
+
+button {
+  width: 100%;
+  padding: 0.75rem 0;
+  font-family: "Press Start 2P", cursive;
+  font-size: 1.5rem;
+  background-color: #ffffff;
+  color: #111827;
+  border: none;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+button:hover {
+  background-color: #22c55e;
+  color: #000;
+  transform: scale(1.05);
+}
