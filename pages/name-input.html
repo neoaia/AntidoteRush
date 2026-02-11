@@ -9,8 +9,7 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap" rel="stylesheet">
-
-    <link rel="stylesheet" href="../styles/input.css">
+    <link rel="stylesheet" href="/styles/input.css">
 </head>
 
 <body>
@@ -20,12 +19,21 @@
         <input type="text" id="playerName" maxlength="15" placeholder="Your Name" />
 
         <div class="button-group">
-            <button onclick="startGame()">START</button>
+            <button id="startBtn" onclick="startGame()">START</button>
         </div>
     </div>
 
     <script>
         let nameInput = document.getElementById('playerName');
+        let startBtn = document.getElementById('startBtn');
+
+        // Disable button initially
+        startBtn.disabled = true;
+
+        // Enable/disable button based on input
+        nameInput.addEventListener('input', function () {
+            startBtn.disabled = nameInput.value.trim().length === 0;
+        });
 
         nameInput.addEventListener('keypress', function (event) {
             if (event.key === 'Enter') {
@@ -33,7 +41,7 @@
 
                 if (playerName.length > 0) {
                     localStorage.setItem('playerName', playerName);
-                    window.location.href = 'input-method.html';
+                    window.location.href = 'game.html';
                 }
             }
         });
@@ -42,7 +50,8 @@
             let playerName = nameInput.value.trim();
 
             if (playerName.length > 0) {
-                window.location.href = "input-method.html"
+                localStorage.setItem('playerName', playerName);
+                window.location.href = "game.html";
             }
         }
 

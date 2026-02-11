@@ -4,7 +4,7 @@ class Bullet {
     this.y = y;
     this.size = 5;
     this.speed = 10;
-    this.color = "#FFFF00";
+    this.color = "#594e1e";
     this.active = true;
     this.damage = damage;
 
