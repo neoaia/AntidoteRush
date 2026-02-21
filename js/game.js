@@ -10,10 +10,8 @@ let inputHandler;
 
 let isPaused = false;
 let pointerLocked = false;
-
-// Virtual cursor — tracked via raw mouse deltas while pointer is locked
-let vx = 0; // virtual cursor X
-let vy = 0; // virtual cursor Y
+let vx = 0;
+let vy = 0;
 
 function preload() {
   assetManager = new AssetManager();
@@ -28,13 +26,16 @@ function setup() {
   gameState = new GameState();
   let playerName = localStorage.getItem("playerName");
   let inputMethod = localStorage.getItem("inputMethod");
-  gameState.initialize(playerName, inputMethod);
+  let difficulty = localStorage.getItem("difficulty") || "easy";
+  gameState.initialize(playerName, inputMethod, difficulty);
 
   gameState.player = new Player(width / 2, height / 2);
   vx = width / 2;
   vy = height / 2;
 
   gameState.roundManager = new RoundManager();
+  gameState.roundManager.applyDifficulty(difficulty);
+
   gameState.base = new Base(width / 2 - 40, height / 2 - 40);
 
   antidoteManager = new AntidoteManager(gameState, width, height);
@@ -46,7 +47,8 @@ function setup() {
   gameRenderer = new GameRenderer(gameState, uiRenderer);
   inputHandler = new InputHandler(gameState, combatManager);
 
-  gameState.roundManager.startRound();
+  // Round 1 start — no multiplier tick on first round
+  gameState.roundManager.startRound(null);
   antidoteManager.scheduleNext();
   weaponPickupManager.applyDebugWeapon(gameState.player);
 
@@ -56,7 +58,6 @@ function setup() {
 function setupPointerLock() {
   let cnv = document.querySelector("canvas");
 
-  // Lock pointer on first interaction (browsers require a user gesture)
   let lockOnFirstInteraction = function () {
     cnv.requestPointerLock();
     document.removeEventListener("keydown", lockOnFirstInteraction);
@@ -65,10 +66,8 @@ function setupPointerLock() {
   document.addEventListener("keydown", lockOnFirstInteraction);
   document.addEventListener("mousedown", lockOnFirstInteraction);
 
-  // Raw mouse delta → move virtual cursor within aim radius
   document.addEventListener("mousemove", function (e) {
     if (!pointerLocked || isPaused) return;
-
     let player = gameState.player;
     let w = player.weapons[player.currentWeapon];
     let aimRange = w && w.aimRange < 9000 ? w.aimRange : 99999;
@@ -76,7 +75,6 @@ function setupPointerLock() {
     vx = constrain(vx + e.movementX, 0, width);
     vy = constrain(vy + e.movementY, 0, height);
 
-    // Clamp virtual cursor to weapon aim radius around player
     let dx = vx - player.x;
     let dy = vy - player.y;
     let d = Math.sqrt(dx * dx + dy * dy);
@@ -89,19 +87,14 @@ function setupPointerLock() {
   document.addEventListener("pointerlockchange", function () {
     pointerLocked = document.pointerLockElement === cnv;
     if (!pointerLocked && !isPaused && !gameState.gameOver) {
-      isPaused = true; // pointer released unexpectedly → pause
+      isPaused = true;
     }
   });
 
-  // Click canvas to lock pointer + resume
   cnv.addEventListener("click", function () {
     if (gameState.gameOver) return;
-    if (!pointerLocked) {
-      cnv.requestPointerLock();
-    }
-    if (isPaused) {
-      isPaused = false;
-    }
+    if (!pointerLocked) cnv.requestPointerLock();
+    if (isPaused) isPaused = false;
   });
 }
 
@@ -118,12 +111,11 @@ function draw() {
   }
 
   if (isPaused) {
-    displayGame(); // still render world behind overlay
+    displayGame();
     uiRenderer.drawPauseScreen();
     return;
   }
 
-  // Keep virtual cursor anchored to player while paused/not locked
   if (!pointerLocked) {
     let player = gameState.player;
     vx = player.x;
@@ -138,8 +130,7 @@ function updateGame() {
   let player = gameState.player;
   player.update(width, height);
 
-  // Keep vx/vy snapped to player position as player moves
-  // so the cursor doesn't drift relative to player when sprinting
+  // Re-clamp vx/vy as player moves
   let w = player.weapons[player.currentWeapon];
   let aimRange = w && w.aimRange < 9000 ? w.aimRange : 99999;
   let dx = vx - player.x;
@@ -150,14 +141,12 @@ function updateGame() {
     vy = player.y + (dy / d) * aimRange;
   }
 
-  // Hold-to-fire for auto weapons using virtual cursor
   if (player.mouseIsHeld) {
     let ww = player.weapons[player.currentWeapon];
     if (ww && ww.isAuto) {
       let result = player.tryAutoFire(vx, vy);
-      if (result !== null) {
+      if (result !== null)
         combatManager.handleShootResult(result, player, vx, vy);
-      }
     }
   }
 
@@ -178,14 +167,14 @@ function updateGame() {
     gameState.roundTransitioning = true;
     setTimeout(function () {
       gameState.roundManager.nextRound();
-      gameState.roundManager.startRound();
+      // Pass gameState so health multipliers tick on round start
+      gameState.roundManager.startRound(gameState);
       gameState.roundTransitioning = false;
     }, 2000);
   }
 }
 
 function displayGame() {
-  // Pass virtual cursor to renderers instead of mouseX/mouseY
   gameRenderer.renderGame(gameState.player, gameState.base, vx, vy);
   weaponPickupManager.display();
   uiRenderer.drawScorePopups();
@@ -195,7 +184,6 @@ function displayGame() {
 function mousePressed() {
   if (isPaused || !pointerLocked) return;
   gameState.player.mouseIsHeld = true;
-  // Shoot using virtual cursor
   let aim = inputHandler.getAimTarget(gameState.player, vx, vy);
   combatManager.shoot(gameState.player, aim.x, aim.y);
 }
@@ -211,29 +199,19 @@ function mouseWheel(event) {
 }
 
 function keyPressed() {
-  // ESC toggles pause
   if (keyCode === ESCAPE) {
     if (gameState.gameOver) return;
     isPaused = !isPaused;
-    if (isPaused) {
-      document.exitPointerLock();
-    } else {
-      document.querySelector("canvas").requestPointerLock();
-    }
+    if (isPaused) document.exitPointerLock();
+    else document.querySelector("canvas").requestPointerLock();
     return;
   }
-
   if (isPaused) return;
-
   if (gameState.gameOver && key === " ") {
-    window.location.href = "title.html";
+    window.location.href = "../pages/title.html";
     return;
   }
-
-  if (key === "1" || key === "2" || key === "3") {
+  if (key === "1" || key === "2" || key === "3")
     gameState.player.switchWeapon(key);
-  }
-  if (key === "r" || key === "R") {
-    gameState.player.startReload();
-  }
+  if (key === "r" || key === "R") gameState.player.startReload();
 }

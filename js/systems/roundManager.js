@@ -9,20 +9,41 @@ class RoundManager {
 
     this.spawnInterval = 2000;
     this.lastSpawnTime = 0;
+
+    // Difficulty modifiers (set from game.js after construction)
+    this.extraZombiesPerRound = 0; // hard: +10, hell: +20
+    this.speedBonus = 0; // hard: +0.5, hell: +1.5
+    this.baseHealthBonus = 0; // hell: +20
+    this.hellMode = false; // hell: spawn hard zombies earlier
   }
 
-  startRound() {
-    this.zombiesToSpawn = this.zombiesPerRound;
+  applyDifficulty(difficulty) {
+    if (difficulty === "hard") {
+      this.extraZombiesPerRound = 10;
+      this.speedBonus = 0.5;
+      this.baseHealthBonus = 0;
+      this.hellMode = false;
+    } else if (difficulty === "hell") {
+      this.extraZombiesPerRound = 20;
+      this.speedBonus = 1.5;
+      this.baseHealthBonus = 20;
+      this.hellMode = true;
+    }
+  }
+
+  startRound(gameState) {
+    let base = this.zombiesPerRound + this.extraZombiesPerRound;
+    this.zombiesToSpawn = base;
     this.zombiesAlive = 0;
     this.roundActive = true;
     this.roundComplete = false;
+
+    // Tick health multipliers at the start of each new round
+    if (gameState) gameState.tickHealthMultipliers();
   }
 
-  update(currentTime, zombies) {
-    if (!this.roundActive) {
-      return null;
-    }
-
+  update(currentTime, zombies, gameState) {
+    if (!this.roundActive) return null;
     this.zombiesAlive = zombies.length;
 
     if (
@@ -31,57 +52,36 @@ class RoundManager {
     ) {
       this.lastSpawnTime = currentTime;
 
-      // Check if this spawn should be a cluster/horde
       let clusterChance = this.getClusterChance();
-      let shouldSpawnCluster = Math.random() * 100 < clusterChance;
-
-      if (shouldSpawnCluster && this.zombiesToSpawn >= 3) {
-        // Spawn a cluster of 3-5 zombies
-        let clusterSize = Math.floor(Math.random() * 3) + 3; // 3 to 5 zombies
-        clusterSize = Math.min(clusterSize, this.zombiesToSpawn); // Don't exceed remaining zombies
-
-        return this.spawnCluster(clusterSize);
+      if (Math.random() * 100 < clusterChance && this.zombiesToSpawn >= 3) {
+        let clusterSize = Math.min(
+          Math.floor(Math.random() * 3) + 3,
+          this.zombiesToSpawn,
+        );
+        return this.spawnCluster(clusterSize, gameState);
       } else {
-        // Normal single spawn
-        this.zombiesToSpawn = this.zombiesToSpawn - 1;
-        return this.spawnZombie();
+        this.zombiesToSpawn--;
+        return this.spawnZombie(gameState);
       }
     }
 
-    if (this.zombiesToSpawn === 0 && this.zombiesAlive === 0) {
+    if (this.zombiesToSpawn === 0 && this.zombiesAlive === 0)
       this.completeRound();
-    }
-
     return null;
   }
 
   getClusterChance() {
-    // Cluster chance increases with rounds
-    // Round 1-2: 0% chance
-    // Round 3-5: 10% chance
-    // Round 6-10: 25% chance
-    // Round 11-15: 40% chance
-    // Round 16+: 60% chance
-
-    if (this.currentRound <= 2) {
-      return 0;
-    } else if (this.currentRound <= 5) {
-      return 10;
-    } else if (this.currentRound <= 10) {
-      return 25;
-    } else if (this.currentRound <= 15) {
-      return 40;
-    } else {
-      return 60;
-    }
+    if (this.currentRound <= 2) return 0;
+    if (this.currentRound <= 5) return 10;
+    if (this.currentRound <= 10) return 25;
+    if (this.currentRound <= 15) return 40;
+    return 60;
   }
 
-  spawnCluster(clusterSize) {
-    // Pick a spawn side first
+  spawnCluster(clusterSize, gameState) {
     let spawnSide = Math.floor(Math.random() * 4);
-    let baseX = 0;
-    let baseY = 0;
-
+    let baseX = 0,
+      baseY = 0;
     if (spawnSide === 0) {
       baseX = Math.random() * width;
       baseY = -50;
@@ -96,30 +96,22 @@ class RoundManager {
       baseY = Math.random() * height;
     }
 
-    // Create array to hold cluster zombies
     let clusterZombies = [];
-
     for (let i = 0; i < clusterSize; i++) {
-      // Spawn zombies in a cluster around the base position
-      let offsetX = (Math.random() - 0.5) * 100; // Random offset -50 to +50
-      let offsetY = (Math.random() - 0.5) * 100;
-
-      let zombieType = this.getZombieType();
-      let zombie = new Zombie(baseX + offsetX, baseY + offsetY, zombieType);
-      clusterZombies.push(zombie);
-
-      this.zombiesToSpawn = this.zombiesToSpawn - 1;
+      let offX = (Math.random() - 0.5) * 100;
+      let offY = (Math.random() - 0.5) * 100;
+      let type = this.getZombieType();
+      let z = this.createZombie(baseX + offX, baseY + offY, type, gameState);
+      clusterZombies.push(z);
+      this.zombiesToSpawn--;
     }
-
-    // Return the cluster (we'll need to modify game.js to handle this)
     return { type: "cluster", zombies: clusterZombies };
   }
 
-  spawnZombie() {
+  spawnZombie(gameState) {
     let spawnSide = Math.floor(Math.random() * 4);
-    let spawnX = 0;
-    let spawnY = 0;
-
+    let spawnX = 0,
+      spawnY = 0;
     if (spawnSide === 0) {
       spawnX = Math.random() * width;
       spawnY = -50;
@@ -134,40 +126,61 @@ class RoundManager {
       spawnY = Math.random() * height;
     }
 
-    let zombieType = this.getZombieType();
-    return new Zombie(spawnX, spawnY, zombieType);
+    let type = this.getZombieType();
+    return this.createZombie(spawnX, spawnY, type, gameState);
+  }
+
+  createZombie(x, y, type, gameState) {
+    // Mark type as introduced (health scaling starts NEXT round)
+    if (gameState) gameState.introduceZombieType(type);
+
+    // Get current health multiplier for this type
+    let healthMult = gameState ? gameState.zombieHealthMultipliers[type] : 1.0;
+
+    return new Zombie(
+      x,
+      y,
+      type,
+      healthMult,
+      this.speedBonus,
+      this.baseHealthBonus,
+    );
   }
 
   getZombieType() {
     let rand = Math.random() * 100;
 
-    if (this.currentRound < 3) {
-      return "normal";
-    } else if (this.currentRound < 5) {
-      if (rand < 70) {
-        return "normal";
-      } else {
+    if (this.hellMode) {
+      // Hell: spawn hard zombies from the start
+      if (this.currentRound < 2) {
+        if (rand < 50) return "normal";
         return "witch";
-      }
-    } else if (this.currentRound < 8) {
-      if (rand < 50) {
-        return "normal";
-      } else if (rand < 80) {
-        return "witch";
-      } else {
-        return "crawler";
-      }
-    } else {
-      if (rand < 30) {
-        return "normal";
-      } else if (rand < 55) {
-        return "witch";
-      } else if (rand < 80) {
+      } else if (this.currentRound < 4) {
+        if (rand < 30) return "normal";
+        if (rand < 60) return "witch";
         return "crawler";
       } else {
+        if (rand < 20) return "normal";
+        if (rand < 40) return "witch";
+        if (rand < 65) return "crawler";
         return "slasher";
       }
     }
+
+    // Normal / Hard mode zombie type table
+    if (this.currentRound < 3) return "normal";
+    if (this.currentRound < 5) {
+      return rand < 70 ? "normal" : "witch";
+    }
+    if (this.currentRound < 8) {
+      if (rand < 50) return "normal";
+      if (rand < 80) return "witch";
+      return "crawler";
+    }
+    if (rand < 30) return "normal";
+    if (rand < 55) return "witch";
+    if (rand < 80) return "crawler";
+    return "slasher";
   }
 
   completeRound() {
@@ -176,7 +189,7 @@ class RoundManager {
   }
 
   nextRound() {
-    this.currentRound = this.currentRound + 1;
+    this.currentRound++;
     this.zombiesPerRound = Math.floor(this.zombiesPerRound * 1.5);
     this.roundComplete = false;
   }

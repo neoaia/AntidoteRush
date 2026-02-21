@@ -9,10 +9,14 @@ class ZombieManager {
       z.update(player.x, player.y);
 
       if (!z.active) {
-        let points = z.points;
-        this.gameState.increaseScore(points);
-        // Popup above zombie's death position
-        this.gameState.spawnScorePopup(z.x, z.y - z.size / 2, points);
+        // Score
+        this.gameState.increaseScore(z.points);
+        this.gameState.spawnScorePopup(z.x, z.y - z.size / 2 - 12, z.points);
+
+        // Coins — offset slightly so popups don't stack
+        this.gameState.addCoins(z.coins);
+        this.gameState.spawnCoinPopup(z.x, z.y - z.size / 2 - 28, z.coins);
+
         this.gameState.removeZombie(i);
         continue;
       }
@@ -25,7 +29,11 @@ class ZombieManager {
 
   handleRoundSpawning(roundManager) {
     let currentTime = millis();
-    let spawnResult = roundManager.update(currentTime, this.gameState.zombies);
+    let spawnResult = roundManager.update(
+      currentTime,
+      this.gameState.zombies,
+      this.gameState,
+    );
 
     if (spawnResult !== null) {
       if (spawnResult.type === "cluster") {
@@ -37,8 +45,6 @@ class ZombieManager {
   }
 
   display() {
-    for (let i = 0; i < this.gameState.zombies.length; i++) {
-      this.gameState.zombies[i].display();
-    }
+    for (let z of this.gameState.zombies) z.display();
   }
 }

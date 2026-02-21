@@ -135,7 +135,7 @@ class UIRenderer {
 
   drawScore() {
     let x = 14;
-    let y = 64; // stamina bar ends at 46+12=58, +6 gap
+    let y = 64;
     textSize(13);
     textAlign(LEFT, TOP);
     this.drawTextWithOutline(
@@ -145,6 +145,16 @@ class UIRenderer {
       255,
       255,
       255,
+      2,
+    );
+    // Coin display right of score
+    this.drawTextWithOutline(
+      "\u00a2 " + this.gameState.coins,
+      x + 185,
+      y,
+      255,
+      220,
+      0,
       2,
     );
   }
@@ -462,14 +472,20 @@ class UIRenderer {
       let alpha = 255 * (1 - progress);
       let floatY = p.y - 40 * progress;
 
-      textSize(16);
+      let label = p.isCoin ? p.value : "+" + p.value;
+      // Coin popups are cyan, score popups are yellow
+      let cr = p.isCoin ? 80 : 255;
+      let cg = p.isCoin ? 255 : 230;
+      let cb = p.isCoin ? 120 : 0;
+
+      textSize(14);
       textAlign(CENTER, CENTER);
       fill(0, 0, 0, alpha);
       for (let ox = -2; ox <= 2; ox++)
         for (let oy = -2; oy <= 2; oy++)
-          if (ox !== 0 || oy !== 0) text("+" + p.value, p.x + ox, floatY + oy);
-      fill(255, 230, 0, alpha);
-      text("+" + p.value, p.x, floatY);
+          if (ox !== 0 || oy !== 0) text(label, p.x + ox, floatY + oy);
+      fill(cr, cg, cb, alpha);
+      text(label, p.x, floatY);
     }
   }
 

@@ -1,0 +1,228 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Choose Difficulty</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap" rel="stylesheet">
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            background: #0a0a0a;
+            color: #fff;
+            font-family: 'Press Start 2P', monospace;
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            gap: 40px;
+            padding: 20px;
+        }
+
+        h1 {
+            font-size: 22px;
+            color: #fff;
+            letter-spacing: 4px;
+            text-shadow: 0 0 20px rgba(255, 255, 255, 0.4);
+        }
+
+        .cards {
+            display: flex;
+            gap: 24px;
+            flex-wrap: wrap;
+            justify-content: center;
+        }
+
+        .card {
+            width: 240px;
+            padding: 28px 20px;
+            border: 3px solid;
+            border-radius: 4px;
+            cursor: pointer;
+            transition: transform 0.1s, box-shadow 0.15s;
+            text-align: center;
+            display: flex;
+            flex-direction: column;
+            gap: 16px;
+            background: #111; 
+        }
+
+        .card:hover {
+            transform: translateY(-4px);
+        }
+
+        .card.selected {
+            transform: translateY(-6px);
+        }
+
+        /* Easy */
+        .card.easy {
+            border-color: #00ff88;
+        }
+
+        .card.easy:hover,
+        .card.easy.selected {
+            box-shadow: 0 0 24px #00ff8888;
+        }
+
+        .card.easy .label {
+            color: #00ff88;
+        }
+
+        /* Hard */
+        .card.hard {
+            border-color: #ff9900;
+        }
+
+        .card.hard:hover,
+        .card.hard.selected {
+            box-shadow: 0 0 24px #ff990088;
+        }
+
+        .card.hard .label {
+            color: #ff9900;
+        }
+
+        /* Hell */
+        .card.hell {
+            border-color: #ff2200;
+        }
+
+        .card.hell:hover,
+        .card.hell.selected {
+            box-shadow: 0 0 24px #ff220088;
+        }
+
+        .card.hell .label {
+            color: #ff2200;
+        }
+
+        .card .label {
+            font-size: 18px;
+            letter-spacing: 3px;
+        }
+
+        .card .desc {
+            font-size: 7.5px;
+            line-height: 1.9;
+            color: #aaa;
+        }
+
+        .card .stats {
+            font-size: 7px;
+            line-height: 2;
+            color: #666;
+            border-top: 1px solid #333;
+            padding-top: 12px;
+        }
+
+        .card.selected .stats {
+            color: #999;
+        }
+
+        #startBtn {
+            font-family: 'Press Start 2P', monospace;
+            font-size: 14px;
+            padding: 16px 40px;
+            background: #222;
+            color: #fff;
+            border: 2px solid #555;
+            border-radius: 4px;
+            cursor: pointer;
+            letter-spacing: 2px;
+            transition: background 0.15s, border-color 0.15s;
+        }
+
+        #startBtn:hover:not(:disabled) {
+            background: #333;
+            border-color: #aaa;
+        }
+
+        #startBtn:disabled {
+            opacity: 0.4;
+            cursor: default;
+        }
+    </style>
+</head>
+
+<body>
+
+    <h1>SELECT DIFFICULTY</h1>
+
+    <div class="cards">
+
+        <div class="card easy" onclick="selectDifficulty('easy', this)">
+            <div class="label">EASY</div>
+            <div class="desc">
+                Standard zombie rush.<br>
+                Good for learning the game.
+            </div>
+            <div class="stats">
+                Zombies/Round: base<br>
+                Zombie Speed: normal<br>
+                Zombie Health: normal<br>
+                Spawn order: normal
+            </div>
+        </div>
+
+        <div class="card hard" onclick="selectDifficulty('hard', this)">
+            <div class="label">HARD</div>
+            <div class="desc">
+                More zombies, faster.<br>
+                Only for the prepared.
+            </div>
+            <div class="stats">
+                Zombies/Round: +10<br>
+                Zombie Speed: +0.5<br>
+                Zombie Health: normal<br>
+                Spawn order: normal
+            </div>
+        </div>
+
+        <div class="card hell" onclick="selectDifficulty('hell', this)">
+            <div class="label">HELL</div>
+            <div class="desc">
+                Maximum chaos.<br>
+                You will not survive.
+            </div>
+            <div class="stats">
+                Zombies/Round: +20<br>
+                Zombie Speed: +1.5<br>
+                Zombie Health: +20 base<br>
+                Spawn order: hard from start
+            </div>
+        </div>
+
+    </div>
+
+    <button id="startBtn" onclick="startGame()" disabled>START</button>
+
+    <script>
+        let selectedDifficulty = null;
+
+        function selectDifficulty(diff, el) {
+            selectedDifficulty = diff;
+            document.querySelectorAll('.card').forEach(c => c.classList.remove('selected'));
+            el.classList.add('selected');
+            document.getElementById('startBtn').disabled = false;
+        }
+
+        function startGame() {
+            if (!selectedDifficulty) return;
+            localStorage.setItem('difficulty', selectedDifficulty);
+            window.location.href = 'game.html';
+        }
+    </script>
+
+</body>
+
+</html>

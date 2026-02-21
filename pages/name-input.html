@@ -19,7 +19,7 @@
         <input type="text" id="playerName" maxlength="15" placeholder="Your Name" />
 
         <div class="button-group">
-            <button id="startBtn" onclick="startGame()">START</button>
+            <button id="startBtn" onclick="goNext()">START</button>
         </div>
     </div>
 
@@ -27,32 +27,21 @@
         let nameInput = document.getElementById('playerName');
         let startBtn = document.getElementById('startBtn');
 
-        // Disable button initially
         startBtn.disabled = true;
 
-        // Enable/disable button based on input
         nameInput.addEventListener('input', function () {
             startBtn.disabled = nameInput.value.trim().length === 0;
         });
 
         nameInput.addEventListener('keypress', function (event) {
-            if (event.key === 'Enter') {
-                let playerName = nameInput.value.trim();
-
-                if (playerName.length > 0) {
-                    localStorage.setItem('playerName', playerName);
-                    window.location.href = 'game.html';
-                }
-            }
+            if (event.key === 'Enter') goNext();
         });
 
-        function startGame() {
+        function goNext() {
             let playerName = nameInput.value.trim();
-
-            if (playerName.length > 0) {
-                localStorage.setItem('playerName', playerName);
-                window.location.href = "game.html";
-            }
+            if (playerName.length === 0) return;
+            localStorage.setItem('playerName', playerName);
+            window.location.href = 'difficulty.html'; // → difficulty picker
         }
 
         nameInput.focus();
