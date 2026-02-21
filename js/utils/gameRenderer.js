@@ -11,11 +11,11 @@ class GameRenderer {
       this.gameState.currentAntidote.display();
     }
 
-    for (let i = 0; i < this.gameState.zombies.length; i = i + 1) {
+    for (let i = 0; i < this.gameState.zombies.length; i++) {
       this.gameState.zombies[i].display();
     }
 
-    for (let i = 0; i < this.gameState.bullets.length; i = i + 1) {
+    for (let i = 0; i < this.gameState.bullets.length; i++) {
       this.gameState.bullets[i].display();
     }
 

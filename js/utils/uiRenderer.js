@@ -8,9 +8,7 @@ class UIRenderer {
     fill(0);
     for (let ox = -outlineWeight; ox <= outlineWeight; ox++) {
       for (let oy = -outlineWeight; oy <= outlineWeight; oy++) {
-        if (ox !== 0 || oy !== 0) {
-          text(txt, x + ox, y + oy);
-        }
+        if (ox !== 0 || oy !== 0) text(txt, x + ox, y + oy);
       }
     }
     fill(r, g, b);
@@ -39,13 +37,9 @@ class UIRenderer {
     let healthPercent = player.health / player.maxHealth;
     let fillWidth = (barWidth - 4) * healthPercent;
 
-    if (healthPercent > 0.6) {
-      fill(255, 220, 0);
-    } else if (healthPercent > 0.3) {
-      fill(255, 140, 0);
-    } else {
-      fill(255, 0, 0);
-    }
+    if (healthPercent > 0.6) fill(255, 220, 0);
+    else if (healthPercent > 0.3) fill(255, 140, 0);
+    else fill(255, 0, 0);
 
     rect(x + 2, y + 27, fillWidth, barHeight - 4);
 
@@ -74,6 +68,56 @@ class UIRenderer {
     );
   }
 
+  drawStaminaBar(player) {
+    let x = 20;
+    let y = 83;
+    let barWidth = 160;
+    let barHeight = 10;
+
+    textSize(10);
+    textAlign(LEFT, CENTER);
+    this.drawTextWithOutline("STAMINA", x, y + barHeight / 2, 200, 200, 200, 1);
+
+    let labelW = 52;
+    let barX = x + labelW + 4;
+
+    noFill();
+    stroke(0);
+    strokeWeight(1);
+    rect(barX, y, barWidth, barHeight);
+
+    noStroke();
+    fill(40, 40, 40);
+    rect(barX + 1, y + 1, barWidth - 2, barHeight - 2);
+
+    let staminaPct = player.stamina / player.maxStamina;
+    let fillW = (barWidth - 2) * staminaPct;
+
+    if (staminaPct > 0.5) fill(0, 220, 255);
+    else if (staminaPct > 0.2) fill(255, 220, 0);
+    else fill(255, 60, 0);
+
+    rect(barX + 1, y + 1, fillW, barHeight - 2);
+
+    // Flashing SPRINTING label
+    if (player.isSprinting) {
+      let flash = Math.floor(millis() / 250) % 2 === 0;
+      if (flash) {
+        textSize(9);
+        textAlign(LEFT, CENTER);
+        this.drawTextWithOutline(
+          "SPRINTING",
+          barX + barWidth + 6,
+          y + barHeight / 2,
+          0,
+          220,
+          255,
+          1,
+        );
+      }
+    }
+  }
+
   drawWeaponSlot(player) {
     let slotSize = 100;
     let slotY = height - 120;
@@ -91,7 +135,6 @@ class UIRenderer {
       let isActive = player.currentWeapon === slot.key;
       let w = player.weapons[slot.key];
 
-      // Border — highlight active
       stroke(isActive ? color(255, 220, 0) : color(0));
       strokeWeight(isActive ? 3 : 2);
       noFill();
@@ -114,7 +157,6 @@ class UIRenderer {
           1,
         );
       } else {
-        // Weapon name
         textSize(10);
         textAlign(CENTER, CENTER);
         this.drawTextWithOutline(
@@ -127,23 +169,19 @@ class UIRenderer {
           2,
         );
 
-        // Ammo info for mag-based weapons
         if (w.magSize !== undefined) {
           if (w.isReloading) {
-            // Reload bar
             let elapsed = millis() - w.reloadStartTime;
             let progress = Math.min(elapsed / w.reloadTime, 1);
             let barW = slotSize - 10;
             let barH = 6;
             let barX = x + 5;
             let barY2 = y + slotSize - 14;
-
             fill(50);
             noStroke();
             rect(barX, barY2, barW, barH);
             fill(255, 140, 0);
             rect(barX, barY2, barW * progress, barH);
-
             textSize(8);
             textAlign(CENTER, BOTTOM);
             this.drawTextWithOutline(
@@ -156,7 +194,6 @@ class UIRenderer {
               1,
             );
           } else {
-            // Current ammo / mag size
             textSize(11);
             textAlign(CENTER, CENTER);
             this.drawTextWithOutline(
@@ -168,8 +205,6 @@ class UIRenderer {
               100,
               2,
             );
-
-            // Reserve ammo (totalAmmo) for limited guns
             if (!w.unlimited) {
               textSize(9);
               textAlign(CENTER, CENTER);
@@ -187,7 +222,6 @@ class UIRenderer {
         }
       }
 
-      // Slot key label
       textSize(10);
       textAlign(LEFT, BOTTOM);
       this.drawTextWithOutline(
@@ -221,14 +255,13 @@ class UIRenderer {
     let zombieY = y + 35;
     let zombiesRemaining =
       roundManager.zombiesToSpawn + this.gameState.zombies.length;
-
     let counterWidth = 160;
     let counterHeight = 40;
+
     noFill();
     stroke(0);
     strokeWeight(2);
     rect(x - counterWidth / 2, zombieY, counterWidth, counterHeight);
-
     noStroke();
     fill(60, 60, 60);
     rect(
@@ -314,19 +347,18 @@ class UIRenderer {
     let w = player.weapons[player.currentWeapon];
     if (!w) return;
 
-    let maxAimRange = w.aimRange;
-    let angleToMouse = atan2(mouseY - player.y, mouseX - player.x);
-    let dx = mouseX - player.x;
-    let dy = mouseY - player.y;
-    let distanceToMouse = sqrt(dx * dx + dy * dy);
-    let aimX = mouseX;
-    let aimY = mouseY;
-
+    let aimRange = w.aimRange;
     let isSniper = w.name === "Sniper";
     let isShotgun = w.name === "Shotgun";
+    let dx = mouseX - player.x;
+    let dy = mouseY - player.y;
+    let distToMouse = Math.sqrt(dx * dx + dy * dy);
+    let angleToMouse = Math.atan2(dy, dx);
 
-    if (!isSniper && distanceToMouse > maxAimRange) {
-      let ratio = maxAimRange / distanceToMouse;
+    let aimX = mouseX;
+    let aimY = mouseY;
+    if (!isSniper && distToMouse > aimRange) {
+      let ratio = aimRange / distToMouse;
       aimX = player.x + dx * ratio;
       aimY = player.y + dy * ratio;
     }
@@ -349,14 +381,14 @@ class UIRenderer {
         line(
           0,
           0,
-          coneLen * cos(-spreadAngle / 2),
-          coneLen * sin(-spreadAngle / 2),
+          coneLen * Math.cos(-spreadAngle / 2),
+          coneLen * Math.sin(-spreadAngle / 2),
         );
         line(
           0,
           0,
-          coneLen * cos(spreadAngle / 2),
-          coneLen * sin(spreadAngle / 2),
+          coneLen * Math.cos(spreadAngle / 2),
+          coneLen * Math.sin(spreadAngle / 2),
         );
         arc(0, 0, coneLen * 2, coneLen * 2, -spreadAngle / 2, spreadAngle / 2);
         pop();
@@ -390,12 +422,16 @@ class UIRenderer {
       arc(0, 0, meleeRange * 2, meleeRange * 2, arcStart, arcEnd);
       stroke(255, 150, 0, 80);
       strokeWeight(1);
-      line(0, 0, meleeRange * cos(arcStart), meleeRange * sin(arcStart));
-      line(0, 0, meleeRange * cos(arcEnd), meleeRange * sin(arcEnd));
+      line(
+        0,
+        0,
+        meleeRange * Math.cos(arcStart),
+        meleeRange * Math.sin(arcStart),
+      );
+      line(0, 0, meleeRange * Math.cos(arcEnd), meleeRange * Math.sin(arcEnd));
       pop();
     }
 
-    // Crosshair
     stroke(255, 0, 0);
     strokeWeight(2);
     noFill();
@@ -454,6 +490,7 @@ class UIRenderer {
   renderAll(player, roundManager) {
     noStroke();
     this.drawHealthBar(player);
+    this.drawStaminaBar(player);
     this.drawWeaponSlot(player);
     this.drawRoundInfo(roundManager);
     if (roundManager.roundComplete) {

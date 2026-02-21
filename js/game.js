@@ -54,29 +54,16 @@ function draw() {
 
 function updateGame() {
   let player = gameState.player;
-  player.update();
+  player.update(width, height);
 
   // Hold-to-fire for auto weapons
   if (player.mouseIsHeld) {
     let w = player.weapons[player.currentWeapon];
     if (w && w.isAuto) {
-      let angleToMouse = atan2(mouseY - player.y, mouseX - player.x);
-      let aimRange = w.aimRange;
-      let dx = mouseX - player.x;
-      let dy = mouseY - player.y;
-      let dist = sqrt(dx * dx + dy * dy);
-      let targetX, targetY;
-      if (dist > aimRange) {
-        let ratio = aimRange / dist;
-        targetX = player.x + dx * ratio;
-        targetY = player.y + dy * ratio;
-      } else {
-        targetX = mouseX;
-        targetY = mouseY;
-      }
-      let result = player.tryAutoFire(targetX, targetY);
+      let aim = inputHandler.getAimTarget(player);
+      let result = player.tryAutoFire(aim.x, aim.y);
       if (result !== null) {
-        combatManager.handleShootResult(result, player, targetX, targetY);
+        combatManager.handleShootResult(result, player, aim.x, aim.y);
       }
     }
   }
@@ -121,8 +108,6 @@ function mouseReleased() {
 
 function keyPressed() {
   inputHandler.handleKeyPressed(gameState.player, key);
-
-  // R to manually reload
   if (key === "r" || key === "R") {
     gameState.player.startReload();
   }

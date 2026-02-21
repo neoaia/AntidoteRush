@@ -3,11 +3,23 @@ class Player {
     this.x = x;
     this.y = y;
     this.size = 20;
-    this.speed = 1.3;
+    this.baseSpeed = 1.3;
+    this.sprintSpeed = 2.6;
+    this.speed = this.baseSpeed;
     this.color = "#00ff00";
     this.health = 100;
     this.maxHealth = 100;
     this.currentWeapon = "handgun";
+
+    // Stamina
+    this.stamina = 100;
+    this.maxStamina = 100;
+    this.staminaDrainRate = 40; // per second while sprinting + moving
+    this.staminaRegenRate = 25; // per second while not sprinting
+    this.staminaRegenDelay = 1000; // ms before regen kicks in after stopping
+    this.lastSprintTime = 0;
+    this.isSprinting = false;
+
     this.weapons = {
       melee: {
         name: "Melee",
@@ -31,36 +43,78 @@ class Player {
         currentAmmo: 12,
         isReloading: false,
         reloadStartTime: 0,
-        unlimited: true, // never disappears
+        unlimited: true,
         isAuto: false,
         isHeld: false,
       },
       equipped: null,
     };
 
-    // Track mouse hold state for auto weapons
     this.mouseIsHeld = false;
   }
 
-  update() {
+  update(canvasWidth, canvasHeight) {
+    let moving = false;
     let newX = this.x;
     let newY = this.y;
-    if (keyIsDown(87)) newY -= this.speed;
-    if (keyIsDown(83)) newY += this.speed;
-    if (keyIsDown(65)) newX -= this.speed;
-    if (keyIsDown(68)) newX += this.speed;
-    this.x = newX;
-    this.y = newY;
 
+    // Sprint only if shift held AND has stamina
+    let shiftHeld = keyIsDown(SHIFT);
+    this.isSprinting = shiftHeld && this.stamina > 0;
+    this.speed = this.isSprinting ? this.sprintSpeed : this.baseSpeed;
+
+    if (keyIsDown(87)) {
+      newY -= this.speed;
+      moving = true;
+    }
+    if (keyIsDown(83)) {
+      newY += this.speed;
+      moving = true;
+    }
+    if (keyIsDown(65)) {
+      newX -= this.speed;
+      moving = true;
+    }
+    if (keyIsDown(68)) {
+      newX += this.speed;
+      moving = true;
+    }
+
+    // Clamp to canvas
+    let half = this.size / 2;
+    this.x = constrain(newX, half, canvasWidth - half);
+    this.y = constrain(newY, half, canvasHeight - half);
+
+    // Stamina — use p5's deltaTime (ms per frame) for frame-rate independence
+    let dt = deltaTime / 1000;
+
+    if (this.isSprinting && moving) {
+      this.stamina = max(0, this.stamina - this.staminaDrainRate * dt);
+      this.lastSprintTime = millis();
+    } else {
+      // Regen after delay
+      if (millis() - this.lastSprintTime > this.staminaRegenDelay) {
+        this.stamina = min(
+          this.maxStamina,
+          this.stamina + this.staminaRegenRate * dt,
+        );
+      }
+    }
+
+    // Force stop sprint if stamina bottomed out
+    if (this.stamina <= 0) {
+      this.isSprinting = false;
+      this.speed = this.baseSpeed;
+    }
+
+    // Weapon cooldown / reload
     let w = this.weapons[this.currentWeapon];
     if (!w) return;
 
     let currentTime = millis();
 
-    // Handle reload completion
     if (w.isReloading) {
       if (currentTime - w.reloadStartTime >= w.reloadTime) {
-        // For limited guns, only reload what's left in totalAmmo
         if (w.unlimited) {
           w.currentAmmo = w.magSize;
         } else {
@@ -75,7 +129,6 @@ class Player {
       return;
     }
 
-    // Handle cooldown recovery
     if (!w.canShoot && w.magSize !== undefined) {
       if (currentTime - w.lastShootTime > w.cooldown) {
         if (w.currentAmmo > 0) {
@@ -85,19 +138,12 @@ class Player {
         }
       }
     } else if (!w.canShoot && w.magSize === undefined) {
-      // Melee cooldown
       if (currentTime - w.lastShootTime > w.cooldown) {
         w.canShoot = true;
       }
     }
-
-    // Auto fire — keep shooting if mouse held and weapon is auto
-    if (this.mouseIsHeld && w.isAuto && w.canShoot && !w.isReloading) {
-      // Signal that a shot should fire — handled externally via tryAutoFire()
-    }
   }
 
-  // Called every frame from game.js when mouse is held, for auto weapons
   tryAutoFire(targetX, targetY) {
     let w = this.weapons[this.currentWeapon];
     if (!w || !w.isAuto) return null;
@@ -108,8 +154,8 @@ class Player {
   startReload() {
     let w = this.weapons[this.currentWeapon];
     if (!w || w.magSize === undefined || w.isReloading) return;
-    if (w.currentAmmo === w.magSize) return; // already full
-    if (!w.unlimited && w.totalAmmo <= 0) return; // no ammo left to reload from
+    if (w.currentAmmo === w.magSize) return;
+    if (!w.unlimited && w.totalAmmo <= 0) return;
     w.isReloading = true;
     w.reloadStartTime = millis();
     w.canShoot = false;
@@ -130,9 +176,8 @@ class Player {
     fill(255, 0, 0);
     noStroke();
     rect(barX, barY, barWidth, barHeight);
-    let healthPercentage = this.health / this.maxHealth;
     fill(0, 255, 0);
-    rect(barX, barY, barWidth * healthPercentage, barHeight);
+    rect(barX, barY, barWidth * (this.health / this.maxHealth), barHeight);
   }
 
   switchWeapon(weaponKey) {
@@ -161,18 +206,12 @@ class Player {
       return { type: "melee", weapon: w };
     }
 
-    // Consume ammo
     if (w.magSize !== undefined) {
       w.currentAmmo = Math.max(0, w.currentAmmo - 1);
-      if (w.currentAmmo <= 0) {
-        this.startReload();
-      }
+      if (w.currentAmmo <= 0) this.startReload();
     }
 
-    if (w.name === "Shotgun") {
-      return { type: "shotgun", weapon: w };
-    }
-
+    if (w.name === "Shotgun") return { type: "shotgun", weapon: w };
     return { type: "bullet", weapon: w };
   }
 
