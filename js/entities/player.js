@@ -14,11 +14,13 @@ class Player {
     // Stamina
     this.stamina = 100;
     this.maxStamina = 100;
-    this.staminaDrainRate = 40; // per second while sprinting + moving
-    this.staminaRegenRate = 25; // per second while not sprinting
-    this.staminaRegenDelay = 1000; // ms before regen kicks in after stopping
+    this.staminaDrainRate = 20;
+    this.staminaRegenRate = 10;
+    this.staminaRegenRateInBase = 40; // faster regen inside base
+    this.staminaRegenDelay = 1000;
     this.lastSprintTime = 0;
     this.isSprinting = false;
+    this.isInBase = false; // set externally by antidoteManager update
 
     this.weapons = {
       melee: {
@@ -58,7 +60,6 @@ class Player {
     let newX = this.x;
     let newY = this.y;
 
-    // Sprint only if shift held AND has stamina
     let shiftHeld = keyIsDown(SHIFT);
     this.isSprinting = shiftHeld && this.stamina > 0;
     this.speed = this.isSprinting ? this.sprintSpeed : this.baseSpeed;
@@ -80,37 +81,32 @@ class Player {
       moving = true;
     }
 
-    // Clamp to canvas
     let half = this.size / 2;
     this.x = constrain(newX, half, canvasWidth - half);
     this.y = constrain(newY, half, canvasHeight - half);
 
-    // Stamina — use p5's deltaTime (ms per frame) for frame-rate independence
     let dt = deltaTime / 1000;
 
     if (this.isSprinting && moving) {
       this.stamina = max(0, this.stamina - this.staminaDrainRate * dt);
       this.lastSprintTime = millis();
     } else {
-      // Regen after delay
       if (millis() - this.lastSprintTime > this.staminaRegenDelay) {
-        this.stamina = min(
-          this.maxStamina,
-          this.stamina + this.staminaRegenRate * dt,
-        );
+        // Regen faster inside base
+        let regenRate = this.isInBase
+          ? this.staminaRegenRateInBase
+          : this.staminaRegenRate;
+        this.stamina = min(this.maxStamina, this.stamina + regenRate * dt);
       }
     }
 
-    // Force stop sprint if stamina bottomed out
     if (this.stamina <= 0) {
       this.isSprinting = false;
       this.speed = this.baseSpeed;
     }
 
-    // Weapon cooldown / reload
     let w = this.weapons[this.currentWeapon];
     if (!w) return;
-
     let currentTime = millis();
 
     if (w.isReloading) {
@@ -131,16 +127,11 @@ class Player {
 
     if (!w.canShoot && w.magSize !== undefined) {
       if (currentTime - w.lastShootTime > w.cooldown) {
-        if (w.currentAmmo > 0) {
-          w.canShoot = true;
-        } else {
-          this.startReload();
-        }
+        if (w.currentAmmo > 0) w.canShoot = true;
+        else this.startReload();
       }
     } else if (!w.canShoot && w.magSize === undefined) {
-      if (currentTime - w.lastShootTime > w.cooldown) {
-        w.canShoot = true;
-      }
+      if (currentTime - w.lastShootTime > w.cooldown) w.canShoot = true;
     }
   }
 
@@ -181,13 +172,10 @@ class Player {
   }
 
   switchWeapon(weaponKey) {
-    if (weaponKey === "1") {
-      this.currentWeapon = "melee";
-    } else if (weaponKey === "2") {
-      this.currentWeapon = "handgun";
-    } else if (weaponKey === "3" && this.weapons.equipped !== null) {
+    if (weaponKey === "1") this.currentWeapon = "melee";
+    else if (weaponKey === "2") this.currentWeapon = "handgun";
+    else if (weaponKey === "3" && this.weapons.equipped !== null)
       this.currentWeapon = "equipped";
-    }
   }
 
   canShoot() {
@@ -198,19 +186,13 @@ class Player {
   shoot(targetX, targetY) {
     let w = this.weapons[this.currentWeapon];
     if (!w || !w.canShoot || w.isReloading) return null;
-
     w.canShoot = false;
     w.lastShootTime = millis();
-
-    if (this.currentWeapon === "melee") {
-      return { type: "melee", weapon: w };
-    }
-
+    if (this.currentWeapon === "melee") return { type: "melee", weapon: w };
     if (w.magSize !== undefined) {
       w.currentAmmo = Math.max(0, w.currentAmmo - 1);
       if (w.currentAmmo <= 0) this.startReload();
     }
-
     if (w.name === "Shotgun") return { type: "shotgun", weapon: w };
     return { type: "bullet", weapon: w };
   }
@@ -233,3 +215,22 @@ class Player {
     return this.y + this.size / 2;
   }
 }
+
+// Attached separately — scroll wheel cycling
+// Call this from game.js mouseWheel()
+Player.prototype.cycleEquippedWeapon = function (direction) {
+  // direction: -1 = scroll up (prev), +1 = scroll down (next)
+  // Only cycles the equipped slot. Slot 3 must have a weapon.
+  // For now: scrolling cycles between melee(1), handgun(2), equipped(3)
+  const slots = ["melee", "handgun", "equipped"];
+  let idx = slots.indexOf(this.currentWeapon);
+  if (idx === -1) idx = 1;
+  idx = (idx + direction + slots.length) % slots.length;
+
+  // Skip equipped if empty
+  if (slots[idx] === "equipped" && this.weapons.equipped === null) {
+    idx = (idx + direction + slots.length) % slots.length;
+  }
+
+  this.currentWeapon = slots[idx];
+};

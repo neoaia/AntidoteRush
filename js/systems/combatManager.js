@@ -3,7 +3,6 @@ class CombatManager {
     this.gameState = gameState;
   }
 
-  // Called by mousePressed (single shot)
   shoot(player, targetX, targetY) {
     let shootResult = player.shoot(targetX, targetY);
     if (shootResult !== null) {
@@ -11,21 +10,22 @@ class CombatManager {
     }
   }
 
-  // Called by both single-shot and auto-fire loop
   handleShootResult(shootResult, player, targetX, targetY) {
     if (shootResult.type === "bullet") {
-      let bullet = new Bullet(
-        player.x,
-        player.y,
-        targetX,
-        targetY,
-        shootResult.weapon.damage,
-      );
+      let w = shootResult.weapon;
+      let bullet = new Bullet(player.x, player.y, targetX, targetY, w.damage, {
+        piercing: w.piercing || false,
+        maxPierce: w.maxPierce || 0,
+        pierceDamageFalloff: w.pierceDamageFalloff || 0.6,
+        size: w.bulletSize || 5,
+        speed: w.bulletSpeed || 10,
+        color: w.bulletColor || "#594e1e",
+      });
       this.gameState.addBullet(bullet);
     } else if (shootResult.type === "shotgun") {
-      let weapon = shootResult.weapon;
-      let pellets = weapon.pellets || 6;
-      let spreadAngle = weapon.spreadAngle || 0.4;
+      let w = shootResult.weapon;
+      let pellets = w.pellets || 6;
+      let spreadAngle = w.spreadAngle || 0.4;
       let baseAngle = atan2(targetY - player.y, targetX - player.x);
 
       for (let i = 0; i < pellets; i++) {
@@ -38,7 +38,15 @@ class CombatManager {
           player.y,
           pelletTargetX,
           pelletTargetY,
-          weapon.damage,
+          w.damage,
+          {
+            piercing: w.piercing || false,
+            maxPierce: w.maxPierce || 0,
+            pierceDamageFalloff: w.pierceDamageFalloff || 0.6,
+            size: w.bulletSize || 4,
+            speed: w.bulletSpeed || 10,
+            color: w.bulletColor || "#594e1e",
+          },
         );
         this.gameState.addBullet(bullet);
       }
@@ -59,58 +67,56 @@ class CombatManager {
 
   executeMeleeAttack(player, weapon, attackAngle) {
     let arcAngle = PI / 3;
-
     for (let i = this.gameState.zombies.length - 1; i >= 0; i--) {
-      let currentZombie = this.gameState.zombies[i];
-      let distance = dist(player.x, player.y, currentZombie.x, currentZombie.y);
-      let effectiveRange = weapon.range + currentZombie.size / 2;
-
-      if (distance < effectiveRange) {
-        let angleToZombie = atan2(
-          currentZombie.y - player.y,
-          currentZombie.x - player.x,
-        );
+      let z = this.gameState.zombies[i];
+      let distance = dist(player.x, player.y, z.x, z.y);
+      if (distance < weapon.range + z.size / 2) {
+        let angleToZombie = atan2(z.y - player.y, z.x - player.x);
         let angleDiff = angleToZombie - attackAngle;
         while (angleDiff > PI) angleDiff -= TWO_PI;
         while (angleDiff < -PI) angleDiff += TWO_PI;
-        if (abs(angleDiff) <= arcAngle) {
-          currentZombie.takeDamage(weapon.damage);
-        }
+        if (abs(angleDiff) <= arcAngle) z.takeDamage(weapon.damage);
       }
     }
   }
 
   updateBullets() {
     for (let i = this.gameState.bullets.length - 1; i >= 0; i--) {
-      let currentBullet = this.gameState.bullets[i];
-      currentBullet.update();
+      let b = this.gameState.bullets[i];
+      b.update();
 
-      if (!currentBullet.active) {
+      if (!b.active) {
         this.gameState.removeBullet(i);
         continue;
       }
 
+      // Check against all zombies — piercing bullets can hit multiple
       for (let j = this.gameState.zombies.length - 1; j >= 0; j--) {
-        let currentZombie = this.gameState.zombies[j];
-        let distance = dist(
-          currentBullet.x,
-          currentBullet.y,
-          currentZombie.x,
-          currentZombie.y,
-        );
-        if (distance < currentZombie.size / 2) {
-          currentZombie.takeDamage(currentBullet.damage);
-          currentBullet.active = false;
-          break;
+        let z = this.gameState.zombies[j];
+        let distance = dist(b.x, b.y, z.x, z.y);
+
+        if (distance < z.size / 2) {
+          let dmg = b.onHitZombie(z);
+          if (dmg !== null) {
+            z.takeDamage(dmg);
+          }
+          // Stop checking further if bullet is now inactive
+          if (!b.active) break;
         }
+      }
+
+      if (!b.active) {
+        this.gameState.removeBullet(i);
       }
     }
   }
 
   updateMeleeSlash() {
     if (this.gameState.meleeSlashActive) {
-      let elapsed = millis() - this.gameState.meleeSlashStartTime;
-      if (elapsed > this.gameState.meleeSlashDuration) {
+      if (
+        millis() - this.gameState.meleeSlashStartTime >
+        this.gameState.meleeSlashDuration
+      ) {
         this.gameState.meleeSlashActive = false;
       }
     }

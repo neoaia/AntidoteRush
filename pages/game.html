@@ -6,15 +6,27 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Antidote Rush - Game</title>
     <style>
-        body {
+        * {
             margin: 0;
             padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
             overflow: hidden;
-            background: #1a1a1a;
+            background: #000;
+            width: 100vw;
+            height: 100vh;
             display: flex;
             justify-content: center;
             align-items: center;
-            height: 100vh;
+        }
+
+        canvas {
+            display: block;
+            /* Scale canvas to fill the window while preserving aspect ratio */
+            width: 100vw !important;
+            height: 100vh !important;
         }
     </style>
 </head>
@@ -49,8 +61,6 @@
 
     <!-- Main game file -->
     <script src="../js/game.js"></script>
-
-
 </body>
 
 </html>

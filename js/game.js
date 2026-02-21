@@ -14,7 +14,7 @@ function preload() {
 }
 
 function setup() {
-  createCanvas(1100, 600);
+  createCanvas(windowWidth, windowHeight);
   noCursor();
   textFont(assetManager.getFont());
 
@@ -38,6 +38,13 @@ function setup() {
 
   gameState.roundManager.startRound();
   antidoteManager.scheduleNext();
+
+  // Apply debug weapon immediately (set to null in weaponPickupManager to disable)
+  weaponPickupManager.applyDebugWeapon(gameState.player);
+}
+
+function windowResized() {
+  resizeCanvas(windowWidth, windowHeight);
 }
 
 function draw() {
@@ -77,9 +84,9 @@ function updateGame() {
   zombieManager.handleRoundSpawning(gameState.roundManager);
   zombieManager.update(player);
 
-  if (player.health <= 0) {
-    gameState.gameOver = true;
-  }
+  gameState.updateScorePopups();
+
+  if (player.health <= 0) gameState.gameOver = true;
 
   if (gameState.roundManager.roundComplete && !gameState.roundTransitioning) {
     gameState.roundTransitioning = true;
@@ -94,6 +101,7 @@ function updateGame() {
 function displayGame() {
   gameRenderer.renderGame(gameState.player, gameState.base);
   weaponPickupManager.display();
+  uiRenderer.drawScorePopups();
   uiRenderer.renderAll(gameState.player, gameState.roundManager);
 }
 
@@ -104,6 +112,14 @@ function mousePressed() {
 
 function mouseReleased() {
   gameState.player.mouseIsHeld = false;
+}
+
+function mouseWheel(event) {
+  // Scroll down = next weapon, scroll up = prev weapon
+  let direction = event.delta > 0 ? 1 : -1;
+  gameState.player.cycleEquippedWeapon(direction);
+  // Prevent page scroll
+  return false;
 }
 
 function keyPressed() {

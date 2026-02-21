@@ -10,6 +10,9 @@ class GameState {
     this.zombies = [];
     this.weaponPickups = [];
 
+    // Floating score popups: { x, y, value, spawnTime, lifetime }
+    this.scorePopups = [];
+
     this.player = null;
     this.roundManager = null;
     this.base = null;
@@ -37,6 +40,7 @@ class GameState {
     this.bullets = [];
     this.zombies = [];
     this.weaponPickups = [];
+    this.scorePopups = [];
     this.currentAntidote = null;
     this.playerHasAntidote = false;
     this.antidoteCanSpawn = true;
@@ -45,26 +49,40 @@ class GameState {
   addBullet(bullet) {
     this.bullets.push(bullet);
   }
-
   addZombie(zombie) {
     this.zombies.push(zombie);
   }
-
-  addZombies(zombieArray) {
-    for (let i = 0; i < zombieArray.length; i++) {
-      this.zombies.push(zombieArray[i]);
-    }
+  addZombies(arr) {
+    for (let z of arr) this.zombies.push(z);
   }
-
-  removeBullet(index) {
-    this.bullets.splice(index, 1);
+  removeBullet(i) {
+    this.bullets.splice(i, 1);
   }
-
-  removeZombie(index) {
-    this.zombies.splice(index, 1);
+  removeZombie(i) {
+    this.zombies.splice(i, 1);
   }
 
   increaseScore(points) {
     this.score += points;
+  }
+
+  // Spawn a floating +score popup at world position x, y
+  spawnScorePopup(x, y, value) {
+    this.scorePopups.push({
+      x: x,
+      y: y,
+      value: value,
+      spawnTime: millis(),
+      lifetime: 1200, // ms
+    });
+  }
+
+  updateScorePopups() {
+    let now = millis();
+    for (let i = this.scorePopups.length - 1; i >= 0; i--) {
+      if (now - this.scorePopups[i].spawnTime > this.scorePopups[i].lifetime) {
+        this.scorePopups.splice(i, 1);
+      }
+    }
   }
 }

@@ -54,31 +54,25 @@ class UIRenderer {
       255,
       2,
     );
-
-    textSize(14);
-    textAlign(LEFT, TOP);
-    this.drawTextWithOutline(
-      "SCORE: " + this.gameState.score,
-      x,
-      y + 60,
-      255,
-      255,
-      255,
-      2,
-    );
   }
 
   drawStaminaBar(player) {
+    // Placed directly below health bar, no score overlap
     let x = 20;
-    let y = 83;
-    let barWidth = 160;
+    let y = 62; // health bar ends at ~62 (20 + 25 + 28 - 11)
+    let barWidth = 200;
     let barHeight = 10;
+
+    // Background panel so it reads clearly
+    noStroke();
+    fill(0, 0, 0, 120);
+    rect(x - 2, y - 2, barWidth + 60, barHeight + 4, 3);
 
     textSize(10);
     textAlign(LEFT, CENTER);
-    this.drawTextWithOutline("STAMINA", x, y + barHeight / 2, 200, 200, 200, 1);
+    this.drawTextWithOutline("STAM", x, y + barHeight / 2, 200, 200, 200, 1);
 
-    let labelW = 52;
+    let labelW = 32;
     let barX = x + labelW + 4;
 
     noFill();
@@ -90,16 +84,16 @@ class UIRenderer {
     fill(40, 40, 40);
     rect(barX + 1, y + 1, barWidth - 2, barHeight - 2);
 
-    let staminaPct = player.stamina / player.maxStamina;
-    let fillW = (barWidth - 2) * staminaPct;
+    let pct = player.stamina / player.maxStamina;
+    let fillW = (barWidth - 2) * pct;
 
-    if (staminaPct > 0.5) fill(0, 220, 255);
-    else if (staminaPct > 0.2) fill(255, 220, 0);
+    if (pct > 0.5) fill(0, 220, 255);
+    else if (pct > 0.2) fill(255, 220, 0);
     else fill(255, 60, 0);
 
     rect(barX + 1, y + 1, fillW, barHeight - 2);
 
-    // Flashing SPRINTING label
+    // Flash "SPRINTING" to the right of the bar
     if (player.isSprinting) {
       let flash = Math.floor(millis() / 250) % 2 === 0;
       if (flash) {
@@ -116,6 +110,23 @@ class UIRenderer {
         );
       }
     }
+  }
+
+  drawScore() {
+    // Score sits below stamina bar, still top-left
+    let x = 20;
+    let y = 80;
+    textSize(14);
+    textAlign(LEFT, TOP);
+    this.drawTextWithOutline(
+      "SCORE: " + this.gameState.score,
+      x,
+      y,
+      255,
+      255,
+      255,
+      2,
+    );
   }
 
   drawWeaponSlot(player) {
@@ -175,13 +186,13 @@ class UIRenderer {
             let progress = Math.min(elapsed / w.reloadTime, 1);
             let barW = slotSize - 10;
             let barH = 6;
-            let barX = x + 5;
-            let barY2 = y + slotSize - 14;
+            let bX = x + 5;
+            let bY = y + slotSize - 14;
             fill(50);
             noStroke();
-            rect(barX, barY2, barW, barH);
+            rect(bX, bY, barW, barH);
             fill(255, 140, 0);
-            rect(barX, barY2, barW * progress, barH);
+            rect(bX, bY, barW * progress, barH);
             textSize(8);
             textAlign(CENTER, BOTTOM);
             this.drawTextWithOutline(
@@ -324,22 +335,21 @@ class UIRenderer {
     let elapsed = millis() - this.gameState.meleeSlashStartTime;
     let progress = elapsed / this.gameState.meleeSlashDuration;
     let alpha = 255 * (1 - progress);
-
     push();
     translate(player.x, player.y);
     rotate(this.gameState.meleeSlashAngle);
     noFill();
     stroke(255, 255, 255, alpha);
     strokeWeight(2);
-    let slashRadius = player.weapons.melee.range;
-    let startAngle = -PI / 3;
-    let endAngle = PI / 3;
-    arc(0, 0, slashRadius * 2, slashRadius * 2, startAngle, endAngle);
+    let r = player.weapons.melee.range;
+    let s = -PI / 3;
+    let e = PI / 3;
+    arc(0, 0, r * 2, r * 2, s, e);
     stroke(200, 200, 255, alpha * 0.7);
     strokeWeight(2);
-    line(0, 0, slashRadius * cos(startAngle), slashRadius * sin(startAngle));
-    line(0, 0, slashRadius * cos(endAngle), slashRadius * sin(endAngle));
-    line(0, 0, slashRadius * cos(0), slashRadius * sin(0));
+    line(0, 0, r * cos(s), r * sin(s));
+    line(0, 0, r * cos(e), r * sin(e));
+    line(0, 0, r * cos(0), r * sin(0));
     pop();
   }
 
@@ -347,50 +357,38 @@ class UIRenderer {
     let w = player.weapons[player.currentWeapon];
     if (!w) return;
 
-    let aimRange = w.aimRange;
     let isSniper = w.name === "Sniper";
     let isShotgun = w.name === "Shotgun";
     let dx = mouseX - player.x;
     let dy = mouseY - player.y;
     let distToMouse = Math.sqrt(dx * dx + dy * dy);
     let angleToMouse = Math.atan2(dy, dx);
-
     let aimX = mouseX;
     let aimY = mouseY;
-    if (!isSniper && distToMouse > aimRange) {
-      let ratio = aimRange / distToMouse;
+
+    if (!isSniper && distToMouse > w.aimRange) {
+      let ratio = w.aimRange / distToMouse;
       aimX = player.x + dx * ratio;
       aimY = player.y + dy * ratio;
     }
 
     push();
-
     if (
       player.currentWeapon === "handgun" ||
       player.currentWeapon === "equipped"
     ) {
       if (isShotgun) {
-        let spreadAngle = w.spreadAngle || 0.4;
+        let spread = w.spreadAngle || 0.4;
         push();
         translate(player.x, player.y);
         rotate(angleToMouse);
         noFill();
         stroke(255, 140, 0, 120);
         strokeWeight(1);
-        let coneLen = 180;
-        line(
-          0,
-          0,
-          coneLen * Math.cos(-spreadAngle / 2),
-          coneLen * Math.sin(-spreadAngle / 2),
-        );
-        line(
-          0,
-          0,
-          coneLen * Math.cos(spreadAngle / 2),
-          coneLen * Math.sin(spreadAngle / 2),
-        );
-        arc(0, 0, coneLen * 2, coneLen * 2, -spreadAngle / 2, spreadAngle / 2);
+        let cl = 180;
+        line(0, 0, cl * Math.cos(-spread / 2), cl * Math.sin(-spread / 2));
+        line(0, 0, cl * Math.cos(spread / 2), cl * Math.sin(spread / 2));
+        arc(0, 0, cl * 2, cl * 2, -spread / 2, spread / 2);
         pop();
       } else if (isSniper) {
         stroke(255, 0, 0, 80);
@@ -416,19 +414,14 @@ class UIRenderer {
       noFill();
       stroke(255, 150, 0, 120);
       strokeWeight(2);
-      let meleeRange = player.weapons.melee.range;
-      let arcStart = -PI / 3;
-      let arcEnd = PI / 3;
-      arc(0, 0, meleeRange * 2, meleeRange * 2, arcStart, arcEnd);
+      let mr = player.weapons.melee.range;
+      let as = -PI / 3;
+      let ae = PI / 3;
+      arc(0, 0, mr * 2, mr * 2, as, ae);
       stroke(255, 150, 0, 80);
       strokeWeight(1);
-      line(
-        0,
-        0,
-        meleeRange * Math.cos(arcStart),
-        meleeRange * Math.sin(arcStart),
-      );
-      line(0, 0, meleeRange * Math.cos(arcEnd), meleeRange * Math.sin(arcEnd));
+      line(0, 0, mr * Math.cos(as), mr * Math.sin(as));
+      line(0, 0, mr * Math.cos(ae), mr * Math.sin(ae));
       pop();
     }
 
@@ -441,6 +434,30 @@ class UIRenderer {
     line(aimX, aimY - 15, aimX, aimY - 5);
     line(aimX, aimY + 5, aimX, aimY + 15);
     pop();
+  }
+
+  drawScorePopups() {
+    let now = millis();
+    for (let p of this.gameState.scorePopups) {
+      let elapsed = now - p.spawnTime;
+      let progress = elapsed / p.lifetime; // 0 → 1
+      let alpha = 255 * (1 - progress); // fade out
+      let floatY = p.y - 40 * progress; // float upward
+
+      textSize(16);
+      textAlign(CENTER, CENTER);
+
+      // Outline
+      fill(0, 0, 0, alpha);
+      for (let ox = -2; ox <= 2; ox++) {
+        for (let oy = -2; oy <= 2; oy++) {
+          if (ox !== 0 || oy !== 0) text("+" + p.value, p.x + ox, floatY + oy);
+        }
+      }
+      // Text
+      fill(255, 230, 0, alpha);
+      text("+" + p.value, p.x, floatY);
+    }
   }
 
   drawGameOver(roundManager) {
@@ -491,10 +508,9 @@ class UIRenderer {
     noStroke();
     this.drawHealthBar(player);
     this.drawStaminaBar(player);
+    this.drawScore();
     this.drawWeaponSlot(player);
     this.drawRoundInfo(roundManager);
-    if (roundManager.roundComplete) {
-      this.drawRoundComplete(roundManager);
-    }
+    if (roundManager.roundComplete) this.drawRoundComplete(roundManager);
   }
 }
