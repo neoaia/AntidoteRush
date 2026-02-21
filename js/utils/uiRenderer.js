@@ -29,7 +29,7 @@ class UIRenderer {
 
     noFill();
     stroke(0);
-    strokeWeight(4);
+    strokeWeight(2);
     rect(x, y + 25, barWidth, barHeight);
 
     noStroke();
@@ -82,7 +82,7 @@ class UIRenderer {
 
     noFill();
     stroke(0);
-    strokeWeight(5);
+    strokeWeight(2);
     rect(x, y, slotSize, slotSize);
 
     noStroke();
@@ -153,7 +153,7 @@ class UIRenderer {
     let counterHeight = 40;
     noFill();
     stroke(0);
-    strokeWeight(4);
+    strokeWeight(2);
     rect(x - counterWidth / 2, zombieY, counterWidth, counterHeight);
 
     noStroke();
@@ -174,7 +174,7 @@ class UIRenderer {
 
     textSize(20);
     textAlign(CENTER, CENTER);
-    let countText = zombiesRemaining + "/" + totalZombiesInRound;
+    let countText = zombiesRemaining;
     this.drawTextWithOutline(
       countText,
       x + 25,
@@ -220,7 +220,7 @@ class UIRenderer {
     rotate(this.gameState.meleeSlashAngle);
     noFill();
     stroke(255, 255, 255, alpha);
-    strokeWeight(4);
+    strokeWeight(2);
     let slashRadius = player.weapons.melee.range;
     let startAngle = -PI / 3;
     let endAngle = PI / 3;
@@ -256,7 +256,7 @@ class UIRenderer {
       player.currentWeapon === "equipped"
     ) {
       stroke(255, 0, 0, 100);
-      strokeWeight(1);
+      strokeWeight(2);
       line(player.x, player.y, aimX, aimY);
       noStroke();
       fill(255, 0, 0, 150);
@@ -269,7 +269,7 @@ class UIRenderer {
       rotate(angleToMouse);
       noFill();
       stroke(255, 150, 0, 120);
-      strokeWeight(3);
+      strokeWeight(2);
       let meleeRange = player.weapons.melee.range;
       let arcStart = -PI / 3;
       let arcEnd = PI / 3;
