@@ -15,40 +15,49 @@ class UIRenderer {
     text(txt, x, y);
   }
 
-  drawHealthBar(player) {
-    let x = 20;
-    let y = 20;
-    let barWidth = 300;
-    let barHeight = 28;
+  // ── TOP-LEFT HUD ──────────────────────────────────────────────────────────
+  // Layout (y positions):
+  //   y=14        player name
+  //   y=30..62    health bar (32px tall including border)
+  //   y=68..82    stamina bar (14px)
+  //   y=88        score text
 
-    textSize(16);
-    textAlign(LEFT, TOP);
+  drawHealthBar(player) {
+    let x = 14;
+    let y = 14;
+    let barW = 260;
+    let barH = 26;
+
+    // Player name
+    textSize(14);
+    textAlign(LEFT, BOTTOM);
     this.drawTextWithOutline(this.gameState.playerName, x, y, 255, 255, 255, 3);
 
+    // Bar border
     noFill();
     stroke(0);
     strokeWeight(2);
-    rect(x, y + 25, barWidth, barHeight);
+    rect(x, y + 2, barW, barH);
 
+    // Bar background
     noStroke();
     fill(50, 50, 50);
-    rect(x + 2, y + 27, barWidth - 4, barHeight - 4);
+    rect(x + 2, y + 4, barW - 4, barH - 4);
 
-    let healthPercent = player.health / player.maxHealth;
-    let fillWidth = (barWidth - 4) * healthPercent;
-
-    if (healthPercent > 0.6) fill(255, 220, 0);
-    else if (healthPercent > 0.3) fill(255, 140, 0);
+    // Bar fill
+    let pct = player.health / player.maxHealth;
+    if (pct > 0.6) fill(255, 220, 0);
+    else if (pct > 0.3) fill(255, 140, 0);
     else fill(255, 0, 0);
+    rect(x + 2, y + 4, (barW - 4) * pct, barH - 4);
 
-    rect(x + 2, y + 27, fillWidth, barHeight - 4);
-
-    textSize(12);
+    // HP text centred in bar
+    textSize(11);
     textAlign(CENTER, CENTER);
     this.drawTextWithOutline(
       player.health + "/" + player.maxHealth,
-      x + barWidth / 2,
-      y + 40,
+      x + barW / 2,
+      y + 2 + barH / 2,
       255,
       255,
       255,
@@ -57,52 +66,49 @@ class UIRenderer {
   }
 
   drawStaminaBar(player) {
-    // Placed directly below health bar, no score overlap
-    let x = 20;
-    let y = 62; // health bar ends at ~62 (20 + 25 + 28 - 11)
-    let barWidth = 200;
-    let barHeight = 10;
+    let x = 14;
+    let y = 46; // directly below health bar (14 + 2 + 26 + 4 gap)
+    let barW = 260;
+    let barH = 12;
 
-    // Background panel so it reads clearly
-    noStroke();
-    fill(0, 0, 0, 120);
-    rect(x - 2, y - 2, barWidth + 60, barHeight + 4, 3);
-
-    textSize(10);
+    // Label
+    textSize(9);
     textAlign(LEFT, CENTER);
-    this.drawTextWithOutline("STAM", x, y + barHeight / 2, 200, 200, 200, 1);
+    fill(180, 180, 180);
+    noStroke();
+    text("STAM", x, y + barH / 2);
 
-    let labelW = 32;
-    let barX = x + labelW + 4;
+    let labelW = 30;
+    let bX = x + labelW + 4;
+    let bW = barW - labelW - 4;
 
+    // Border
     noFill();
     stroke(0);
     strokeWeight(1);
-    rect(barX, y, barWidth, barHeight);
+    rect(bX, y, bW, barH);
 
+    // Background
     noStroke();
     fill(40, 40, 40);
-    rect(barX + 1, y + 1, barWidth - 2, barHeight - 2);
+    rect(bX + 1, y + 1, bW - 2, barH - 2);
 
+    // Fill
     let pct = player.stamina / player.maxStamina;
-    let fillW = (barWidth - 2) * pct;
-
     if (pct > 0.5) fill(0, 220, 255);
     else if (pct > 0.2) fill(255, 220, 0);
     else fill(255, 60, 0);
+    rect(bX + 1, y + 1, (bW - 2) * pct, barH - 2);
 
-    rect(barX + 1, y + 1, fillW, barHeight - 2);
-
-    // Flash "SPRINTING" to the right of the bar
+    // "SPRINTING" flash
     if (player.isSprinting) {
-      let flash = Math.floor(millis() / 250) % 2 === 0;
-      if (flash) {
-        textSize(9);
+      if (Math.floor(millis() / 250) % 2 === 0) {
+        textSize(8);
         textAlign(LEFT, CENTER);
         this.drawTextWithOutline(
           "SPRINTING",
-          barX + barWidth + 6,
-          y + barHeight / 2,
+          bX + bW + 6,
+          y + barH / 2,
           0,
           220,
           255,
@@ -110,13 +116,27 @@ class UIRenderer {
         );
       }
     }
+
+    // "IN BASE" boost indicator
+    if (player.isInBase && !player.isSprinting && pct < 1) {
+      textSize(8);
+      textAlign(LEFT, CENTER);
+      this.drawTextWithOutline(
+        "RECHARGING",
+        bX + bW + 6,
+        y + barH / 2,
+        100,
+        255,
+        180,
+        1,
+      );
+    }
   }
 
   drawScore() {
-    // Score sits below stamina bar, still top-left
-    let x = 20;
-    let y = 80;
-    textSize(14);
+    let x = 14;
+    let y = 64; // stamina bar ends at 46+12=58, +6 gap
+    textSize(13);
     textAlign(LEFT, TOP);
     this.drawTextWithOutline(
       "SCORE: " + this.gameState.score,
@@ -129,6 +149,7 @@ class UIRenderer {
     );
   }
 
+  // ── WEAPON SLOTS ─────────────────────────────────────────────────────────
   drawWeaponSlot(player) {
     let slotSize = 100;
     let slotY = height - 120;
@@ -139,12 +160,11 @@ class UIRenderer {
       { key: "equipped", label: "3", x: width - 120 },
     ];
 
-    for (let s = 0; s < slots.length; s++) {
-      let slot = slots[s];
-      let x = slot.x;
+    for (let s of slots) {
+      let x = s.x;
       let y = slotY;
-      let isActive = player.currentWeapon === slot.key;
-      let w = player.weapons[slot.key];
+      let isActive = player.currentWeapon === s.key;
+      let w = player.weapons[s.key];
 
       stroke(isActive ? color(255, 220, 0) : color(0));
       strokeWeight(isActive ? 3 : 2);
@@ -182,17 +202,19 @@ class UIRenderer {
 
         if (w.magSize !== undefined) {
           if (w.isReloading) {
-            let elapsed = millis() - w.reloadStartTime;
-            let progress = Math.min(elapsed / w.reloadTime, 1);
-            let barW = slotSize - 10;
-            let barH = 6;
-            let bX = x + 5;
-            let bY = y + slotSize - 14;
+            let progress = Math.min(
+              (millis() - w.reloadStartTime) / w.reloadTime,
+              1,
+            );
+            let bW = slotSize - 10,
+              bH = 6;
+            let bX = x + 5,
+              bY = y + slotSize - 14;
             fill(50);
             noStroke();
-            rect(bX, bY, barW, barH);
+            rect(bX, bY, bW, bH);
             fill(255, 140, 0);
-            rect(bX, bY, barW * progress, barH);
+            rect(bX, bY, bW * progress, bH);
             textSize(8);
             textAlign(CENTER, BOTTOM);
             this.drawTextWithOutline(
@@ -236,7 +258,7 @@ class UIRenderer {
       textSize(10);
       textAlign(LEFT, BOTTOM);
       this.drawTextWithOutline(
-        "[" + slot.label + "]",
+        "[" + s.label + "]",
         x + 8,
         y + slotSize - 8,
         255,
@@ -247,6 +269,7 @@ class UIRenderer {
     }
   }
 
+  // ── ROUND INFO ───────────────────────────────────────────────────────────
   drawRoundInfo(roundManager) {
     let x = width / 2;
     let y = 20;
@@ -266,26 +289,21 @@ class UIRenderer {
     let zombieY = y + 35;
     let zombiesRemaining =
       roundManager.zombiesToSpawn + this.gameState.zombies.length;
-    let counterWidth = 160;
-    let counterHeight = 40;
+    let cW = 160,
+      cH = 40;
 
     noFill();
     stroke(0);
     strokeWeight(2);
-    rect(x - counterWidth / 2, zombieY, counterWidth, counterHeight);
+    rect(x - cW / 2, zombieY, cW, cH);
     noStroke();
     fill(60, 60, 60);
-    rect(
-      x - counterWidth / 2 + 2,
-      zombieY + 2,
-      counterWidth - 4,
-      counterHeight - 4,
-    );
+    rect(x - cW / 2 + 2, zombieY + 2, cW - 4, cH - 4);
 
-    let skullIcon = this.assetManager.getSkullIcon();
-    if (skullIcon) {
+    let skull = this.assetManager.getSkullIcon();
+    if (skull) {
       imageMode(CENTER);
-      image(skullIcon, x - 45, zombieY + counterHeight / 2, 28, 28);
+      image(skull, x - 45, zombieY + cH / 2, 28, 28);
       imageMode(CORNER);
     }
 
@@ -294,7 +312,7 @@ class UIRenderer {
     this.drawTextWithOutline(
       zombiesRemaining,
       x + 25,
-      zombieY + counterHeight / 2,
+      zombieY + cH / 2,
       255,
       220,
       0,
@@ -316,6 +334,7 @@ class UIRenderer {
     );
   }
 
+  // ── WORLD-SPACE OVERLAYS ─────────────────────────────────────────────────
   drawAntidoteIndicator(player) {
     fill(0, 255, 0);
     stroke(0);
@@ -333,17 +352,16 @@ class UIRenderer {
 
   drawMeleeSlash(player) {
     let elapsed = millis() - this.gameState.meleeSlashStartTime;
-    let progress = elapsed / this.gameState.meleeSlashDuration;
-    let alpha = 255 * (1 - progress);
+    let alpha = 255 * (1 - elapsed / this.gameState.meleeSlashDuration);
     push();
     translate(player.x, player.y);
     rotate(this.gameState.meleeSlashAngle);
     noFill();
+    let r = player.weapons.melee.range;
+    let s = -PI / 3,
+      e = PI / 3;
     stroke(255, 255, 255, alpha);
     strokeWeight(2);
-    let r = player.weapons.melee.range;
-    let s = -PI / 3;
-    let e = PI / 3;
     arc(0, 0, r * 2, r * 2, s, e);
     stroke(200, 200, 255, alpha * 0.7);
     strokeWeight(2);
@@ -353,23 +371,23 @@ class UIRenderer {
     pop();
   }
 
-  drawAimIndicator(player) {
+  drawAimIndicator(player, vx, vy) {
     let w = player.weapons[player.currentWeapon];
     if (!w) return;
 
     let isSniper = w.name === "Sniper";
     let isShotgun = w.name === "Shotgun";
-    let dx = mouseX - player.x;
-    let dy = mouseY - player.y;
-    let distToMouse = Math.sqrt(dx * dx + dy * dy);
-    let angleToMouse = Math.atan2(dy, dx);
-    let aimX = mouseX;
-    let aimY = mouseY;
+    let dx = vx - player.x;
+    let dy = vy - player.y;
+    let dMouse = Math.sqrt(dx * dx + dy * dy);
+    let angle = Math.atan2(dy, dx);
+    let aimX = vx,
+      aimY = vy;
 
-    if (!isSniper && distToMouse > w.aimRange) {
-      let ratio = w.aimRange / distToMouse;
-      aimX = player.x + dx * ratio;
-      aimY = player.y + dy * ratio;
+    if (!isSniper && dMouse > w.aimRange) {
+      let r = w.aimRange / dMouse;
+      aimX = player.x + dx * r;
+      aimY = player.y + dy * r;
     }
 
     push();
@@ -381,7 +399,7 @@ class UIRenderer {
         let spread = w.spreadAngle || 0.4;
         push();
         translate(player.x, player.y);
-        rotate(angleToMouse);
+        rotate(angle);
         noFill();
         stroke(255, 140, 0, 120);
         strokeWeight(1);
@@ -393,10 +411,10 @@ class UIRenderer {
       } else if (isSniper) {
         stroke(255, 0, 0, 80);
         strokeWeight(1);
-        line(player.x, player.y, mouseX, mouseY);
+        line(player.x, player.y, vx, vy);
         noStroke();
         fill(255, 0, 0, 120);
-        circle(mouseX, mouseY, 8);
+        circle(vx, vy, 8);
       } else {
         stroke(255, 0, 0, 100);
         strokeWeight(2);
@@ -410,13 +428,13 @@ class UIRenderer {
     if (player.currentWeapon === "melee") {
       push();
       translate(player.x, player.y);
-      rotate(angleToMouse);
+      rotate(angle);
       noFill();
       stroke(255, 150, 0, 120);
       strokeWeight(2);
       let mr = player.weapons.melee.range;
-      let as = -PI / 3;
-      let ae = PI / 3;
+      let as = -PI / 3,
+        ae = PI / 3;
       arc(0, 0, mr * 2, mr * 2, as, ae);
       stroke(255, 150, 0, 80);
       strokeWeight(1);
@@ -436,30 +454,67 @@ class UIRenderer {
     pop();
   }
 
+  // ── SCORE POPUPS ─────────────────────────────────────────────────────────
   drawScorePopups() {
     let now = millis();
     for (let p of this.gameState.scorePopups) {
-      let elapsed = now - p.spawnTime;
-      let progress = elapsed / p.lifetime; // 0 → 1
-      let alpha = 255 * (1 - progress); // fade out
-      let floatY = p.y - 40 * progress; // float upward
+      let progress = (now - p.spawnTime) / p.lifetime;
+      let alpha = 255 * (1 - progress);
+      let floatY = p.y - 40 * progress;
 
       textSize(16);
       textAlign(CENTER, CENTER);
-
-      // Outline
       fill(0, 0, 0, alpha);
-      for (let ox = -2; ox <= 2; ox++) {
-        for (let oy = -2; oy <= 2; oy++) {
+      for (let ox = -2; ox <= 2; ox++)
+        for (let oy = -2; oy <= 2; oy++)
           if (ox !== 0 || oy !== 0) text("+" + p.value, p.x + ox, floatY + oy);
-        }
-      }
-      // Text
       fill(255, 230, 0, alpha);
       text("+" + p.value, p.x, floatY);
     }
   }
 
+  // ── PAUSE SCREEN ─────────────────────────────────────────────────────────
+  drawPauseScreen() {
+    // Dark overlay
+    noStroke();
+    fill(0, 0, 0, 160);
+    rect(0, 0, width, height);
+
+    textSize(56);
+    textAlign(CENTER, CENTER);
+    this.drawTextWithOutline(
+      "PAUSED",
+      width / 2,
+      height / 2 - 40,
+      255,
+      255,
+      255,
+      5,
+    );
+
+    textSize(20);
+    this.drawTextWithOutline(
+      "Press ESC or click to resume",
+      width / 2,
+      height / 2 + 20,
+      200,
+      200,
+      200,
+      3,
+    );
+    textSize(16);
+    this.drawTextWithOutline(
+      "WASD to move  |  Shift to sprint  |  R to reload  |  1/2/3 or scroll to switch weapon",
+      width / 2,
+      height / 2 + 58,
+      160,
+      160,
+      160,
+      2,
+    );
+  }
+
+  // ── GAME OVER ─────────────────────────────────────────────────────────────
   drawGameOver(roundManager) {
     background(0);
     textSize(64);
@@ -494,7 +549,7 @@ class UIRenderer {
     );
     textSize(20);
     this.drawTextWithOutline(
-      "Click SPACE to menu",
+      "Press SPACE to return to menu",
       width / 2,
       height / 2 + 130,
       255,
@@ -504,6 +559,7 @@ class UIRenderer {
     );
   }
 
+  // ── MAIN RENDER ──────────────────────────────────────────────────────────
   renderAll(player, roundManager) {
     noStroke();
     this.drawHealthBar(player);

@@ -67,7 +67,7 @@ class WeaponPickupManager {
       // ─── SHOTGUN ─────────────────────────────────────────────────────────
       shotgun: {
         name: "Shotgun",
-        damage: 12, // damage per pellet (up to 72 if all hit)
+        damage: 14, // damage per pellet (up to 72 if all hit)
         range: 9999,
         aimRange: 120,
         cooldown: 500,
@@ -99,18 +99,18 @@ class WeaponPickupManager {
         range: 9999,
         aimRange: 400,
         cooldown: 80,
-        magSize: 25,
+        magSize: 30,
         reloadTime: 2000,
         // No piercing — standard bullets
         piercing: false,
         maxPierce: 0,
         bulletSize: 5,
-        bulletSpeed: 12,
+        bulletSpeed: 10,
         bulletColor: "#594e1e",
         canShoot: true,
         lastShootTime: 0,
-        currentAmmo: 25,
-        totalAmmo: 75,
+        currentAmmo: 30,
+        totalAmmo: 60,
         isReloading: false,
         reloadStartTime: 0,
         unlimited: false,
@@ -129,7 +129,7 @@ class WeaponPickupManager {
         reloadTime: 3000,
         // Piercing: bullet goes through up to 4 zombies (damage decays per hit)
         piercing: true,
-        maxPierce: 4,
+        maxPierce: 3,
         pierceDamageFalloff: 0.85, // each zombie hit does 65% of previous damage
         bulletSize: 6,
         bulletSpeed: 18, // faster than normal bullets

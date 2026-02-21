@@ -14,8 +14,8 @@ class Player {
     // Stamina
     this.stamina = 100;
     this.maxStamina = 100;
-    this.staminaDrainRate = 20;
-    this.staminaRegenRate = 10;
+    this.staminaDrainRate = 40;
+    this.staminaRegenRate = 20;
     this.staminaRegenRateInBase = 40; // faster regen inside base
     this.staminaRegenDelay = 1000;
     this.lastSprintTime = 0;

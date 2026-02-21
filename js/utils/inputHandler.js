@@ -4,29 +4,23 @@ class InputHandler {
     this.combatManager = combatManager;
   }
 
-  getAimTarget(player) {
+  // vx/vy = virtual cursor position (passed from game.js)
+  getAimTarget(player, vx, vy) {
     let w = player.weapons[player.currentWeapon];
-    if (!w) return { x: mouseX, y: mouseY };
+    if (!w) return { x: vx, y: vy };
 
     let aimRange = w.aimRange;
-    let dx = mouseX - player.x;
-    let dy = mouseY - player.y;
+    let dx = vx - player.x;
+    let dy = vy - player.y;
     let distance = Math.sqrt(dx * dx + dy * dy);
 
+    // Virtual cursor is already radius-clamped in game.js,
+    // but sniper has 9999 range so just return as-is
     if (distance > aimRange) {
       let ratio = aimRange / distance;
-      return {
-        x: player.x + dx * ratio,
-        y: player.y + dy * ratio,
-      };
+      return { x: player.x + dx * ratio, y: player.y + dy * ratio };
     }
-
-    return { x: mouseX, y: mouseY };
-  }
-
-  handleMousePressed(player) {
-    let aim = this.getAimTarget(player);
-    this.combatManager.shoot(player, aim.x, aim.y);
+    return { x: vx, y: vy };
   }
 
   handleKeyPressed(player, key) {

@@ -4,31 +4,25 @@ class GameRenderer {
     this.uiRenderer = uiRenderer;
   }
 
-  renderGame(player, base) {
+  renderGame(player, base, vx, vy) {
     base.display();
 
     if (this.gameState.currentAntidote !== null) {
       this.gameState.currentAntidote.display();
     }
 
-    for (let i = 0; i < this.gameState.zombies.length; i++) {
-      this.gameState.zombies[i].display();
-    }
-
-    for (let i = 0; i < this.gameState.bullets.length; i++) {
-      this.gameState.bullets[i].display();
-    }
+    for (let z of this.gameState.zombies) z.display();
+    for (let b of this.gameState.bullets) b.display();
 
     player.display();
 
     if (this.gameState.playerHasAntidote) {
       this.uiRenderer.drawAntidoteIndicator(player);
     }
-
     if (this.gameState.meleeSlashActive) {
       this.uiRenderer.drawMeleeSlash(player);
     }
 
-    this.uiRenderer.drawAimIndicator(player);
+    this.uiRenderer.drawAimIndicator(player, vx, vy);
   }
 }

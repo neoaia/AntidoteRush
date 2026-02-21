@@ -8,6 +8,13 @@ let uiRenderer;
 let gameRenderer;
 let inputHandler;
 
+let isPaused = false;
+let pointerLocked = false;
+
+// Virtual cursor — tracked via raw mouse deltas while pointer is locked
+let vx = 0; // virtual cursor X
+let vy = 0; // virtual cursor Y
+
 function preload() {
   assetManager = new AssetManager();
   assetManager.preload();
@@ -24,6 +31,9 @@ function setup() {
   gameState.initialize(playerName, inputMethod);
 
   gameState.player = new Player(width / 2, height / 2);
+  vx = width / 2;
+  vy = height / 2;
+
   gameState.roundManager = new RoundManager();
   gameState.base = new Base(width / 2 - 40, height / 2 - 40);
 
@@ -38,9 +48,61 @@ function setup() {
 
   gameState.roundManager.startRound();
   antidoteManager.scheduleNext();
-
-  // Apply debug weapon immediately (set to null in weaponPickupManager to disable)
   weaponPickupManager.applyDebugWeapon(gameState.player);
+
+  setupPointerLock();
+}
+
+function setupPointerLock() {
+  let cnv = document.querySelector("canvas");
+
+  // Lock pointer on first interaction (browsers require a user gesture)
+  let lockOnFirstInteraction = function () {
+    cnv.requestPointerLock();
+    document.removeEventListener("keydown", lockOnFirstInteraction);
+    document.removeEventListener("mousedown", lockOnFirstInteraction);
+  };
+  document.addEventListener("keydown", lockOnFirstInteraction);
+  document.addEventListener("mousedown", lockOnFirstInteraction);
+
+  // Raw mouse delta → move virtual cursor within aim radius
+  document.addEventListener("mousemove", function (e) {
+    if (!pointerLocked || isPaused) return;
+
+    let player = gameState.player;
+    let w = player.weapons[player.currentWeapon];
+    let aimRange = w && w.aimRange < 9000 ? w.aimRange : 99999;
+
+    vx = constrain(vx + e.movementX, 0, width);
+    vy = constrain(vy + e.movementY, 0, height);
+
+    // Clamp virtual cursor to weapon aim radius around player
+    let dx = vx - player.x;
+    let dy = vy - player.y;
+    let d = Math.sqrt(dx * dx + dy * dy);
+    if (d > aimRange) {
+      vx = player.x + (dx / d) * aimRange;
+      vy = player.y + (dy / d) * aimRange;
+    }
+  });
+
+  document.addEventListener("pointerlockchange", function () {
+    pointerLocked = document.pointerLockElement === cnv;
+    if (!pointerLocked && !isPaused && !gameState.gameOver) {
+      isPaused = true; // pointer released unexpectedly → pause
+    }
+  });
+
+  // Click canvas to lock pointer + resume
+  cnv.addEventListener("click", function () {
+    if (gameState.gameOver) return;
+    if (!pointerLocked) {
+      cnv.requestPointerLock();
+    }
+    if (isPaused) {
+      isPaused = false;
+    }
+  });
 }
 
 function windowResized() {
@@ -55,6 +117,19 @@ function draw() {
     return;
   }
 
+  if (isPaused) {
+    displayGame(); // still render world behind overlay
+    uiRenderer.drawPauseScreen();
+    return;
+  }
+
+  // Keep virtual cursor anchored to player while paused/not locked
+  if (!pointerLocked) {
+    let player = gameState.player;
+    vx = player.x;
+    vy = player.y;
+  }
+
   updateGame();
   displayGame();
 }
@@ -63,14 +138,25 @@ function updateGame() {
   let player = gameState.player;
   player.update(width, height);
 
-  // Hold-to-fire for auto weapons
+  // Keep vx/vy snapped to player position as player moves
+  // so the cursor doesn't drift relative to player when sprinting
+  let w = player.weapons[player.currentWeapon];
+  let aimRange = w && w.aimRange < 9000 ? w.aimRange : 99999;
+  let dx = vx - player.x;
+  let dy = vy - player.y;
+  let d = Math.sqrt(dx * dx + dy * dy);
+  if (d > aimRange) {
+    vx = player.x + (dx / d) * aimRange;
+    vy = player.y + (dy / d) * aimRange;
+  }
+
+  // Hold-to-fire for auto weapons using virtual cursor
   if (player.mouseIsHeld) {
-    let w = player.weapons[player.currentWeapon];
-    if (w && w.isAuto) {
-      let aim = inputHandler.getAimTarget(player);
-      let result = player.tryAutoFire(aim.x, aim.y);
+    let ww = player.weapons[player.currentWeapon];
+    if (ww && ww.isAuto) {
+      let result = player.tryAutoFire(vx, vy);
       if (result !== null) {
-        combatManager.handleShootResult(result, player, aim.x, aim.y);
+        combatManager.handleShootResult(result, player, vx, vy);
       }
     }
   }
@@ -99,15 +185,19 @@ function updateGame() {
 }
 
 function displayGame() {
-  gameRenderer.renderGame(gameState.player, gameState.base);
+  // Pass virtual cursor to renderers instead of mouseX/mouseY
+  gameRenderer.renderGame(gameState.player, gameState.base, vx, vy);
   weaponPickupManager.display();
   uiRenderer.drawScorePopups();
   uiRenderer.renderAll(gameState.player, gameState.roundManager);
 }
 
 function mousePressed() {
+  if (isPaused || !pointerLocked) return;
   gameState.player.mouseIsHeld = true;
-  inputHandler.handleMousePressed(gameState.player);
+  // Shoot using virtual cursor
+  let aim = inputHandler.getAimTarget(gameState.player, vx, vy);
+  combatManager.shoot(gameState.player, aim.x, aim.y);
 }
 
 function mouseReleased() {
@@ -115,15 +205,34 @@ function mouseReleased() {
 }
 
 function mouseWheel(event) {
-  // Scroll down = next weapon, scroll up = prev weapon
-  let direction = event.delta > 0 ? 1 : -1;
-  gameState.player.cycleEquippedWeapon(direction);
-  // Prevent page scroll
+  if (isPaused) return false;
+  gameState.player.cycleEquippedWeapon(event.delta > 0 ? 1 : -1);
   return false;
 }
 
 function keyPressed() {
-  inputHandler.handleKeyPressed(gameState.player, key);
+  // ESC toggles pause
+  if (keyCode === ESCAPE) {
+    if (gameState.gameOver) return;
+    isPaused = !isPaused;
+    if (isPaused) {
+      document.exitPointerLock();
+    } else {
+      document.querySelector("canvas").requestPointerLock();
+    }
+    return;
+  }
+
+  if (isPaused) return;
+
+  if (gameState.gameOver && key === " ") {
+    window.location.href = "title.html";
+    return;
+  }
+
+  if (key === "1" || key === "2" || key === "3") {
+    gameState.player.switchWeapon(key);
+  }
   if (key === "r" || key === "R") {
     gameState.player.startReload();
   }
