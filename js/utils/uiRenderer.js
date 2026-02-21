@@ -51,9 +51,8 @@ class UIRenderer {
 
     textSize(12);
     textAlign(CENTER, CENTER);
-    let healthText = player.health + "/" + player.maxHealth;
     this.drawTextWithOutline(
-      healthText,
+      player.health + "/" + player.maxHealth,
       x + barWidth / 2,
       y + 40,
       255,
@@ -76,55 +75,131 @@ class UIRenderer {
   }
 
   drawWeaponSlot(player) {
-    let x = width - 120;
-    let y = height - 120;
     let slotSize = 100;
+    let slotY = height - 120;
 
-    noFill();
-    stroke(0);
-    strokeWeight(2);
-    rect(x, y, slotSize, slotSize);
+    let slots = [
+      { key: "melee", label: "1", x: width - 360 },
+      { key: "handgun", label: "2", x: width - 240 },
+      { key: "equipped", label: "3", x: width - 120 },
+    ];
 
-    noStroke();
-    fill(60, 60, 60);
-    rect(x + 3, y + 3, slotSize - 6, slotSize - 6);
+    for (let s = 0; s < slots.length; s++) {
+      let slot = slots[s];
+      let x = slot.x;
+      let y = slotY;
+      let isActive = player.currentWeapon === slot.key;
+      let w = player.weapons[slot.key];
 
-    let weaponIcon = this.assetManager.getWeaponIcon(player.currentWeapon);
-    if (weaponIcon) {
-      imageMode(CENTER);
-      image(weaponIcon, x + slotSize / 2, y + slotSize / 2, 100, 70);
-      imageMode(CORNER);
-    } else {
+      // Border — highlight active
+      stroke(isActive ? color(255, 220, 0) : color(0));
+      strokeWeight(isActive ? 3 : 2);
+      noFill();
+      rect(x, y, slotSize, slotSize);
+
+      noStroke();
+      fill(isActive ? color(80, 70, 20) : color(60, 60, 60));
+      rect(x + 3, y + 3, slotSize - 6, slotSize - 6);
+
+      if (w === null) {
+        textSize(10);
+        textAlign(CENTER, CENTER);
+        this.drawTextWithOutline(
+          "EMPTY",
+          x + slotSize / 2,
+          y + slotSize / 2,
+          120,
+          120,
+          120,
+          1,
+        );
+      } else {
+        // Weapon name
+        textSize(10);
+        textAlign(CENTER, CENTER);
+        this.drawTextWithOutline(
+          w.name,
+          x + slotSize / 2,
+          y + slotSize / 2 - 8,
+          255,
+          255,
+          255,
+          2,
+        );
+
+        // Ammo info for mag-based weapons
+        if (w.magSize !== undefined) {
+          if (w.isReloading) {
+            // Reload bar
+            let elapsed = millis() - w.reloadStartTime;
+            let progress = Math.min(elapsed / w.reloadTime, 1);
+            let barW = slotSize - 10;
+            let barH = 6;
+            let barX = x + 5;
+            let barY2 = y + slotSize - 14;
+
+            fill(50);
+            noStroke();
+            rect(barX, barY2, barW, barH);
+            fill(255, 140, 0);
+            rect(barX, barY2, barW * progress, barH);
+
+            textSize(8);
+            textAlign(CENTER, BOTTOM);
+            this.drawTextWithOutline(
+              "RELOADING...",
+              x + slotSize / 2,
+              y + slotSize - 16,
+              255,
+              200,
+              0,
+              1,
+            );
+          } else {
+            // Current ammo / mag size
+            textSize(11);
+            textAlign(CENTER, CENTER);
+            this.drawTextWithOutline(
+              w.currentAmmo + " / " + w.magSize,
+              x + slotSize / 2,
+              y + slotSize / 2 + 10,
+              255,
+              220,
+              100,
+              2,
+            );
+
+            // Reserve ammo (totalAmmo) for limited guns
+            if (!w.unlimited) {
+              textSize(9);
+              textAlign(CENTER, CENTER);
+              this.drawTextWithOutline(
+                "+" + w.totalAmmo,
+                x + slotSize / 2,
+                y + slotSize / 2 + 24,
+                180,
+                180,
+                180,
+                1,
+              );
+            }
+          }
+        }
+      }
+
+      // Slot key label
       textSize(10);
-      textAlign(CENTER, CENTER);
+      textAlign(LEFT, BOTTOM);
       this.drawTextWithOutline(
-        player.weapons[player.currentWeapon].name,
-        x + slotSize / 2,
-        y + slotSize / 2,
+        "[" + slot.label + "]",
+        x + 8,
+        y + slotSize - 8,
         255,
-        255,
-        255,
+        220,
+        0,
         2,
       );
     }
-
-    textSize(10);
-    textAlign(LEFT, BOTTOM);
-    let keyNum =
-      player.currentWeapon === "melee"
-        ? "1"
-        : player.currentWeapon === "handgun"
-          ? "2"
-          : "3";
-    this.drawTextWithOutline(
-      "[" + keyNum + "]",
-      x + 8,
-      y + slotSize - 8,
-      255,
-      220,
-      0,
-      2,
-    );
   }
 
   drawRoundInfo(roundManager) {
@@ -144,8 +219,6 @@ class UIRenderer {
     );
 
     let zombieY = y + 35;
-    let totalZombiesInRound =
-      roundManager.zombiesToSpawn + roundManager.zombiesAlive;
     let zombiesRemaining =
       roundManager.zombiesToSpawn + this.gameState.zombies.length;
 
@@ -174,9 +247,8 @@ class UIRenderer {
 
     textSize(20);
     textAlign(CENTER, CENTER);
-    let countText = zombiesRemaining;
     this.drawTextWithOutline(
-      countText,
+      zombiesRemaining,
       x + 25,
       zombieY + counterHeight / 2,
       255,
@@ -189,8 +261,15 @@ class UIRenderer {
   drawRoundComplete(roundManager) {
     textSize(48);
     textAlign(CENTER, CENTER);
-    let completeText = "ROUND " + roundManager.currentRound + " CLEARED";
-    this.drawTextWithOutline(completeText, width / 2, height / 2, 0, 255, 0, 4);
+    this.drawTextWithOutline(
+      "ROUND " + roundManager.currentRound + " CLEARED",
+      width / 2,
+      height / 2,
+      0,
+      255,
+      0,
+      4,
+    );
   }
 
   drawAntidoteIndicator(player) {
@@ -198,13 +277,11 @@ class UIRenderer {
     stroke(0);
     strokeWeight(2);
     circle(player.x, player.y - player.size / 2 - 20, 20);
-
     fill(255);
     noStroke();
     textSize(12);
     textAlign(CENTER, CENTER);
     text("+", player.x, player.y - player.size / 2 - 20);
-
     fill(0, 255, 0);
     textSize(10);
     text("RETURN TO BASE", player.x, player.y - player.size / 2 - 35);
@@ -234,8 +311,10 @@ class UIRenderer {
   }
 
   drawAimIndicator(player) {
-    let currentWeapon = player.weapons[player.currentWeapon];
-    let maxAimRange = currentWeapon.aimRange;
+    let w = player.weapons[player.currentWeapon];
+    if (!w) return;
+
+    let maxAimRange = w.aimRange;
     let angleToMouse = atan2(mouseY - player.y, mouseX - player.x);
     let dx = mouseX - player.x;
     let dy = mouseY - player.y;
@@ -243,7 +322,10 @@ class UIRenderer {
     let aimX = mouseX;
     let aimY = mouseY;
 
-    if (distanceToMouse > maxAimRange) {
+    let isSniper = w.name === "Sniper";
+    let isShotgun = w.name === "Shotgun";
+
+    if (!isSniper && distanceToMouse > maxAimRange) {
       let ratio = maxAimRange / distanceToMouse;
       aimX = player.x + dx * ratio;
       aimY = player.y + dy * ratio;
@@ -255,12 +337,44 @@ class UIRenderer {
       player.currentWeapon === "handgun" ||
       player.currentWeapon === "equipped"
     ) {
-      stroke(255, 0, 0, 100);
-      strokeWeight(2);
-      line(player.x, player.y, aimX, aimY);
-      noStroke();
-      fill(255, 0, 0, 150);
-      circle(aimX, aimY, 8);
+      if (isShotgun) {
+        let spreadAngle = w.spreadAngle || 0.4;
+        push();
+        translate(player.x, player.y);
+        rotate(angleToMouse);
+        noFill();
+        stroke(255, 140, 0, 120);
+        strokeWeight(1);
+        let coneLen = 180;
+        line(
+          0,
+          0,
+          coneLen * cos(-spreadAngle / 2),
+          coneLen * sin(-spreadAngle / 2),
+        );
+        line(
+          0,
+          0,
+          coneLen * cos(spreadAngle / 2),
+          coneLen * sin(spreadAngle / 2),
+        );
+        arc(0, 0, coneLen * 2, coneLen * 2, -spreadAngle / 2, spreadAngle / 2);
+        pop();
+      } else if (isSniper) {
+        stroke(255, 0, 0, 80);
+        strokeWeight(1);
+        line(player.x, player.y, mouseX, mouseY);
+        noStroke();
+        fill(255, 0, 0, 120);
+        circle(mouseX, mouseY, 8);
+      } else {
+        stroke(255, 0, 0, 100);
+        strokeWeight(2);
+        line(player.x, player.y, aimX, aimY);
+        noStroke();
+        fill(255, 0, 0, 150);
+        circle(aimX, aimY, 8);
+      }
     }
 
     if (player.currentWeapon === "melee") {
@@ -281,6 +395,7 @@ class UIRenderer {
       pop();
     }
 
+    // Crosshair
     stroke(255, 0, 0);
     strokeWeight(2);
     noFill();
@@ -294,7 +409,6 @@ class UIRenderer {
 
   drawGameOver(roundManager) {
     background(0);
-
     textSize(64);
     textAlign(CENTER, CENTER);
     this.drawTextWithOutline(
@@ -306,7 +420,6 @@ class UIRenderer {
       0,
       5,
     );
-
     textSize(32);
     this.drawTextWithOutline(
       "Final Score: " + this.gameState.score,
@@ -326,7 +439,6 @@ class UIRenderer {
       255,
       3,
     );
-
     textSize(20);
     this.drawTextWithOutline(
       "Click SPACE to menu",
@@ -344,7 +456,6 @@ class UIRenderer {
     this.drawHealthBar(player);
     this.drawWeaponSlot(player);
     this.drawRoundInfo(roundManager);
-
     if (roundManager.roundComplete) {
       this.drawRoundComplete(roundManager);
     }

@@ -24,45 +24,104 @@ class Player {
         range: 9999,
         aimRange: 100,
         cooldown: 300,
+        magSize: 12,
+        reloadTime: 1500,
         canShoot: true,
         lastShootTime: 0,
+        currentAmmo: 12,
+        isReloading: false,
+        reloadStartTime: 0,
+        unlimited: true, // never disappears
+        isAuto: false,
+        isHeld: false,
       },
       equipped: null,
     };
+
+    // Track mouse hold state for auto weapons
+    this.mouseIsHeld = false;
   }
+
   update() {
     let newX = this.x;
     let newY = this.y;
-    if (keyIsDown(87)) {
-      newY = newY - this.speed;
-    }
-    if (keyIsDown(83)) {
-      newY = newY + this.speed;
-    }
-    if (keyIsDown(65)) {
-      newX = newX - this.speed;
-    }
-    if (keyIsDown(68)) {
-      newX = newX + this.speed;
-    }
+    if (keyIsDown(87)) newY -= this.speed;
+    if (keyIsDown(83)) newY += this.speed;
+    if (keyIsDown(65)) newX -= this.speed;
+    if (keyIsDown(68)) newX += this.speed;
     this.x = newX;
     this.y = newY;
-    
+
+    let w = this.weapons[this.currentWeapon];
+    if (!w) return;
+
     let currentTime = millis();
-    let currentWeaponData = this.weapons[this.currentWeapon];
-    if (
-      currentWeaponData &&
-      currentTime - currentWeaponData.lastShootTime > currentWeaponData.cooldown
-    ) {
-      currentWeaponData.canShoot = true;
+
+    // Handle reload completion
+    if (w.isReloading) {
+      if (currentTime - w.reloadStartTime >= w.reloadTime) {
+        // For limited guns, only reload what's left in totalAmmo
+        if (w.unlimited) {
+          w.currentAmmo = w.magSize;
+        } else {
+          let needed = w.magSize - w.currentAmmo;
+          let canLoad = Math.min(needed, w.totalAmmo);
+          w.currentAmmo += canLoad;
+          w.totalAmmo -= canLoad;
+        }
+        w.isReloading = false;
+        w.canShoot = true;
+      }
+      return;
+    }
+
+    // Handle cooldown recovery
+    if (!w.canShoot && w.magSize !== undefined) {
+      if (currentTime - w.lastShootTime > w.cooldown) {
+        if (w.currentAmmo > 0) {
+          w.canShoot = true;
+        } else {
+          this.startReload();
+        }
+      }
+    } else if (!w.canShoot && w.magSize === undefined) {
+      // Melee cooldown
+      if (currentTime - w.lastShootTime > w.cooldown) {
+        w.canShoot = true;
+      }
+    }
+
+    // Auto fire — keep shooting if mouse held and weapon is auto
+    if (this.mouseIsHeld && w.isAuto && w.canShoot && !w.isReloading) {
+      // Signal that a shot should fire — handled externally via tryAutoFire()
     }
   }
+
+  // Called every frame from game.js when mouse is held, for auto weapons
+  tryAutoFire(targetX, targetY) {
+    let w = this.weapons[this.currentWeapon];
+    if (!w || !w.isAuto) return null;
+    if (!w.canShoot || w.isReloading) return null;
+    return this.shoot(targetX, targetY);
+  }
+
+  startReload() {
+    let w = this.weapons[this.currentWeapon];
+    if (!w || w.magSize === undefined || w.isReloading) return;
+    if (w.currentAmmo === w.magSize) return; // already full
+    if (!w.unlimited && w.totalAmmo <= 0) return; // no ammo left to reload from
+    w.isReloading = true;
+    w.reloadStartTime = millis();
+    w.canShoot = false;
+  }
+
   display() {
     fill(this.color);
     noStroke();
     circle(this.x, this.y, this.size);
     this.displayHealthBar();
   }
+
   displayHealthBar() {
     let barWidth = 40;
     let barHeight = 5;
@@ -75,6 +134,7 @@ class Player {
     fill(0, 255, 0);
     rect(barX, barY, barWidth * healthPercentage, barHeight);
   }
+
   switchWeapon(weaponKey) {
     if (weaponKey === "1") {
       this.currentWeapon = "melee";
@@ -84,29 +144,43 @@ class Player {
       this.currentWeapon = "equipped";
     }
   }
+
   canShoot() {
-    let currentWeaponData = this.weapons[this.currentWeapon];
-    return currentWeaponData && currentWeaponData.canShoot;
+    let w = this.weapons[this.currentWeapon];
+    return w && w.canShoot && !w.isReloading;
   }
+
   shoot(targetX, targetY) {
-    let currentWeaponData = this.weapons[this.currentWeapon];
-    if (currentWeaponData && currentWeaponData.canShoot) {
-      currentWeaponData.canShoot = false;
-      currentWeaponData.lastShootTime = millis();
-      if (this.currentWeapon === "melee") {
-        return { type: "melee", weapon: currentWeaponData };
-      } else {
-        return { type: "bullet", weapon: currentWeaponData };
+    let w = this.weapons[this.currentWeapon];
+    if (!w || !w.canShoot || w.isReloading) return null;
+
+    w.canShoot = false;
+    w.lastShootTime = millis();
+
+    if (this.currentWeapon === "melee") {
+      return { type: "melee", weapon: w };
+    }
+
+    // Consume ammo
+    if (w.magSize !== undefined) {
+      w.currentAmmo = Math.max(0, w.currentAmmo - 1);
+      if (w.currentAmmo <= 0) {
+        this.startReload();
       }
     }
-    return null;
-  }
-  takeDamage(damage) {
-    this.health = this.health - damage;
-    if (this.health < 0) {
-      this.health = 0;
+
+    if (w.name === "Shotgun") {
+      return { type: "shotgun", weapon: w };
     }
+
+    return { type: "bullet", weapon: w };
   }
+
+  takeDamage(damage) {
+    this.health -= damage;
+    if (this.health < 0) this.health = 0;
+  }
+
   getLeft() {
     return this.x - this.size / 2;
   }

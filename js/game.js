@@ -3,6 +3,7 @@ let assetManager;
 let antidoteManager;
 let combatManager;
 let zombieManager;
+let weaponPickupManager;
 let uiRenderer;
 let gameRenderer;
 let inputHandler;
@@ -17,30 +18,24 @@ function setup() {
   noCursor();
   textFont(assetManager.getFont());
 
-  // Initialize game state
   gameState = new GameState();
   let playerName = localStorage.getItem("playerName");
   let inputMethod = localStorage.getItem("inputMethod");
   gameState.initialize(playerName, inputMethod);
 
-  // Initialize game entities
   gameState.player = new Player(width / 2, height / 2);
   gameState.roundManager = new RoundManager();
   gameState.base = new Base(width / 2 - 40, height / 2 - 40);
 
-  // Initialize managers
   antidoteManager = new AntidoteManager(gameState, width, height);
   combatManager = new CombatManager(gameState);
   zombieManager = new ZombieManager(gameState);
+  weaponPickupManager = new WeaponPickupManager(gameState, width, height);
 
-  // Initialize renderers
   uiRenderer = new UIRenderer(gameState, assetManager);
   gameRenderer = new GameRenderer(gameState, uiRenderer);
-
-  // Initialize input handler
   inputHandler = new InputHandler(gameState, combatManager);
 
-  // Start the game
   gameState.roundManager.startRound();
   antidoteManager.scheduleNext();
 }
@@ -58,17 +53,44 @@ function draw() {
 }
 
 function updateGame() {
-  gameState.player.update();
+  let player = gameState.player;
+  player.update();
+
+  // Hold-to-fire for auto weapons
+  if (player.mouseIsHeld) {
+    let w = player.weapons[player.currentWeapon];
+    if (w && w.isAuto) {
+      let angleToMouse = atan2(mouseY - player.y, mouseX - player.x);
+      let aimRange = w.aimRange;
+      let dx = mouseX - player.x;
+      let dy = mouseY - player.y;
+      let dist = sqrt(dx * dx + dy * dy);
+      let targetX, targetY;
+      if (dist > aimRange) {
+        let ratio = aimRange / dist;
+        targetX = player.x + dx * ratio;
+        targetY = player.y + dy * ratio;
+      } else {
+        targetX = mouseX;
+        targetY = mouseY;
+      }
+      let result = player.tryAutoFire(targetX, targetY);
+      if (result !== null) {
+        combatManager.handleShootResult(result, player, targetX, targetY);
+      }
+    }
+  }
 
   combatManager.updateMeleeSlash();
   combatManager.updateBullets();
 
-  antidoteManager.update(gameState.player, gameState.base);
+  antidoteManager.update(player, gameState.base);
+  weaponPickupManager.update(player, gameState.base);
 
   zombieManager.handleRoundSpawning(gameState.roundManager);
-  zombieManager.update(gameState.player);
+  zombieManager.update(player);
 
-  if (gameState.player.health <= 0) {
+  if (player.health <= 0) {
     gameState.gameOver = true;
   }
 
@@ -84,13 +106,24 @@ function updateGame() {
 
 function displayGame() {
   gameRenderer.renderGame(gameState.player, gameState.base);
+  weaponPickupManager.display();
   uiRenderer.renderAll(gameState.player, gameState.roundManager);
 }
 
 function mousePressed() {
+  gameState.player.mouseIsHeld = true;
   inputHandler.handleMousePressed(gameState.player);
+}
+
+function mouseReleased() {
+  gameState.player.mouseIsHeld = false;
 }
 
 function keyPressed() {
   inputHandler.handleKeyPressed(gameState.player, key);
+
+  // R to manually reload
+  if (key === "r" || key === "R") {
+    gameState.player.startReload();
+  }
 }

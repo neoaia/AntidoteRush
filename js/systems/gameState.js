@@ -8,6 +8,7 @@ class GameState {
 
     this.bullets = [];
     this.zombies = [];
+    this.weaponPickups = [];
 
     this.player = null;
     this.roundManager = null;
@@ -35,6 +36,7 @@ class GameState {
     this.roundTransitioning = false;
     this.bullets = [];
     this.zombies = [];
+    this.weaponPickups = [];
     this.currentAntidote = null;
     this.playerHasAntidote = false;
     this.antidoteCanSpawn = true;
