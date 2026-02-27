@@ -531,6 +531,38 @@ class UIRenderer {
   }
 
   // ── GAME OVER ─────────────────────────────────────────────────────────────
+  drawIntermission(roundManager) {
+    // Semi-transparent top banner
+    noStroke();
+    fill(0, 0, 0, 180);
+    rect(0, 0, width, 80);
+
+    let sec = Math.ceil(roundManager.intermissionTimeLeft / 1000);
+
+    textSize(22);
+    textAlign(CENTER, CENTER);
+    this.drawTextWithOutline(
+      "ROUND " + roundManager.currentRound + " CLEARED",
+      width / 2,
+      24,
+      0,
+      255,
+      100,
+      3,
+    );
+
+    textSize(14);
+    this.drawTextWithOutline(
+      "Next round in " + sec + "s   [ENTER to start now]   [B to open shop]",
+      width / 2,
+      54,
+      200,
+      200,
+      200,
+      2,
+    );
+  }
+
   drawGameOver(roundManager) {
     background(0);
     textSize(64);

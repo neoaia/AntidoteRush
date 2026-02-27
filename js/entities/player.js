@@ -11,16 +11,33 @@ class Player {
     this.maxHealth = 100;
     this.currentWeapon = "handgun";
 
-    // Stamina
+    // Stamina — no regen delay
     this.stamina = 100;
     this.maxStamina = 100;
-    this.staminaDrainRate = 40;
-    this.staminaRegenRate = 20;
-    this.staminaRegenRateInBase = 40; // faster regen inside base
-    this.staminaRegenDelay = 1000;
-    this.lastSprintTime = 0;
+    this.staminaDrainRate = 20;
+    this.staminaRegenRate = 10;
+    this.staminaRegenRateInBase = 40;
     this.isSprinting = false;
-    this.isInBase = false; // set externally by antidoteManager update
+    this.isInBase = false;
+
+    // Skill slot
+    this.skillPressed = false;
+    this.skillPressTime = 0;
+    this.skillDisplayDuration = 800; // ms to show the indicator
+
+    // Stat upgrade levels (for shopManager to read/write)
+    this.statLevels = {
+      health: 0,
+      stamina: 0,
+      speed: 0,
+      strength: 0,
+      precision: 0,
+    };
+
+    // Damage multiplier from strength upgrades
+    this.damageMultiplier = 1.0;
+    // Precision reduces spread / increases aim range
+    this.precisionBonus = 0;
 
     this.weapons = {
       melee: {
@@ -85,19 +102,15 @@ class Player {
     this.x = constrain(newX, half, canvasWidth - half);
     this.y = constrain(newY, half, canvasHeight - half);
 
+    // Stamina — no delay, regens immediately when not sprinting
     let dt = deltaTime / 1000;
-
     if (this.isSprinting && moving) {
       this.stamina = max(0, this.stamina - this.staminaDrainRate * dt);
-      this.lastSprintTime = millis();
     } else {
-      if (millis() - this.lastSprintTime > this.staminaRegenDelay) {
-        // Regen faster inside base
-        let regenRate = this.isInBase
-          ? this.staminaRegenRateInBase
-          : this.staminaRegenRate;
-        this.stamina = min(this.maxStamina, this.stamina + regenRate * dt);
-      }
+      let regenRate = this.isInBase
+        ? this.staminaRegenRateInBase
+        : this.staminaRegenRate;
+      this.stamina = min(this.maxStamina, this.stamina + regenRate * dt);
     }
 
     if (this.stamina <= 0) {
@@ -105,12 +118,13 @@ class Player {
       this.speed = this.baseSpeed;
     }
 
+    // Weapon cooldown / reload
     let w = this.weapons[this.currentWeapon];
     if (!w) return;
-    let currentTime = millis();
+    let now = millis();
 
     if (w.isReloading) {
-      if (currentTime - w.reloadStartTime >= w.reloadTime) {
+      if (now - w.reloadStartTime >= w.reloadTime) {
         if (w.unlimited) {
           w.currentAmmo = w.magSize;
         } else {
@@ -126,19 +140,25 @@ class Player {
     }
 
     if (!w.canShoot && w.magSize !== undefined) {
-      if (currentTime - w.lastShootTime > w.cooldown) {
+      if (now - w.lastShootTime > w.cooldown) {
         if (w.currentAmmo > 0) w.canShoot = true;
         else this.startReload();
       }
     } else if (!w.canShoot && w.magSize === undefined) {
-      if (currentTime - w.lastShootTime > w.cooldown) w.canShoot = true;
+      if (now - w.lastShootTime > w.cooldown) w.canShoot = true;
     }
+  }
+
+  // Called when space is pressed
+  activateSkill() {
+    this.skillPressed = true;
+    this.skillPressTime = millis();
+    // TODO: actual skill logic goes here later
   }
 
   tryAutoFire(targetX, targetY) {
     let w = this.weapons[this.currentWeapon];
-    if (!w || !w.isAuto) return null;
-    if (!w.canShoot || w.isReloading) return null;
+    if (!w || !w.isAuto || !w.canShoot || w.isReloading) return null;
     return this.shoot(targetX, targetY);
   }
 
@@ -157,11 +177,27 @@ class Player {
     noStroke();
     circle(this.x, this.y, this.size);
     this.displayHealthBar();
+
+    // Skill pressed indicator — fades out
+    if (this.skillPressed) {
+      let elapsed = millis() - this.skillPressTime;
+      if (elapsed < this.skillDisplayDuration) {
+        let alpha = map(elapsed, 0, this.skillDisplayDuration, 255, 0);
+        let floatOff = map(elapsed, 0, this.skillDisplayDuration, 0, 20);
+        fill(255, 255, 100, alpha);
+        noStroke();
+        textSize(11);
+        textAlign(CENTER, CENTER);
+        text("SKILL", this.x, this.y + this.size / 2 + 16 - floatOff);
+      } else {
+        this.skillPressed = false;
+      }
+    }
   }
 
   displayHealthBar() {
-    let barWidth = 40;
-    let barHeight = 5;
+    let barWidth = 40,
+      barHeight = 5;
     let barX = this.x - barWidth / 2;
     let barY = this.y - this.size / 2 - 10;
     fill(255, 0, 0);
@@ -216,21 +252,14 @@ class Player {
   }
 }
 
-// Attached separately — scroll wheel cycling
-// Call this from game.js mouseWheel()
+// Scroll wheel weapon cycling
 Player.prototype.cycleEquippedWeapon = function (direction) {
-  // direction: -1 = scroll up (prev), +1 = scroll down (next)
-  // Only cycles the equipped slot. Slot 3 must have a weapon.
-  // For now: scrolling cycles between melee(1), handgun(2), equipped(3)
   const slots = ["melee", "handgun", "equipped"];
   let idx = slots.indexOf(this.currentWeapon);
   if (idx === -1) idx = 1;
   idx = (idx + direction + slots.length) % slots.length;
-
-  // Skip equipped if empty
   if (slots[idx] === "equipped" && this.weapons.equipped === null) {
     idx = (idx + direction + slots.length) % slots.length;
   }
-
   this.currentWeapon = slots[idx];
 };
