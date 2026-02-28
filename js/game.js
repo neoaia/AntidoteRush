@@ -1,4 +1,5 @@
 let gameState;
+let spriteManager;
 let assetManager;
 let antidoteManager;
 let combatManager;
@@ -18,6 +19,8 @@ let vy = 0;
 function preload() {
   assetManager = new AssetManager();
   assetManager.preload();
+  spriteManager = new SpriteManager();
+  spriteManager.preload();
 }
 
 function setup() {
@@ -32,6 +35,8 @@ function setup() {
   gameState.initialize(playerName, inputMethod, difficulty);
 
   gameState.player = new Player(width / 2, height / 2);
+  spriteManager.init(); // builds SpriteSheet objects after images loaded
+  gameState.player.spriteSheet = spriteManager.get("player");
   vx = width / 2;
   vy = height / 2;
 
@@ -54,6 +59,11 @@ function setup() {
   weaponPickupManager.applyDebugWeapon(gameState.player);
 
   setupPointerLock();
+
+  // Move p5 canvas into the canvas wrapper div
+  let cnvEl = document.querySelector("canvas");
+  let wrap = document.getElementById("canvas-wrap");
+  if (wrap && cnvEl) wrap.appendChild(cnvEl);
 }
 
 // Called by HTML shop's close button
@@ -111,6 +121,9 @@ function windowResized() {
 
 function draw() {
   background(255);
+
+  // Update HTML HUD every frame
+  if (typeof updateHUD === "function") updateHUD();
 
   if (gameState.gameOver) {
     // Redirecting to gameOver.html — just freeze the frame

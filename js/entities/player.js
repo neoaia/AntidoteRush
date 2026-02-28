@@ -70,6 +70,10 @@ class Player {
     };
 
     this.mouseIsHeld = false;
+
+    // Sprite — managed by SpriteManager / SpriteRenderer
+    this.spriteSheet = null; // set by spriteManager.get('player') in setup()
+    this.spriteState = new SpriteState(8, 4); // animSpeed=8, totalFrames=4
   }
 
   update(canvasWidth, canvasHeight) {
@@ -101,6 +105,10 @@ class Player {
     let half = this.size / 2;
     this.x = constrain(newX, half, canvasWidth - half);
     this.y = constrain(newY, half, canvasHeight - half);
+
+    // Flip sprite based on horizontal movement
+    if (keyIsDown(65)) this.spriteState.flipX = true; // A = left
+    if (keyIsDown(68)) this.spriteState.flipX = false; // D = right
 
     // Stamina — no delay, regens immediately when not sprinting
     let dt = deltaTime / 1000;
@@ -173,9 +181,20 @@ class Player {
   }
 
   display() {
-    fill(this.color);
-    noStroke();
-    circle(this.x, this.y, this.size);
+    // Try sprite first; fall back to circle
+    let drawn = SpriteRenderer.draw(
+      this.spriteSheet,
+      this.spriteState,
+      this.x,
+      this.y,
+      1.5,
+    );
+    if (!drawn) {
+      fill(this.color);
+      noStroke();
+      circle(this.x, this.y, this.size);
+    }
+
     this.displayHealthBar();
 
     // Skill pressed indicator — fades out
@@ -236,6 +255,7 @@ class Player {
   takeDamage(damage) {
     this.health -= damage;
     if (this.health < 0) this.health = 0;
+    this.spriteState.flash(); // red flash on hit
   }
 
   getLeft() {

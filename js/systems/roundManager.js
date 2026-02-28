@@ -161,7 +161,9 @@ class RoundManager {
   createZombie(x, y, type, gameState) {
     if (gameState) gameState.introduceZombieType(type);
     let mult = gameState ? gameState.zombieHealthMultipliers[type] : 1.0;
-    return new Zombie(x, y, type, mult, this.speedBonus, this.baseHealthBonus);
+    let z = new Zombie(x, y, type, mult, this.speedBonus, this.baseHealthBonus);
+    z.initSprite();
+    return z;
   }
 
   getZombieType() {
