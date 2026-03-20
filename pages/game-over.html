@@ -1,0 +1,198 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Game Over</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap" rel="stylesheet">
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            background: #0a0a0a;
+            font-family: 'Press Start 2P', monospace;
+            color: #fff;
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            gap: 32px;
+            padding: 20px;
+        }
+
+        h1 {
+            font-size: 40px;
+            color: #ff2222;
+            text-shadow: 0 0 40px #ff222288;
+            letter-spacing: 6px;
+            animation: flicker 2s infinite alternate;
+        }
+
+        @keyframes flicker {
+            0% {
+                opacity: 1;
+            }
+
+            80% {
+                opacity: 1;
+            }
+
+            85% {
+                opacity: 0.6;
+            }
+
+            90% {
+                opacity: 1;
+            }
+
+            95% {
+                opacity: 0.7;
+            }
+
+            100% {
+                opacity: 1;
+            }
+        }
+
+        .stats-box {
+            background: #161622;
+            border: 2px solid #333355;
+            border-radius: 6px;
+            padding: 28px 40px;
+            display: flex;
+            flex-direction: column;
+            gap: 16px;
+            min-width: 340px;
+            text-align: center;
+        }
+
+        .stat-row {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            gap: 24px;
+        }
+
+        .stat-label {
+            font-size: 9px;
+            color: #888;
+        }
+
+        .stat-value {
+            font-size: 13px;
+            color: #ffdc50;
+        }
+
+        .stat-row.player-name .stat-value {
+            color: #aaddff;
+        }
+
+        .stat-row.round .stat-value {
+            color: #88ff88;
+        }
+
+        .buttons {
+            display: flex;
+            gap: 16px;
+            flex-wrap: wrap;
+            justify-content: center;
+        }
+
+        button {
+            font-family: 'Press Start 2P', monospace;
+            font-size: 10px;
+            padding: 14px 24px;
+            border: 2px solid;
+            border-radius: 4px;
+            cursor: pointer;
+            transition: transform 0.1s, box-shadow 0.15s;
+            background: #111;
+        }
+
+        button:hover {
+            transform: translateY(-3px);
+        }
+
+        #btn-play-again {
+            color: #88ff88;
+            border-color: #88ff88;
+        }
+
+        #btn-play-again:hover {
+            box-shadow: 0 0 16px #88ff8866;
+        }
+
+        #btn-title {
+            color: #aaa;
+            border-color: #555;
+        }
+
+        #btn-title:hover {
+            box-shadow: 0 0 16px #aaaaaa44;
+        }
+    </style>
+</head>
+
+<body>
+
+    <h1>GAME OVER</h1>
+
+    <div class="stats-box">
+        <div class="stat-row player-name">
+            <span class="stat-label">PLAYER</span>
+            <span class="stat-value" id="display-name">—</span>
+        </div>
+        <div class="stat-row round">
+            <span class="stat-label">ROUND REACHED</span>
+            <span class="stat-value" id="display-round">—</span>
+        </div>
+        <div class="stat-row">
+            <span class="stat-label">FINAL SCORE</span>
+            <span class="stat-value" id="display-score">—</span>
+        </div>
+        <div class="stat-row">
+            <span class="stat-label">COINS EARNED</span>
+            <span class="stat-value" id="display-coins">—</span>
+        </div>
+    </div>
+
+    <div class="buttons">
+        <button id="btn-play-again" onclick="playAgain()">PLAY AGAIN</button>
+        <button id="btn-title" onclick="goTitle()">TITLE SCREEN</button>
+    </div>
+
+    <script>
+        // Read stats saved by game.js on death
+        let name = localStorage.getItem("playerName") || "???";
+        let round = localStorage.getItem("lastRound") || "1";
+        let score = localStorage.getItem("lastScore") || "0";
+        let coins = localStorage.getItem("lastCoins") || "0";
+
+        document.getElementById("display-name").textContent = name;
+        document.getElementById("display-round").textContent = round;
+        document.getElementById("display-score").textContent = score;
+        document.getElementById("display-coins").textContent = coins;
+
+        function playAgain() {
+            // Keep player name, just pick difficulty again
+            window.location.href = "difficulty.html";
+        }
+
+        function goTitle() {
+            // Clear name so they'll be asked again
+            localStorage.removeItem("playerName");
+            window.location.href = "title.html";
+        }
+    </script>
+
+</body>
+
+</html>

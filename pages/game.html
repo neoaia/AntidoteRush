@@ -1,0 +1,496 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Antidote Rush - Game</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap" rel="stylesheet">
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            overflow: hidden;
+            background: #000;
+            width: 100vw;
+            height: 100vh;
+        }
+
+        canvas {
+            display: block;
+            width: 100vw !important;
+            height: 100vh !important;
+            image-rendering: pixelated;
+        }
+
+        /* ── SHOP OVERLAY ───────────────────────────────────────────── */
+        #shop-overlay {
+            display: none;
+            position: fixed;
+            inset: 0;
+            background: rgba(0, 0, 0, 0.72);
+            z-index: 100;
+            justify-content: center;
+            align-items: center;
+            font-family: 'Press Start 2P', monospace;
+            cursor: default;
+        }
+
+        #shop-overlay.open {
+            display: flex;
+        }
+
+        #shop-panel {
+            background: #12121a;
+            border: 2px solid #505078;
+            border-radius: 6px;
+            width: min(820px, 92vw);
+            height: min(580px, 88vh);
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+        }
+
+        /* Header */
+        #shop-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            background: #1e1e2d;
+            padding: 10px 16px;
+            flex-shrink: 0;
+            gap: 12px;
+        }
+
+        #shop-title {
+            color: #ffdc50;
+            font-size: 13px;
+        }
+
+        #shop-timer {
+            font-size: 22px;
+            color: #fff;
+            text-align: center;
+            flex: 1;
+            letter-spacing: 2px;
+        }
+
+        #shop-timer.urgent {
+            color: #ff4444;
+            animation: pulse 0.6s infinite alternate;
+        }
+
+        @keyframes pulse {
+            from {
+                opacity: 1;
+            }
+
+            to {
+                opacity: 0.4;
+            }
+        }
+
+        #shop-coins {
+            color: #ffdc50;
+            font-size: 12px;
+            white-space: nowrap;
+        }
+
+        #shop-close {
+            background: #782828;
+            border: none;
+            color: #fff;
+            font-family: 'Press Start 2P', monospace;
+            font-size: 11px;
+            padding: 6px 10px;
+            border-radius: 4px;
+            cursor: pointer;
+            flex-shrink: 0;
+        }
+
+        #shop-close:hover {
+            background: #c84040;
+        }
+
+        /* Tabs */
+        #shop-tabs {
+            display: flex;
+            gap: 4px;
+            padding: 8px 12px 0;
+            background: #12121a;
+            flex-shrink: 0;
+        }
+
+        .shop-tab {
+            font-family: 'Press Start 2P', monospace;
+            font-size: 8px;
+            padding: 8px 18px;
+            border: 1px solid #383860;
+            border-bottom: none;
+            border-radius: 4px 4px 0 0;
+            background: #1a1a2a;
+            color: #999;
+            cursor: pointer;
+            transition: background 0.1s, color 0.1s;
+        }
+
+        .shop-tab:hover {
+            background: #252540;
+            color: #ccc;
+        }
+
+        .shop-tab.active {
+            background: #2a2a4a;
+            color: #fff;
+            border-color: #6060a0;
+        }
+
+        /* Content */
+        #shop-content {
+            flex: 1;
+            overflow-y: auto;
+            padding: 12px;
+            background: #0c0c14;
+            scrollbar-width: thin;
+            scrollbar-color: #404060 #0c0c14;
+        }
+
+        #shop-content::-webkit-scrollbar {
+            width: 6px;
+        }
+
+        #shop-content::-webkit-scrollbar-track {
+            background: #0c0c14;
+        }
+
+        #shop-content::-webkit-scrollbar-thumb {
+            background: #404060;
+            border-radius: 3px;
+        }
+
+        /* Rows */
+        .shop-row {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            background: #16162a;
+            border: 1px solid #2a2a42;
+            border-radius: 4px;
+            padding: 12px 14px;
+            margin-bottom: 8px;
+        }
+
+        .shop-row-info {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            gap: 5px;
+        }
+
+        .shop-row-label {
+            font-size: 9px;
+            color: #dde;
+        }
+
+        .shop-row-desc {
+            font-size: 7px;
+            color: #778;
+            line-height: 1.6;
+        }
+
+        .shop-row-level {
+            font-size: 7px;
+            color: #aaa8;
+        }
+
+        .lock-icon {
+            font-size: 18px;
+            flex-shrink: 0;
+        }
+
+        .shop-row-btns {
+            display: flex;
+            flex-direction: column;
+            gap: 5px;
+            align-items: flex-end;
+        }
+
+        .shop-btn {
+            font-family: 'Press Start 2P', monospace;
+            font-size: 7px;
+            padding: 7px 12px;
+            border: none;
+            border-radius: 3px;
+            cursor: pointer;
+            white-space: nowrap;
+            transition: background 0.1s, opacity 0.1s;
+        }
+
+        .shop-btn.unlock {
+            background: #8c6a18;
+            color: #fff;
+        }
+
+        .shop-btn.unlock:hover:not(:disabled) {
+            background: #c49020;
+        }
+
+        .shop-btn.upgrade {
+            background: #1e6e1e;
+            color: #fff;
+        }
+
+        .shop-btn.upgrade:hover:not(:disabled) {
+            background: #2aaa2a;
+        }
+
+        .shop-btn.equip {
+            background: #1a4a8a;
+            color: #fff;
+        }
+
+        .shop-btn.equip:hover:not(:disabled) {
+            background: #2a6acc;
+        }
+
+        .shop-btn.equipped {
+            background: #1a6a1a;
+            color: #afffaf;
+        }
+
+        .shop-btn:disabled {
+            opacity: 0.35;
+            cursor: default;
+        }
+    </style>
+</head>
+
+<body>
+
+    <!-- Shop HTML overlay -->
+    <div id="shop-overlay">
+        <div id="shop-panel">
+            <div id="shop-header">
+                <span id="shop-title">SHOP</span>
+                <div id="shop-timer">45s</div>
+                <span id="shop-coins">¢ 0</span>
+                <button id="shop-close" onclick="closeShop()">X</button>
+            </div>
+
+            <div id="shop-tabs">
+                <button class="shop-tab active" onclick="switchTab('stats')">STATS</button>
+                <button class="shop-tab" onclick="switchTab('passive')">PASSIVE</button>
+                <button class="shop-tab" onclick="switchTab('active')">ACTIVE</button>
+            </div>
+
+            <div id="shop-content">
+                <!-- populated by JS -->
+            </div>
+        </div>
+    </div>
+
+    <script src="../libraries/p5.min.js"></script>
+
+    <!-- Utility files -->
+    <script src="../js/utils/collisionHelper.js"></script>
+    <script src="../js/utils/inputHandler.js"></script>
+    <script src="../js/utils/uiRenderer.js"></script>
+    <script src="../js/utils/gameRenderer.js"></script>
+
+    <!-- Entity files -->
+    <script src="../js/entities/antidote.js"></script>
+    <script src="../js/entities/base.js"></script>
+    <script src="../js/entities/bullet.js"></script>
+    <script src="../js/entities/obstacle.js"></script>
+    <script src="../js/entities/player.js"></script>
+    <script src="../js/entities/zombie.js"></script>
+    <script src="../js/entities/weapon.js"></script>
+
+    <!-- System files -->
+    <script src="../js/systems/assetManager.js"></script>
+    <script src="../js/systems/antidoteManager.js"></script>
+    <script src="../js/systems/combatManager.js"></script>
+    <script src="../js/systems/gameState.js"></script>
+    <script src="../js/systems/mapManager.js"></script>
+    <script src="../js/systems/roundManager.js"></script>
+    <script src="../js/systems/zombieManager.js"></script>
+    <script src="../js/systems/weaponManager.js"></script>
+    <script src="../js/systems/shopManager.js"></script>
+    <script src="../js/systems/spriteManager.js"></script>
+
+    <!-- Main game file -->
+    <script src="../js/game.js"></script>
+
+    <script>
+        let _currentTab = "stats";
+
+        function openShop() {
+            document.getElementById("shop-overlay").classList.add("open");
+            renderShopTab(_currentTab);
+            updateShopHeader();
+        }
+
+        function closeShop() {
+            document.getElementById("shop-overlay").classList.remove("open");
+            // Tell game.js shop is closed
+            if (typeof onShopClosed === "function") onShopClosed();
+        }
+
+        function switchTab(tab) {
+            _currentTab = tab;
+            document.querySelectorAll(".shop-tab").forEach(t => t.classList.remove("active"));
+            event.target.classList.add("active");
+            renderShopTab(tab);
+        }
+
+        function updateShopHeader() {
+            // Coins
+            if (typeof gameState !== "undefined") {
+                document.getElementById("shop-coins").textContent = "¢ " + gameState.coins;
+            }
+            // Timer
+            if (typeof gameState !== "undefined" && gameState.roundManager) {
+                let ms = gameState.roundManager.intermissionTimeLeft;
+                let sec = Math.ceil(ms / 1000);
+                let timerEl = document.getElementById("shop-timer");
+                timerEl.textContent = "NEXT ROUND IN " + sec + "s";
+                timerEl.className = sec <= 10 ? "urgent" : "";
+            }
+        }
+
+        function renderShopTab(tab) {
+            let content = document.getElementById("shop-content");
+            content.innerHTML = "";
+            if (typeof shopManager === "undefined") return;
+
+            if (tab === "stats") {
+                let keys = Object.keys(shopManager.statShop);
+                for (let key of keys) {
+                    let s = shopManager.statShop[key];
+                    let cost = shopManager.getStatCurrentCost(key);
+                    let canAfford = gameState.coins >= cost;
+                    content.appendChild(_makeStatRow(key, s, cost, canAfford));
+                }
+            } else if (tab === "passive") {
+                for (let item of shopManager.passiveShop) {
+                    content.appendChild(_makeListRow(item, "passive"));
+                }
+            } else if (tab === "active") {
+                for (let item of shopManager.activeShop) {
+                    content.appendChild(_makeListRow(item, "active"));
+                }
+            }
+        }
+
+        function _makeStatRow(key, s, cost, canAfford) {
+            let row = document.createElement("div");
+            row.className = "shop-row";
+
+            let info = document.createElement("div");
+            info.className = "shop-row-info";
+            info.innerHTML = `
+                <div class="shop-row-label">${s.label.toUpperCase()}</div>
+                <div class="shop-row-desc">${s.description}</div>
+                <div class="shop-row-level">Lv. ${s.purchased}</div>
+            `;
+
+            let btns = document.createElement("div");
+            btns.className = "shop-row-btns";
+            let btn = document.createElement("button");
+            btn.className = "shop-btn upgrade";
+            btn.textContent = "UPGRADE  ¢" + cost;
+            btn.disabled = !canAfford;
+            btn.onclick = () => {
+                shopManager.buyStatUpgrade(key, gameState.player);
+                renderShopTab("stats");
+                updateShopHeader();
+            };
+            btns.appendChild(btn);
+
+            row.appendChild(info);
+            row.appendChild(btns);
+            return row;
+        }
+
+        function _makeListRow(item, tabKey) {
+            let row = document.createElement("div");
+            row.className = "shop-row";
+
+            let lock = document.createElement("div");
+            lock.className = "lock-icon";
+            lock.textContent = item.unlocked ? "" : "🔒";
+
+            let info = document.createElement("div");
+            info.className = "shop-row-info";
+            let levelStr = item.unlocked ? `Lv. ${item.level}` : "Locked";
+            info.innerHTML = `
+                <div class="shop-row-label">${item.label.toUpperCase()}</div>
+                <div class="shop-row-desc">${item.description}</div>
+                <div class="shop-row-level">${levelStr}</div>
+            `;
+
+            let btns = document.createElement("div");
+            btns.className = "shop-row-btns";
+
+            if (!item.unlocked) {
+                let canAfford = gameState.coins >= item.unlockCost;
+                let btn = document.createElement("button");
+                btn.className = "shop-btn unlock";
+                btn.textContent = "UNLOCK  ¢" + item.unlockCost;
+                btn.disabled = !canAfford;
+                btn.onclick = () => {
+                    if (tabKey === "passive") shopManager.buyPassiveUnlock(item.id);
+                    else shopManager.buyActiveUnlock(item.id);
+                    renderShopTab(tabKey);
+                    updateShopHeader();
+                };
+                btns.appendChild(btn);
+            } else {
+                let upgCost = item.upgradeCost + (item.level - 1) * 5;
+                let canUpgrade = gameState.coins >= upgCost;
+                let upgradeBtn = document.createElement("button");
+                upgradeBtn.className = "shop-btn upgrade";
+                upgradeBtn.textContent = "UPGRADE  ¢" + upgCost;
+                upgradeBtn.disabled = !canUpgrade;
+                upgradeBtn.onclick = () => {
+                    if (tabKey === "passive") shopManager.upgradePassive(item.id, gameState.player);
+                    else shopManager.upgradeActive(item.id, gameState.player);
+                    renderShopTab(tabKey);
+                    updateShopHeader();
+                };
+                btns.appendChild(upgradeBtn);
+
+                if (tabKey === "active") {
+                    let equipBtn = document.createElement("button");
+                    equipBtn.className = "shop-btn " + (item.equipped ? "equipped" : "equip");
+                    equipBtn.textContent = item.equipped ? "EQUIPPED" : "EQUIP";
+                    equipBtn.disabled = item.equipped;
+                    equipBtn.onclick = () => {
+                        shopManager.equipActive(item.id, gameState.player);
+                        renderShopTab(tabKey);
+                    };
+                    btns.appendChild(equipBtn);
+                }
+            }
+
+            row.appendChild(lock);
+            row.appendChild(info);
+            row.appendChild(btns);
+            return row;
+        }
+
+        // Called every frame from game.js to keep timer + coins live
+        function tickShopUI() {
+            if (!document.getElementById("shop-overlay").classList.contains("open")) return;
+            updateShopHeader();
+        }
+    </script>
+</body>
+
+</html>
