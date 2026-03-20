@@ -20,7 +20,7 @@ class WeaponPickupManager {
     // Options: "shotgun" | "rifle" | "sniper" | null
     // Set to null to disable debug weapon on start.
     // ─────────────────────────────────────────────────
-    this.debugWeapon = "rifle";
+    this.debugWeapon = "sniper";
   }
 
   getRandomWait() {
@@ -43,18 +43,28 @@ class WeaponPickupManager {
 
   spawn(base) {
     if (this.gameState.weaponPickups.length >= this.maxPickups) return;
-    let margin = 60;
+    let W = typeof WORLD_WIDTH !== "undefined" ? WORLD_WIDTH : this.canvasWidth;
+    let H =
+      typeof WORLD_HEIGHT !== "undefined" ? WORLD_HEIGHT : this.canvasHeight;
+    let player = this.gameState.player;
+
+    let spawnRadius = 450,
+      minDist = 120;
     let x,
       y,
       valid = false,
       attempts = 0;
-    while (!valid && attempts < 30) {
-      x = Math.random() * (this.canvasWidth - margin * 2) + margin;
-      y = Math.random() * (this.canvasHeight - margin * 2) + margin;
+
+    while (!valid && attempts < 40) {
+      let angle = Math.random() * Math.PI * 2;
+      let dist = minDist + Math.random() * (spawnRadius - minDist);
+      x = player.x + Math.cos(angle) * dist;
+      y = player.y + Math.sin(angle) * dist;
+      x = Math.max(50, Math.min(W - 50, x));
+      y = Math.max(50, Math.min(H - 50, y));
       let dx = x - (base.x + base.width / 2);
       let dy = y - (base.y + base.height / 2);
-      if (Math.sqrt(dx * dx + dy * dy) > 150 && !this.isInUnsafeZone(x, y))
-        valid = true;
+      if (Math.sqrt(dx * dx + dy * dy) > 120) valid = true;
       attempts++;
     }
     this.gameState.weaponPickups.push(
@@ -67,17 +77,18 @@ class WeaponPickupManager {
       // ─── SHOTGUN ─────────────────────────────────────────────────────────
       shotgun: {
         name: "Shotgun",
-        damage: 14, // damage per pellet (up to 72 if all hit)
+        damage: 12, // damage per pellet (up to 72 if all hit)
         range: 9999,
         aimRange: 120,
         cooldown: 500,
         magSize: 1,
         reloadTime: 500,
         pellets: 6,
-        spreadAngle: 0.4, 
+        spreadAngle: 0.4,
+        // Piercing: each pellet goes through up to 7 zombies (damage decays per hit)
         piercing: true,
         maxPierce: 7,
-        pierceDamageFalloff: 0.6, 
+        pierceDamageFalloff: 0.5, // each zombie hit does 50% of previous damage
         bulletSize: 4,
         bulletSpeed: 10,
         bulletColor: "#cc4400",
@@ -97,20 +108,20 @@ class WeaponPickupManager {
         name: "Auto Rifle",
         damage: 18,
         range: 9999,
-        aimRange: 400,
+        aimRange: 200,
         cooldown: 80,
-        magSize: 30,
+        magSize: 25,
         reloadTime: 2000,
         // No piercing — standard bullets
         piercing: false,
         maxPierce: 0,
         bulletSize: 5,
-        bulletSpeed: 10,
+        bulletSpeed: 12,
         bulletColor: "#594e1e",
         canShoot: true,
         lastShootTime: 0,
-        currentAmmo: 30,
-        totalAmmo: 60,
+        currentAmmo: 25,
+        totalAmmo: 75,
         isReloading: false,
         reloadStartTime: 0,
         unlimited: false,
@@ -129,8 +140,8 @@ class WeaponPickupManager {
         reloadTime: 3000,
         // Piercing: bullet goes through up to 4 zombies (damage decays per hit)
         piercing: true,
-        maxPierce: 3,
-        pierceDamageFalloff: 0.85, // each zombie hit does 65% of previous damage
+        maxPierce: 4,
+        pierceDamageFalloff: 0.65, // each zombie hit does 65% of previous damage
         bulletSize: 6,
         bulletSpeed: 18, // faster than normal bullets
         bulletColor: "#ffe066",

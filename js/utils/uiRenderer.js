@@ -8,16 +8,16 @@ class UIRenderer {
   // Change any of these numbers to resize that specific element
 
   static get FS_HP_TEXT() {
-    return 25;
+    return 20;
   } // "100/100" inside health bar
   static get FS_ROUND() {
-    return 28;
+    return 22;
   } // "ROUND 1"
   static get FS_ZOMBIE_COUNT() {
-    return 40
+    return 26;
   } // zombie number under skull
   static get FS_COINS() {
-    return 30;
+    return 22;
   } // coin amount top-right
   static get FS_AMMO() {
     return 22;
@@ -248,7 +248,7 @@ class UIRenderer {
 
   // ── Coin panel ────────────────────────────────────────────────────────────
   drawScore() {
-    let pW = 120,
+    let pW = 160,
       pH = 40,
       px = width - pW - 8,
       py = 8;
@@ -547,17 +547,6 @@ class UIRenderer {
           sheet.frameH,
         );
         pop();
-        textSize(15);
-        textAlign(CENTER, CENTER);
-        this.drawTextWithOutline(
-          "RETURN TO BASE",
-          player.x,
-          iconY + dh / 2 + 10,
-          0,
-          255,
-          80,
-          2,
-        );
         return;
       }
     }
@@ -570,9 +559,6 @@ class UIRenderer {
     textSize(18);
     textAlign(CENTER, CENTER);
     text("+", player.x, player.y - player.size / 2 - 20);
-    fill(0, 255, 0);
-    textSize(16);
-    text("RETURN TO BASE", player.x, player.y - player.size / 2 - 35);
   }
 
   drawMeleeSlash(player) {
@@ -732,6 +718,89 @@ class UIRenderer {
     );
   }
 
+  // ── Minimap ───────────────────────────────────────────────────────────────
+  drawMinimap(player, roundManager) {
+    let W = typeof WORLD_WIDTH !== "undefined" ? WORLD_WIDTH : 2400;
+    let H = typeof WORLD_HEIGHT !== "undefined" ? WORLD_HEIGHT : 2400;
+
+    let mmW = 160,
+      mmH = 120;
+    let mmX = width - mmW - 8; // top right, same x as coins
+    let mmY = 8 + 40 + 6; // below coins panel (coins: y=8, h=40, +6 gap)
+
+    // Panel background
+    this.drawWoodPanel(mmX, mmY, mmW, mmH);
+
+    // Clip area — inner map surface
+    let mx = mmX + 6,
+      my = mmY + 6;
+    let mw = mmW - 12,
+      mh = mmH - 12;
+
+    // Dark green map bg
+    noStroke();
+    fill(40, 90, 35, 200);
+    rect(mx, my, mw, mh);
+
+    // Scale factors
+    let sx = mw / W,
+      sy = mh / H;
+
+    // Draw base
+    if (this.gameState.base) {
+      let bx = mx + this.gameState.base.x * sx;
+      let by = my + this.gameState.base.y * sy;
+      fill(180, 160, 80, 220);
+      noStroke();
+      rect(
+        bx,
+        by,
+        max(4, this.gameState.base.width * sx),
+        max(4, this.gameState.base.height * sy),
+      );
+    }
+
+    // Draw zombies — red dots
+    fill(220, 40, 40, 180);
+    noStroke();
+    for (let z of this.gameState.zombies) {
+      let zx = mx + z.x * sx;
+      let zy = my + z.y * sy;
+      circle(zx, zy, 3);
+    }
+
+    // Draw antidote — yellow dot
+    if (this.gameState.currentAntidote) {
+      let ax = mx + this.gameState.currentAntidote.x * sx;
+      let ay = my + this.gameState.currentAntidote.y * sy;
+      fill(80, 220, 80, 220);
+      noStroke();
+      circle(ax, ay, 4);
+    }
+
+    // Draw player — white dot with outline
+    let px2 = mx + player.x * sx;
+    let py2 = my + player.y * sy;
+    fill(0, 0, 0, 180);
+    noStroke();
+    circle(px2, py2, 7);
+    fill(255, 255, 255, 240);
+    circle(px2, py2, 5);
+
+    // Thin border around map area
+    noFill();
+    stroke(80, 50, 18);
+    strokeWeight(1);
+    rect(mx, my, mw, mh);
+
+    // Label
+    noStroke();
+    textSize(9);
+    textAlign(CENTER, TOP);
+    this.drawTextWithOutline("MAP", mmX + mmW / 2, mmY + 2, 255, 240, 180, 1);
+    noStroke();
+  }
+
   renderAll(player, roundManager) {
     noStroke();
     this.drawStatBars(player);
@@ -739,5 +808,6 @@ class UIRenderer {
     this.drawWeaponSlot(player);
     this.drawRoundInfo(roundManager);
     if (roundManager.roundComplete) this.drawRoundComplete(roundManager);
+    this.drawMinimap(player, roundManager);
   }
 }

@@ -27,14 +27,17 @@ class Bullet {
     this.x += this.velocityX;
     this.y += this.velocityY;
 
-    if (this.x < 0 || this.x > width || this.y < 0 || this.y > height) {
+    let bW = typeof WORLD_WIDTH !== "undefined" ? WORLD_WIDTH : width;
+    let bH = typeof WORLD_HEIGHT !== "undefined" ? WORLD_HEIGHT : height;
+    if (this.x < 0 || this.x > bW || this.y < 0 || this.y > bH) {
       this.active = false;
     }
   }
 
   display() {
-    fill(this.color);
-    noStroke();
+    stroke(0);
+    strokeWeight(2);
+    fill(255, 220, 0);
     circle(this.x, this.y, this.size);
   }
 

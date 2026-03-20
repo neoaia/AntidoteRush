@@ -31,20 +31,32 @@ class AntidoteManager {
   }
 
   spawn(base) {
-    let margin = 50;
+    let W = typeof WORLD_WIDTH !== "undefined" ? WORLD_WIDTH : this.canvasWidth;
+    let H =
+      typeof WORLD_HEIGHT !== "undefined" ? WORLD_HEIGHT : this.canvasHeight;
+    let player = this.gameState.player;
+
+    // Spawn within camera view vicinity of player (200-450px away)
+    let spawnRadius = 400;
+    let minDist = 150;
     let x, y;
     let valid = false;
     let attempts = 0;
 
-    while (!valid && attempts < 30) {
-      x = Math.random() * (this.canvasWidth - margin * 2) + margin;
-      y = Math.random() * (this.canvasHeight - margin * 2) + margin;
+    while (!valid && attempts < 40) {
+      let angle = Math.random() * Math.PI * 2;
+      let dist = minDist + Math.random() * (spawnRadius - minDist);
+      x = player.x + Math.cos(angle) * dist;
+      y = player.y + Math.sin(angle) * dist;
 
-      let dx = x - (base.x + base.width / 2);
-      let dy = y - (base.y + base.height / 2);
-      let dist = Math.sqrt(dx * dx + dy * dy);
+      // Clamp to world bounds
+      x = Math.max(50, Math.min(W - 50, x));
+      y = Math.max(50, Math.min(H - 50, y));
 
-      if (dist > 150 && !this.isInUnsafeZone(x, y)) valid = true;
+      // Not too close to base
+      let dbx = x - (base.x + base.width / 2);
+      let dby = y - (base.y + base.height / 2);
+      if (Math.sqrt(dbx * dbx + dby * dby) > 100) valid = true;
       attempts++;
     }
 
@@ -61,7 +73,7 @@ class AntidoteManager {
       this.gameState.antidoteCanSpawn
     ) {
       if (millis() >= this.gameState.nextAntidoteSpawnTime) {
-        this.spawn(base);
+        this.spawn(base, player);
         this.gameState.antidoteCanSpawn = false;
       }
     }

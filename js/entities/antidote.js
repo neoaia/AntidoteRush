@@ -34,22 +34,28 @@ class Antidote {
 
   display() {
     let drawY = this.y + this.bobOffset;
+    let timeLeft = this.lifetime - (millis() - this.spawnTime);
 
-    // Shadow — ellipse on the ground, shrinks/grows with bob
+    // Blink when expiring — fast < 3s, slow < 6s
+    if (timeLeft < 6000) {
+      let blinkSpeed = timeLeft < 3000 ? 150 : 350;
+      if (Math.floor(millis() / blinkSpeed) % 2 === 0) return;
+    }
+
+    // Shadow
     let shadowScale = map(this.bobOffset, -this.bobAmp, this.bobAmp, 1.1, 0.7);
     noStroke();
     fill(0, 0, 0, 60);
     ellipse(this.x, this.y + 18, 28 * shadowScale, 8 * shadowScale);
 
-    // Sprite at 0.7 scale (smaller)
+    // Sprite
     let drawn = SpriteRenderer.draw(
       this.spriteSheet,
       this.spriteState,
       this.x,
       drawY,
-      0.7,
+      0.85,
     );
-
     if (!drawn) {
       fill(0, 255, 0);
       stroke(0);
@@ -60,15 +66,6 @@ class Antidote {
       textSize(10);
       textAlign(CENTER, CENTER);
       text("+", this.x, drawY);
-    }
-
-    // Despawn warning — blink when < 3 seconds left
-    let timeLeft = this.lifetime - (millis() - this.spawnTime);
-    if (timeLeft < 3000 && Math.floor(millis() / 300) % 2 === 0) {
-      noFill();
-      stroke(255, 0, 0);
-      strokeWeight(2);
-      circle(this.x, drawY, this.size * 2);
     }
   }
 

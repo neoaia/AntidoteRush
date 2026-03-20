@@ -45,7 +45,7 @@ class Zombie {
     } else if (type === "slasher") {
       this.size = 32;
       this.speed = 3 + speedBonus;
-      this.baseHealth = 150 + baseHealthBonus;
+      this.baseHealth = 800 + baseHealthBonus;
       this.damage = 25;
       this.color = "#FF0000";
       this.points = 25;
@@ -55,7 +55,7 @@ class Zombie {
     } else if (type === "tank") {
       this.size = 60;
       this.speed = 4 + speedBonus;
-      this.baseHealth = 300 + baseHealthBonus;
+      this.baseHealth = 1500 + baseHealthBonus;
       this.damage = 50;
       this.color = "#8B0000";
       this.points = 50;
@@ -95,6 +95,16 @@ class Zombie {
   }
 
   display() {
+    // Drop shadow
+    noStroke();
+    fill(0, 0, 0, 70);
+    ellipse(
+      this.x + 2,
+      this.y + this.size / 2 + 10,
+      this.size * 1.5,
+      this.size * 0.42,
+    );
+
     // Try sprite first
     let drawn = SpriteRenderer.draw(
       this.spriteSheet,
@@ -123,15 +133,26 @@ class Zombie {
   }
 
   displayHealthBar() {
-    let barWidth = 30,
-      barHeight = 4;
+    let barWidth = 40,
+      barHeight = 7;
     let barX = this.x - barWidth / 2;
-    let barY = this.y - this.size / 2 - 8;
-    fill(50);
+    let barY = this.y - this.size / 2 - 14;
+
+    // Black outline
+    fill(0);
     noStroke();
+    rect(barX - 1, barY - 1, barWidth + 2, barHeight + 2);
+
+    // Dark background
+    fill(40, 10, 10);
     rect(barX, barY, barWidth, barHeight);
-    fill(255, 0, 0);
-    rect(barX, barY, barWidth * (this.health / this.maxHealth), barHeight);
+
+    // Health fill
+    let pct = this.health / this.maxHealth;
+    if (pct > 0.6) fill(50, 200, 50);
+    else if (pct > 0.3) fill(220, 160, 0);
+    else fill(200, 30, 30);
+    rect(barX, barY, barWidth * pct, barHeight);
   }
 
   canAttack() {

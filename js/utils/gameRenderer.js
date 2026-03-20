@@ -9,11 +9,17 @@ class GameRenderer {
     if (this._mapDecorations) return;
     this._mapDecorations = [];
 
+    let W = typeof WORLD_WIDTH !== "undefined" ? WORLD_WIDTH : 3200;
+    let H = typeof WORLD_HEIGHT !== "undefined" ? WORLD_HEIGHT : 3200;
+
     let seed = 99371;
     const rand = () => {
       seed = (seed * 1664525 + 1013904223) & 0xffffffff;
       return (seed >>> 0) / 0xffffffff;
     };
+    // randW/randH return world coords directly
+    const randW = () => rand() * W;
+    const randH = () => rand() * H;
 
     const cluster = (
       cx,
@@ -47,8 +53,8 @@ class GameRenderer {
     for (let i = 0; i < 22; i++) {
       this._mapDecorations.push({
         key: bigKeys[Math.floor(rand() * bigKeys.length)],
-        x: rand(),
-        y: rand(),
+        x: randW(),
+        y: randH(),
         scale: 1.4 + rand() * 0.6,
         layer: 0,
       });
@@ -57,8 +63,8 @@ class GameRenderer {
     for (let i = 0; i < 8; i++) {
       this._mapDecorations.push({
         key: bigKeys[Math.floor(rand() * bigKeys.length)],
-        x: 0.3 + rand() * 0.4,
-        y: rand() * 0.32,
+        x: W * (0.3 + rand() * 0.4),
+        y: H * (rand() * 0.32),
         scale: 1.5 + rand() * 0.5,
         layer: 0,
       });
@@ -78,8 +84,8 @@ class GameRenderer {
     for (let i = 0; i < 6; i++) {
       this._mapDecorations.push({
         key: darkKeys[Math.floor(rand() * darkKeys.length)],
-        x: 0.25 + rand() * 0.5,
-        y: rand() * 0.38,
+        x: W * (0.25 + rand() * 0.5),
+        y: H * (rand() * 0.38),
         scale: 0.9 + rand() * 0.4,
         layer: 1,
       });
@@ -89,8 +95,8 @@ class GameRenderer {
     for (let i = 0; i < 35; i++) {
       this._mapDecorations.push({
         key: grassKeys[Math.floor(rand() * grassKeys.length)],
-        x: rand(),
-        y: rand(),
+        x: randW(),
+        y: randH(),
         scale: 0.55 + rand() * 0.35,
         layer: 2,
       });
@@ -99,8 +105,8 @@ class GameRenderer {
     for (let i = 0; i < 10; i++) {
       this._mapDecorations.push({
         key: grassKeys[Math.floor(rand() * grassKeys.length)],
-        x: 0.2 + rand() * 0.6,
-        y: rand() * 0.42,
+        x: W * (0.2 + rand() * 0.6),
+        y: H * (rand() * 0.42),
         scale: 0.55 + rand() * 0.3,
         layer: 2,
       });
@@ -108,21 +114,21 @@ class GameRenderer {
 
     // ── Layer 3: patch CLUSTERS — tight kumpol style ──────────────────────
     // General map clusters
-    let clusterCenters = 20;
+    let clusterCenters = 70;
     for (let c = 0; c < clusterCenters; c++) {
-      let cx = rand(),
-        cy = rand();
-      let clusterSize = 4 + Math.floor(rand() * 5); // 4-8 patches per cluster
-      let spread = 0.03 + rand() * 0.04;
-      cluster(cx, cy, spread, clusterSize, patchKeys, 0.5, 0.85, 3);
+      let cx = randW(),
+        cy = randH();
+      let clusterSize = 4 + Math.floor(rand() * 5);
+      let spread = W * (0.02 + rand() * 0.025);
+      cluster(cx, cy, spread, clusterSize, patchKeys, 0.35, 0.6, 3);
     }
     // Upper-middle clusters
-    for (let c = 0; c < 8; c++) {
-      let cx = 0.22 + rand() * 0.56;
-      let cy = rand() * 0.4;
+    for (let c = 0; c < 20; c++) {
+      let cx = W * (0.22 + rand() * 0.56);
+      let cy = H * (rand() * 0.4);
       let clusterSize = 4 + Math.floor(rand() * 4);
-      let spread = 0.03 + rand() * 0.035;
-      cluster(cx, cy, spread, clusterSize, patchKeys, 0.5, 0.8, 3);
+      let spread = W * (0.02 + rand() * 0.02);
+      cluster(cx, cy, spread, clusterSize, patchKeys, 0.35, 0.58, 3);
     }
 
     // Sort by layer
@@ -130,9 +136,12 @@ class GameRenderer {
   }
 
   drawBackground() {
+    let W = typeof WORLD_WIDTH !== "undefined" ? WORLD_WIDTH : width;
+    let H = typeof WORLD_HEIGHT !== "undefined" ? WORLD_HEIGHT : height;
+
     noStroke();
     fill(72, 130, 60);
-    rect(0, 0, width, height);
+    rect(0, 0, W, H);
 
     if (typeof spriteManager === "undefined") return;
     this._initMap();
@@ -143,10 +152,9 @@ class GameRenderer {
 
       let dw = sheet.frameW * d.scale;
       let dh = sheet.frameH * d.scale;
-      let dx = d.x * width - dw / 2;
-      let dy = d.y * height - dh / 2;
-
-      if (dx + dw < 0 || dx > width || dy + dh < 0 || dy > height) continue;
+      // d.x/d.y are already in world coords (set during _initMap)
+      let dx = d.x - dw / 2;
+      let dy = d.y - dh / 2;
 
       push();
       imageMode(CORNER);

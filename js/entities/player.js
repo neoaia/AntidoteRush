@@ -11,7 +11,6 @@ class Player {
     this.maxHealth = 100;
     this.currentWeapon = "handgun";
 
-    // Stamina — no regen delay
     this.stamina = 100;
     this.maxStamina = 100;
     this.staminaDrainRate = 20;
@@ -20,12 +19,10 @@ class Player {
     this.isSprinting = false;
     this.isInBase = false;
 
-    // Skill slot
     this.skillPressed = false;
     this.skillPressTime = 0;
-    this.skillDisplayDuration = 800; // ms to show the indicator
+    this.skillDisplayDuration = 800;
 
-    // Stat upgrade levels (for shopManager to read/write)
     this.statLevels = {
       health: 0,
       stamina: 0,
@@ -33,10 +30,7 @@ class Player {
       strength: 0,
       precision: 0,
     };
-
-    // Damage multiplier from strength upgrades
     this.damageMultiplier = 1.0;
-    // Precision reduces spread / increases aim range
     this.precisionBonus = 0;
 
     this.weapons = {
@@ -70,17 +64,16 @@ class Player {
     };
 
     this.mouseIsHeld = false;
-    this.aimAngle = 0; // updated each frame from game.js
+    this.aimAngle = 0;
 
-    // Sprite — managed by SpriteManager / SpriteRenderer
-    this.spriteSheet = null; // set by spriteManager.get('player') in setup()
-    this.spriteState = new SpriteState(8, 4); // animSpeed=8, totalFrames=4
+    this.spriteSheet = null;
+    this.spriteState = new SpriteState(8, 4);
   }
 
   update(canvasWidth, canvasHeight) {
     let moving = false;
-    let newX = this.x;
-    let newY = this.y;
+    let newX = this.x,
+      newY = this.y;
 
     let shiftHeld = keyIsDown(SHIFT);
     this.isSprinting = shiftHeld && this.stamina > 0;
@@ -107,11 +100,9 @@ class Player {
     this.x = constrain(newX, half, canvasWidth - half);
     this.y = constrain(newY, half, canvasHeight - half);
 
-    // Flip sprite based on horizontal movement
-    if (keyIsDown(65)) this.spriteState.flipX = true; // A = left
-    if (keyIsDown(68)) this.spriteState.flipX = false; // D = right
+    if (keyIsDown(65)) this.spriteState.flipX = true;
+    if (keyIsDown(68)) this.spriteState.flipX = false;
 
-    // Stamina — no delay, regens immediately when not sprinting
     let dt = deltaTime / 1000;
     if (this.isSprinting && moving) {
       this.stamina = max(0, this.stamina - this.staminaDrainRate * dt);
@@ -121,13 +112,11 @@ class Player {
         : this.staminaRegenRate;
       this.stamina = min(this.maxStamina, this.stamina + regenRate * dt);
     }
-
     if (this.stamina <= 0) {
       this.isSprinting = false;
       this.speed = this.baseSpeed;
     }
 
-    // Weapon cooldown / reload
     let w = this.weapons[this.currentWeapon];
     if (!w) return;
     let now = millis();
@@ -158,11 +147,9 @@ class Player {
     }
   }
 
-  // Called when space is pressed
   activateSkill() {
     this.skillPressed = true;
     this.skillPressTime = millis();
-    // TODO: actual skill logic goes here later
   }
 
   tryAutoFire(targetX, targetY) {
@@ -182,7 +169,14 @@ class Player {
   }
 
   display() {
-    // Try sprite first; fall back to circle
+    // ── Shadow — flat ellipse at sprite feet ──────────────────────────────
+    // Sprite is 32px * 1.5 scale = 48px tall, centered on this.y
+    // So sprite bottom = this.y + 24px
+    noStroke();
+    fill(0, 0, 0, 80);
+    ellipse(this.x, this.y + 24, 32, 10);
+
+    // ── Sprite ────────────────────────────────────────────────────────────
     let drawn = SpriteRenderer.draw(
       this.spriteSheet,
       this.spriteState,
@@ -196,12 +190,10 @@ class Player {
       circle(this.x, this.y, this.size);
     }
 
-    this.displayHealthBar();
-
-    // Draw held weapon rotated toward cursor
+    // ── Held weapon ───────────────────────────────────────────────────────
     this._drawHeldWeapon();
 
-    // Skill pressed indicator — fades out
+    // ── Skill indicator ───────────────────────────────────────────────────
     if (this.skillPressed) {
       let elapsed = millis() - this.skillPressTime;
       if (elapsed < this.skillDisplayDuration) {
@@ -223,7 +215,6 @@ class Player {
     if (!w || this.currentWeapon === "melee") return;
     if (typeof spriteManager === "undefined") return;
 
-    // Map weapon name to sprite key
     let keyMap = {
       Handgun: "gun_handgun",
       "Auto Rifle": "gun_rifle",
@@ -236,21 +227,15 @@ class Player {
     let sheet = spriteManager.get(sprKey);
     if (!sheet || !sheet.img) return;
 
-    let sc = 0.9; // slightly smaller
-    let dw = sheet.frameW * sc;
-    let dh = sheet.frameH * sc;
+    let sc = 0.9;
+    let dw = sheet.frameW * sc,
+      dh = sheet.frameH * sc;
 
     push();
     translate(this.x, this.y);
     rotate(this.aimAngle);
-
-    // Flip vertically if aiming left
-    if (Math.abs(this.aimAngle) > Math.PI / 2) {
-      scale(1, -1);
-    }
-
+    if (Math.abs(this.aimAngle) > Math.PI / 2) scale(1, -1);
     imageMode(CENTER);
-    // Offset closer to player body
     let offsetX = this.size / 2 + 2;
     image(sheet.img, offsetX, 5, dw, dh, 0, 0, sheet.frameW, sheet.frameH);
     pop();
@@ -297,7 +282,7 @@ class Player {
   takeDamage(damage) {
     this.health -= damage;
     if (this.health < 0) this.health = 0;
-    this.spriteState.flash(); // red flash on hit
+    this.spriteState.flash();
   }
 
   getLeft() {
@@ -314,7 +299,6 @@ class Player {
   }
 }
 
-// Scroll wheel weapon cycling
 Player.prototype.cycleEquippedWeapon = function (direction) {
   const slots = ["melee", "handgun", "equipped"];
   let idx = slots.indexOf(this.currentWeapon);

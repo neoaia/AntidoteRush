@@ -1,5 +1,11 @@
 let gameState;
 let spriteManager;
+
+// ── WORLD / CAMERA CONFIG ─────────────────────────────────────────────────
+const WORLD_WIDTH = 2400; // total world width in pixels
+const WORLD_HEIGHT = 2400; // total world height in pixels
+let camX = 0; // camera top-left x (world coords)
+let camY = 0; // camera top-left y (world coords)
 let assetManager;
 let antidoteManager;
 let combatManager;
@@ -34,18 +40,18 @@ function setup() {
   let difficulty = localStorage.getItem("difficulty") || "easy";
   gameState.initialize(playerName, inputMethod, difficulty);
 
-  gameState.player = new Player(width / 2, height / 2);
+  gameState.player = new Player(WORLD_WIDTH / 2, WORLD_HEIGHT / 2);
   gameState.roundManager = new RoundManager();
   gameState.roundManager.applyDifficulty(difficulty);
-  gameState.base = new Base(width / 2 - 40, height / 2 - 40);
+  gameState.base = new Base(WORLD_WIDTH / 2 - 40, WORLD_HEIGHT / 2 - 40);
 
   // Init sprites AFTER all entities are created
   spriteManager.init();
   gameState.player.spriteSheet = spriteManager.get("player");
   gameState.base.initSprite();
 
-  vx = width / 2;
-  vy = height / 2;
+  vx = WORLD_WIDTH / 2;
+  vy = WORLD_HEIGHT / 2;
 
   antidoteManager = new AntidoteManager(gameState, width, height);
   combatManager = new CombatManager(gameState);
@@ -93,8 +99,12 @@ function setupPointerLock() {
     let w = player.weapons[player.currentWeapon];
     let aimRange = w && w.aimRange < 9000 ? w.aimRange : 99999;
 
-    vx = constrain(vx + e.movementX, 0, width);
-    vy = constrain(vy + e.movementY, 0, height);
+    // vx/vy are in WORLD space — add movement to screen cursor then offset by cam
+    let screenVX = constrain(vx - camX + e.movementX, 0, width);
+    let screenVY = constrain(vy - camY + e.movementY, 0, height);
+    vx = screenVX + camX;
+    vy = screenVY + camY;
+
     let dx = vx - player.x,
       dy = vy - player.y;
     let d = Math.sqrt(dx * dx + dy * dy);
@@ -138,9 +148,8 @@ function draw() {
   }
 
   if (!pointerLocked && !isShopOpen) {
-    let player = gameState.player;
-    vx = player.x;
-    vy = player.y;
+    vx = gameState.player.x;
+    vy = gameState.player.y;
   }
 
   updateGame();
@@ -159,7 +168,11 @@ function updateGame() {
   let player = gameState.player;
   let rm = gameState.roundManager;
 
-  player.update(width, height);
+  player.update(WORLD_WIDTH, WORLD_HEIGHT);
+
+  // Update camera — center on player, clamped to world bounds
+  camX = constrain(player.x - width / 2, 0, WORLD_WIDTH - width);
+  camY = constrain(player.y - height / 2, 0, WORLD_HEIGHT - height);
 
   // Update aim angle toward virtual cursor
   player.aimAngle = Math.atan2(vy - player.y, vx - player.x);
@@ -213,7 +226,7 @@ function updateGame() {
     // Redirect to game over screen
     setTimeout(() => {
       document.exitPointerLock();
-      window.location.href = "../pages/gameOver.html";
+      window.location.href = "../pages/game-over.html";
     }, 1200);
   }
 }
@@ -231,9 +244,14 @@ function startNextRound() {
 }
 
 function displayGame() {
+  // Apply camera offset — everything inside is in world space
+  push();
+  translate(-camX, -camY);
   gameRenderer.renderGame(gameState.player, gameState.base, vx, vy);
   weaponPickupManager.display();
   uiRenderer.drawScorePopups();
+  pop();
+  // HUD drawn AFTER pop() so it stays fixed on screen
   uiRenderer.renderAll(gameState.player, gameState.roundManager);
 }
 

@@ -7,7 +7,7 @@ class WeaponPickup {
     this.active = true;
 
     this.spawnTime = millis();
-    this.lifetime = 10000;
+    this.lifetime = 15000; // match antidote lifetime
 
     const colors = { shotgun: "#FF6600", rifle: "#00AAFF", sniper: "#AA00FF" };
     this.color = colors[weaponType] || "#FFFFFF";
@@ -39,12 +39,10 @@ class WeaponPickup {
     let bobOffset = Math.sin(this.bobTick) * this.bobAmp;
     let drawY = this.y + bobOffset;
 
-    // Blink when < 2s left
-    let blinkSpeed = timeLeft < 2000 ? 100 : 200;
-    let shouldShow = Math.floor(millis() / blinkSpeed) % 2 === 0;
-    if (!shouldShow && timeLeft < 2000) {
-      this._drawTimerBar(timeLeft, drawY);
-      return;
+    // Blink fast when < 3s left, slow when < 6s left
+    if (timeLeft < 6000) {
+      let blinkSpeed = timeLeft < 3000 ? 150 : 350;
+      if (Math.floor(millis() / blinkSpeed) % 2 === 0) return;
     }
 
     // Shadow
@@ -56,8 +54,8 @@ class WeaponPickup {
     // Box sprite background
     if (this.spriteSheet && this.spriteSheet.img) {
       let s = this.spriteSheet;
-      let dw = s.frameW * 0.50;
-      let dh = s.frameH * 0.50;
+      let dw = s.frameW * 0.85;
+      let dh = s.frameH * 0.85;
       push();
       imageMode(CORNER);
       image(
@@ -73,7 +71,6 @@ class WeaponPickup {
       );
       pop();
     } else {
-      // Fallback rect
       stroke(0);
       strokeWeight(2);
       fill(this.color);
@@ -86,35 +83,39 @@ class WeaponPickup {
       );
     }
 
-    // Weapon label on top
-    textSize(9);
-    textAlign(CENTER, CENTER);
-    noStroke();
-    fill(0);
-    text(this.weaponType.toUpperCase(), this.x + 1, drawY - 1);
-    fill(255);
-    text(this.weaponType.toUpperCase(), this.x, drawY);
-
-    this._drawTimerBar(timeLeft, drawY);
-  }
-
-  _drawTimerBar(timeLeft, drawY) {
-    let barWidth = 40,
-      barHeight = 4;
-    let barX = this.x - barWidth / 2;
-    let barY = drawY - this.size / 2 - 10;
-    fill(50);
-    noStroke();
-    rect(barX, barY, barWidth, barHeight);
-    let pct = timeLeft / this.lifetime;
-    fill(
-      pct > 0.5
-        ? color(0, 255, 0)
-        : pct > 0.25
-          ? color(255, 255, 0)
-          : color(255, 0, 0),
-    );
-    rect(barX, barY, barWidth * pct, barHeight);
+    // Gun icon
+    let gunKeyMap = {
+      shotgun: "gun_shotgun",
+      rifle: "gun_rifle",
+      sniper: "gun_sniper",
+      handgun: "gun_handgun",
+    };
+    let gunKey = gunKeyMap[this.weaponType];
+    let gunSheet =
+      gunKey && typeof spriteManager !== "undefined"
+        ? spriteManager.get(gunKey)
+        : null;
+    if (gunSheet && gunSheet.img) {
+      let maxW = 60,
+        maxH = 30;
+      let sc = Math.min(maxW / gunSheet.frameW, maxH / gunSheet.frameH);
+      let dw = gunSheet.frameW * sc,
+        dh = gunSheet.frameH * sc;
+      push();
+      translate(this.x, drawY);
+      rotate(-0.4); // slant ~23 degrees
+      imageMode(CENTER);
+      image(gunSheet.img, 0, 0, dw, dh, 0, 0, gunSheet.frameW, gunSheet.frameH);
+      pop();
+    } else {
+      textSize(9);
+      textAlign(CENTER, CENTER);
+      noStroke();
+      fill(0);
+      text(this.weaponType.toUpperCase(), this.x + 1, drawY - 1);
+      fill(255);
+      text(this.weaponType.toUpperCase(), this.x, drawY);
+    }
   }
 
   checkPlayerPickup(player) {
