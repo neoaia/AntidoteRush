@@ -15,7 +15,7 @@
  *   3. Use SpriteRenderer.draw() to render it cleanly.
  */
 
-const SPRITE_DEFS = {
+var SPRITE_DEFS = {
   // key:  { path, frames, layout }
   // layout: 'horizontal' (frames side by side) | 'vertical' (frames stacked)
   player: {
@@ -33,6 +33,128 @@ const SPRITE_DEFS = {
   zombie_witch: {
     path: "../assets/zombies/witch.png",
     frames: 3,
+    layout: "horizontal",
+  },
+  zombie_crawler: {
+    path: "../assets/zombies/crawler.png",
+    frames: 3,
+    layout: "horizontal",
+  },
+  zombie_slasher: {
+    path: "../assets/zombies/slasher.png",
+    frames: 3,
+    layout: "horizontal",
+  },
+  antidote: {
+    path: "../assets/items/antidote.png",
+    frames: 1,
+    layout: "horizontal",
+  },
+  base: { path: "../assets/base/base.png", frames: 1, layout: "horizontal" },
+  weapon_box: {
+    path: "../assets/items/weapon-box.png",
+    frames: 1,
+    layout: "horizontal",
+  },
+
+  // ── Guns ─────────────────────────────────────────────────────────────────
+  gun_handgun: {
+    path: "../assets/guns/handgun.png",
+    frames: 1,
+    layout: "horizontal",
+  },
+  gun_rifle: {
+    path: "../assets/guns/rifle.png",
+    frames: 1,
+    layout: "horizontal",
+  },
+  gun_shotgun: {
+    path: "../assets/guns/shotgun.png",
+    frames: 1,
+    layout: "horizontal",
+  },
+  gun_sniper: {
+    path: "../assets/guns/sniper.png",
+    frames: 1,
+    layout: "horizontal",
+  },
+
+  // ── Ground / grass tiles ─────────────────────────────────────────────────
+  big01: { path: "../assets/grass/big01.png", frames: 1, layout: "horizontal" },
+  big02: { path: "../assets/grass/big02.png", frames: 1, layout: "horizontal" },
+  dark01: {
+    path: "../assets/grass/dark01.png",
+    frames: 1,
+    layout: "horizontal",
+  },
+  dark02: {
+    path: "../assets/grass/dark02.png",
+    frames: 1,
+    layout: "horizontal",
+  },
+  grass01: {
+    path: "../assets/grass/grass01.png",
+    frames: 1,
+    layout: "horizontal",
+  },
+  grass02: {
+    path: "../assets/grass/grass02.png",
+    frames: 1,
+    layout: "horizontal",
+  },
+  grass03: {
+    path: "../assets/grass/grass03.png",
+    frames: 1,
+    layout: "horizontal",
+  },
+  grass04: {
+    path: "../assets/grass/grass04.png",
+    frames: 1,
+    layout: "horizontal",
+  },
+  grass05: {
+    path: "../assets/grass/grass05.png",
+    frames: 1,
+    layout: "horizontal",
+  },
+  patch01: {
+    path: "../assets/grass/patch01.png",
+    frames: 1,
+    layout: "horizontal",
+  },
+  patch02: {
+    path: "../assets/grass/patch02.png",
+    frames: 1,
+    layout: "horizontal",
+  },
+  patch03: {
+    path: "../assets/grass/patch03.png",
+    frames: 1,
+    layout: "horizontal",
+  },
+  patch04: {
+    path: "../assets/grass/patch04.png",
+    frames: 1,
+    layout: "horizontal",
+  },
+  patch05: {
+    path: "../assets/grass/patch05.png",
+    frames: 1,
+    layout: "horizontal",
+  },
+  icon_heart: {
+    path: "../assets/gui/heart.png",
+    frames: 1,
+    layout: "horizontal",
+  },
+  icon_stamina: {
+    path: "../assets/gui/stamina.png",
+    frames: 1,
+    layout: "horizontal",
+  },
+  icon_coin: {
+    path: "../assets/gui/coin.png",
+    frames: 1,
     layout: "horizontal",
   },
 };

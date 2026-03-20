@@ -40,22 +40,22 @@ class Zombie {
       this.color = "#FFFF00";
       this.points = 20;
       this.coins = 6;
-      this.spriteKey = null;
-      this.spriteFrames = 4;
+      this.spriteKey = "zombie_crawler";
+      this.spriteFrames = 3;
     } else if (type === "slasher") {
       this.size = 32;
       this.speed = 3 + speedBonus;
-      this.baseHealth = 800 + baseHealthBonus;
+      this.baseHealth = 150 + baseHealthBonus;
       this.damage = 25;
       this.color = "#FF0000";
       this.points = 25;
       this.coins = 10;
-      this.spriteKey = null;
-      this.spriteFrames = 4;
+      this.spriteKey = "zombie_slasher";
+      this.spriteFrames = 3;
     } else if (type === "tank") {
       this.size = 60;
       this.speed = 4 + speedBonus;
-      this.baseHealth = 1500 + baseHealthBonus;
+      this.baseHealth = 300 + baseHealthBonus;
       this.damage = 50;
       this.color = "#8B0000";
       this.points = 50;

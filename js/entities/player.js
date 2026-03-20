@@ -70,6 +70,7 @@ class Player {
     };
 
     this.mouseIsHeld = false;
+    this.aimAngle = 0; // updated each frame from game.js
 
     // Sprite — managed by SpriteManager / SpriteRenderer
     this.spriteSheet = null; // set by spriteManager.get('player') in setup()
@@ -197,6 +198,9 @@ class Player {
 
     this.displayHealthBar();
 
+    // Draw held weapon rotated toward cursor
+    this._drawHeldWeapon();
+
     // Skill pressed indicator — fades out
     if (this.skillPressed) {
       let elapsed = millis() - this.skillPressTime;
@@ -212,6 +216,44 @@ class Player {
         this.skillPressed = false;
       }
     }
+  }
+
+  _drawHeldWeapon() {
+    let w = this.weapons[this.currentWeapon];
+    if (!w || this.currentWeapon === "melee") return;
+    if (typeof spriteManager === "undefined") return;
+
+    // Map weapon name to sprite key
+    let keyMap = {
+      Handgun: "gun_handgun",
+      "Auto Rifle": "gun_rifle",
+      Shotgun: "gun_shotgun",
+      Sniper: "gun_sniper",
+    };
+    let sprKey = keyMap[w.name];
+    if (!sprKey) return;
+
+    let sheet = spriteManager.get(sprKey);
+    if (!sheet || !sheet.img) return;
+
+    let sc = 0.9; // slightly smaller
+    let dw = sheet.frameW * sc;
+    let dh = sheet.frameH * sc;
+
+    push();
+    translate(this.x, this.y);
+    rotate(this.aimAngle);
+
+    // Flip vertically if aiming left
+    if (Math.abs(this.aimAngle) > Math.PI / 2) {
+      scale(1, -1);
+    }
+
+    imageMode(CENTER);
+    // Offset closer to player body
+    let offsetX = this.size / 2 + 2;
+    image(sheet.img, offsetX, 5, dw, dh, 0, 0, sheet.frameW, sheet.frameH);
+    pop();
   }
 
   displayHealthBar() {

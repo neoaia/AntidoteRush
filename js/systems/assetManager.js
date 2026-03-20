@@ -7,9 +7,9 @@ class AssetManager {
   }
 
   preload() {
-    this.gameFont = loadFont("/assets/fonts/PixelPurl.ttf");
+    this.gameFont = loadFont("/assets/fonts/ByteBounce.ttf");
     this.skullIcon = loadImage("/assets/skulls/skull007.png");
-    this.weaponIcons.handgun = loadImage("/assets/guns/2.png");
+    this.weaponIcons.handgun = loadImage("/assets/guns/handgun.png");
   }
 
   getFont() {

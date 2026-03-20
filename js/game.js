@@ -35,14 +35,17 @@ function setup() {
   gameState.initialize(playerName, inputMethod, difficulty);
 
   gameState.player = new Player(width / 2, height / 2);
-  spriteManager.init(); // builds SpriteSheet objects after images loaded
-  gameState.player.spriteSheet = spriteManager.get("player");
-  vx = width / 2;
-  vy = height / 2;
-
   gameState.roundManager = new RoundManager();
   gameState.roundManager.applyDifficulty(difficulty);
   gameState.base = new Base(width / 2 - 40, height / 2 - 40);
+
+  // Init sprites AFTER all entities are created
+  spriteManager.init();
+  gameState.player.spriteSheet = spriteManager.get("player");
+  gameState.base.initSprite();
+
+  vx = width / 2;
+  vy = height / 2;
 
   antidoteManager = new AntidoteManager(gameState, width, height);
   combatManager = new CombatManager(gameState);
@@ -120,8 +123,6 @@ function windowResized() {
 }
 
 function draw() {
-  background(255);
-
   // Update HTML HUD every frame
   if (typeof updateHUD === "function") updateHUD();
 
@@ -159,6 +160,9 @@ function updateGame() {
   let rm = gameState.roundManager;
 
   player.update(width, height);
+
+  // Update aim angle toward virtual cursor
+  player.aimAngle = Math.atan2(vy - player.y, vx - player.x);
 
   // Re-clamp vx/vy as player moves
   let w = player.weapons[player.currentWeapon];
@@ -209,7 +213,7 @@ function updateGame() {
     // Redirect to game over screen
     setTimeout(() => {
       document.exitPointerLock();
-      window.location.href = "../pages/game-over.html";
+      window.location.href = "../pages/gameOver.html";
     }, 1200);
   }
 }
@@ -241,10 +245,12 @@ function mousePressed() {
 }
 
 function mouseReleased() {
+  if (typeof gameState === "undefined" || !gameState.player) return;
   gameState.player.mouseIsHeld = false;
 }
 
 function mouseWheel(event) {
+  if (typeof gameState === "undefined" || !gameState.player) return false;
   if (isPaused || isShopOpen) return false;
   gameState.player.cycleEquippedWeapon(event.delta > 0 ? 1 : -1);
   return false;

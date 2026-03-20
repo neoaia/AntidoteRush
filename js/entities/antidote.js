@@ -2,75 +2,79 @@ class Antidote {
   constructor(x, y) {
     this.x = x;
     this.y = y;
-    this.size = 30;
-    this.color = "#1e4a59";
+    this.size = 20;
     this.active = true;
-
     this.spawnTime = millis();
-    this.lifetime = 8000;
+    this.lifetime = 15000; // 15 seconds before despawn
+
+    // Sprite — single frame, no animation needed
+    this.spriteSheet = null;
+    this.spriteState = new SpriteState(8, 1); // 1 frame, no cycling
+
+    // Wire sprite immediately if spriteManager is ready
+    if (typeof spriteManager !== "undefined") {
+      this.spriteSheet = spriteManager.get("antidote");
+    }
+
+    // Bob animation (up/down float)
+    this.bobOffset = 0;
+    this.bobSpeed = 0.05;
+    this.bobAmp = 5;
+    this.bobTick = 0;
   }
 
   update() {
-    let elapsed = millis() - this.spawnTime;
-    if (elapsed > this.lifetime) {
+    this.bobTick += this.bobSpeed;
+    this.bobOffset = Math.sin(this.bobTick) * this.bobAmp;
+
+    if (millis() - this.spawnTime > this.lifetime) {
       this.active = false;
     }
   }
 
   display() {
-    let elapsed = millis() - this.spawnTime;
-    let timeLeft = this.lifetime - elapsed;
-    let blinkSpeed = 200;
+    let drawY = this.y + this.bobOffset;
 
-    if (timeLeft < 2000) {
-      blinkSpeed = 100;
-    }
+    // Shadow — ellipse on the ground, shrinks/grows with bob
+    let shadowScale = map(this.bobOffset, -this.bobAmp, this.bobAmp, 1.1, 0.7);
+    noStroke();
+    fill(0, 0, 0, 60);
+    ellipse(this.x, this.y + 18, 28 * shadowScale, 8 * shadowScale);
 
-    let shouldShow = Math.floor(millis() / blinkSpeed) % 2 === 0;
+    // Sprite at 0.7 scale (smaller)
+    let drawn = SpriteRenderer.draw(
+      this.spriteSheet,
+      this.spriteState,
+      this.x,
+      drawY,
+      0.7,
+    );
 
-    if (shouldShow || timeLeft > 2000) {
-      fill(this.color);
+    if (!drawn) {
+      fill(0, 255, 0);
       stroke(0);
-      strokeWeight(3);
-      circle(this.x, this.y, this.size);
-
+      strokeWeight(2);
+      circle(this.x, drawY, this.size);
       fill(255);
       noStroke();
-      textSize(16);
+      textSize(10);
       textAlign(CENTER, CENTER);
-      text("+", this.x, this.y);
+      text("+", this.x, drawY);
     }
 
-    let barWidth = 40;
-    let barHeight = 4;
-    let barX = this.x - barWidth / 2;
-    let barY = this.y - this.size / 2 - 10;
-
-    fill(50);
-    noStroke();
-    rect(barX, barY, barWidth, barHeight);
-
-    let timePercent = timeLeft / this.lifetime;
-    let fillColor;
-    if (timePercent > 0.5) {
-      fillColor = color(0, 255, 0);
-    } else if (timePercent > 0.25) {
-      fillColor = color(255, 255, 0);
-    } else {
-      fillColor = color(255, 0, 0);
+    // Despawn warning — blink when < 3 seconds left
+    let timeLeft = this.lifetime - (millis() - this.spawnTime);
+    if (timeLeft < 3000 && Math.floor(millis() / 300) % 2 === 0) {
+      noFill();
+      stroke(255, 0, 0);
+      strokeWeight(2);
+      circle(this.x, drawY, this.size * 2);
     }
-
-    fill(fillColor);
-    rect(barX, barY, barWidth * timePercent, barHeight);
   }
 
   checkPlayerPickup(player) {
-    let dx = this.x - player.x;
-    let dy = this.y - player.y;
-    let distance = Math.sqrt(dx * dx + dy * dy);
-
-    let pickupRange = (this.size + player.size) / 2;
-
-    return distance < pickupRange;
+    let dx = player.x - this.x;
+    let dy = player.y - this.y;
+    return Math.sqrt(dx * dx + dy * dy) < this.size + player.size / 2;
   }
 }
