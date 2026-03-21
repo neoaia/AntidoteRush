@@ -18,44 +18,51 @@ class CombatManager {
       player.applyFireSlow(w.fireMoveSlowMultiplier);
 
     if (shootResult.type === "bullet") {
-      let bullet = new Bullet(player.x, player.y, targetX, targetY, w.damage, {
-        piercing: w.piercing || false,
-        maxPierce: w.maxPierce || 0,
-        pierceDamageFalloff: w.pierceDamageFalloff || 0.6,
-        size: w.bulletSize || 5,
-        speed: w.bulletSpeed || 10,
-        color: w.bulletColor || "#594e1e",
-        knockback: w.knockback || 0,
-      });
-      this.gameState.addBullet(bullet);
+      // Fire sound
+      if (typeof audioManager !== "undefined") audioManager.playFire(w.name);
+
+      this.gameState.addBullet(
+        new Bullet(player.x, player.y, targetX, targetY, w.damage, {
+          piercing: w.piercing || false,
+          maxPierce: w.maxPierce || 0,
+          pierceDamageFalloff: w.pierceDamageFalloff || 0.6,
+          size: w.bulletSize || 5,
+          speed: w.bulletSpeed || 10,
+          color: w.bulletColor || "#594e1e",
+          knockback: w.knockback || 0,
+        }),
+      );
     } else if (shootResult.type === "shotgun") {
+      // Single fire sound for the whole blast
+      if (typeof audioManager !== "undefined") audioManager.playFire(w.name);
+
       let pellets = w.pellets || 6;
       let spreadAngle = w.spreadAngle || 0.4;
       let baseAngle = atan2(targetY - player.y, targetX - player.x);
 
       for (let i = 0; i < pellets; i++) {
         let angle = baseAngle + (Math.random() - 0.5) * spreadAngle;
-        let pelletTargetX = player.x + cos(angle) * 500;
-        let pelletTargetY = player.y + sin(angle) * 500;
-        let bullet = new Bullet(
-          player.x,
-          player.y,
-          pelletTargetX,
-          pelletTargetY,
-          w.damage,
-          {
-            piercing: w.piercing || false,
-            maxPierce: w.maxPierce || 0,
-            pierceDamageFalloff: w.pierceDamageFalloff || 0.6,
-            size: w.bulletSize || 4,
-            speed: w.bulletSpeed || 10,
-            color: w.bulletColor || "#594e1e",
-            knockback: w.knockback || 0,
-          },
+        this.gameState.addBullet(
+          new Bullet(
+            player.x,
+            player.y,
+            player.x + cos(angle) * 500,
+            player.y + sin(angle) * 500,
+            w.damage,
+            {
+              piercing: w.piercing || false,
+              maxPierce: w.maxPierce || 0,
+              pierceDamageFalloff: w.pierceDamageFalloff || 0.6,
+              size: w.bulletSize || 4,
+              speed: w.bulletSpeed || 10,
+              color: w.bulletColor || "#594e1e",
+              knockback: w.knockback || 0,
+            },
+          ),
         );
-        this.gameState.addBullet(bullet);
       }
     } else if (shootResult.type === "melee") {
+      // Knife: no fire sound
       player.triggerKnifeSwing();
       this.gameState.meleeSlashActive = true;
       this.gameState.meleeSlashStartTime = pauseClock.now();
@@ -71,7 +78,6 @@ class CombatManager {
     let arcAngle = PI / 3;
     for (let i = this.gameState.zombies.length - 1; i >= 0; i--) {
       let z = this.gameState.zombies[i];
-      // Distance to zombie center — melee range check
       let distance = dist(player.x, player.y, z.x, z.y);
       if (distance < weapon.range + z.size / 2) {
         let angleToZombie = atan2(z.y - player.y, z.x - player.x);
@@ -98,7 +104,6 @@ class CombatManager {
     for (let i = this.gameState.bullets.length - 1; i >= 0; i--) {
       let b = this.gameState.bullets[i];
       b.update();
-
       if (!b.active) {
         this.gameState.removeBullet(i);
         continue;
@@ -106,10 +111,6 @@ class CombatManager {
 
       for (let j = this.gameState.zombies.length - 1; j >= 0; j--) {
         let z = this.gameState.zombies[j];
-
-        // ── Rect-based hit detection ──────────────────────────────────────
-        // Bullet is a small circle — check if bullet center is inside zombie hitbox
-        // (most accurate for fast small bullets without needing swept collision)
         let hitX = b.x >= z.getLeft() && b.x <= z.getRight();
         let hitY = b.y >= z.getTop() && b.y <= z.getBottom();
 
@@ -117,7 +118,7 @@ class CombatManager {
           let dmg = b.onHitZombie(z);
           if (dmg !== null) {
             z.takeDamage(dmg, this.gameState);
-            if (b.knockback && b.knockback > 0) {
+            if (b.knockback > 0) {
               let bLen = Math.sqrt(
                 b.velocityX * b.velocityX + b.velocityY * b.velocityY,
               );
@@ -133,9 +134,7 @@ class CombatManager {
         }
       }
 
-      if (!b.active) {
-        this.gameState.removeBullet(i);
-      }
+      if (!b.active) this.gameState.removeBullet(i);
     }
   }
 

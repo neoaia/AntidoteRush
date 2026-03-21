@@ -115,7 +115,6 @@ class Player {
     let shiftHeld = keyIsDown(SHIFT);
     if (!shiftHeld) this._sprintLocked = false;
     this.isSprinting = shiftHeld && !this._sprintLocked && this.stamina > 0;
-    this._shiftWasHeld = shiftHeld;
 
     let baseSpd = this.isSprinting ? this.sprintSpeed : this.baseSpeed;
     this.speed = baseSpd * this._fireSlow;
@@ -137,6 +136,7 @@ class Player {
       moving = true;
     }
 
+    // Knockback
     newX += this._kbX;
     newY += this._kbY;
     this._kbX *= this._kbDecay;
@@ -144,6 +144,7 @@ class Player {
     if (Math.abs(this._kbX) < 0.05) this._kbX = 0;
     if (Math.abs(this._kbY) < 0.05) this._kbY = 0;
 
+    // Decay fire slow and recoil
     this._fireSlow += (1.0 - this._fireSlow) * (1 - this._fireSlowDecay);
     if (this._fireSlow > 0.995) this._fireSlow = 1.0;
     this._recoilOffset *= this._recoilDecay;
@@ -181,6 +182,17 @@ class Player {
     if (!w) return;
     let now = pauseClock.now();
 
+    // ── Reload delay state (shotgun uses this) ────────────────────────────
+    // If weapon has a reloadDelay pending, wait it out before starting reload
+    if (w._reloadDelayUntil !== undefined && w._reloadDelayUntil > 0) {
+      if (now >= w._reloadDelayUntil) {
+        w._reloadDelayUntil = 0;
+        this._beginReload(w);
+      }
+      return; // don't process further while waiting for delay
+    }
+
+    // ── Reload in progress ────────────────────────────────────────────────
     if (w.isReloading) {
       if (now - w.reloadStartTime >= w.reloadTime) {
         if (w.unlimited) {
@@ -197,6 +209,7 @@ class Player {
       return;
     }
 
+    // ── Cooldown after shot ───────────────────────────────────────────────
     if (!w.canShoot && w.magSize !== undefined) {
       if (now - w.lastShootTime > w.cooldown) {
         if (w.currentAmmo > 0) w.canShoot = true;
@@ -204,6 +217,30 @@ class Player {
       }
     } else if (!w.canShoot && w.magSize === undefined) {
       if (now - w.lastShootTime > w.cooldown) w.canShoot = true;
+    }
+  }
+
+  // ── Internal: actually begin reloading ───────────────────────────────────
+  _beginReload(w) {
+    w.isReloading = true;
+    w.reloadStartTime = pauseClock.now();
+    w.canShoot = false;
+    if (typeof audioManager !== "undefined") audioManager.playReload(w.name);
+  }
+
+  // ── Public: trigger a reload (with optional delay support) ───────────────
+  startReload() {
+    let w = this.weapons[this.currentWeapon];
+    if (!w || w.magSize === undefined || w.isReloading) return;
+    if (w.currentAmmo === w.magSize) return;
+    if (!w.unlimited && w.totalAmmo <= 0) return;
+
+    // If this weapon has a reloadDelay, schedule instead of starting immediately
+    if (w.reloadDelay && w.reloadDelay > 0) {
+      w._reloadDelayUntil = pauseClock.now() + w.reloadDelay;
+      w.canShoot = false;
+    } else {
+      this._beginReload(w);
     }
   }
 
@@ -216,16 +253,6 @@ class Player {
     let w = this.weapons[this.currentWeapon];
     if (!w || !w.isAuto || !w.canShoot || w.isReloading) return null;
     return this.shoot(targetX, targetY);
-  }
-
-  startReload() {
-    let w = this.weapons[this.currentWeapon];
-    if (!w || w.magSize === undefined || w.isReloading) return;
-    if (w.currentAmmo === w.magSize) return;
-    if (!w.unlimited && w.totalAmmo <= 0) return;
-    w.isReloading = true;
-    w.reloadStartTime = pauseClock.now();
-    w.canShoot = false;
   }
 
   display() {
@@ -298,8 +325,17 @@ class Player {
       scale(-1, 1);
       if (Math.abs(swingAngle) > Math.PI / 2) scale(1, -1);
       imageMode(CENTER);
-      let offsetX = -(this.size / 2 + dw * 0.35);
-      image(sheet.img, offsetX, 0, dw, dh, 0, 0, sheet.frameW, sheet.frameH);
+      image(
+        sheet.img,
+        -(this.size / 2 + sheet.frameW * sc * 0.35),
+        0,
+        dw,
+        dh,
+        0,
+        0,
+        sheet.frameW,
+        sheet.frameH,
+      );
     } else {
       let sc = 0.9,
         dw = sheet.frameW * sc,
@@ -329,8 +365,8 @@ class Player {
 
   displayHealthBar() {
     let barWidth = 40,
-      barHeight = 5,
-      barX = this.x - barWidth / 2,
+      barHeight = 5;
+    let barX = this.x - barWidth / 2,
       barY = this.y - this.size / 2 - 10;
     fill(255, 0, 0);
     noStroke();

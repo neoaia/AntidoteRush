@@ -15,7 +15,7 @@ class WeaponPickupManager {
       { x: canvasWidth - 380, y: canvasHeight - 130, w: 380, h: 130 },
     ];
 
-    this.debugWeapon = "sniper";
+    this.debugWeapon = "shotgun"; // Set to null for normal gameplay
   }
 
   getRandomWait() {
@@ -77,6 +77,7 @@ class WeaponPickupManager {
         cooldown: 500,
         magSize: 1,
         reloadTime: 500,
+        reloadDelay: 400,
         pellets: 6,
         spreadAngle: 0.4,
         piercing: true,

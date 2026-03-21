@@ -14,22 +14,23 @@ let shopManager;
 let uiRenderer;
 let gameRenderer;
 let inputHandler;
+let audioManager;
 
 let isPaused = false;
 let pointerLocked = false;
 let vx = 0;
 let vy = 0;
 
-// ── Pause protection ──────────────────────────────────────────────────────────
-let _intentionalUnlock = false; // true when WE release the pointer lock on purpose
-let _lastEscTime = 0; // real millis() of last ESC toggle
-const ESC_DEBOUNCE_MS = 400; // ignore ESC presses within this window
+let _intentionalUnlock = false;
+let _lastEscTime = 0;
+const ESC_DEBOUNCE_MS = 400;
 
 function preload() {
   assetManager = new AssetManager();
   assetManager.preload();
   spriteManager = new SpriteManager();
   spriteManager.preload();
+  audioManager = new AudioManager(); // instantiate here so it exists before setup()
 }
 
 function setup() {
@@ -69,14 +70,16 @@ function setup() {
   weaponPickupManager.applyDebugWeapon(gameState.player);
   uiRenderer.showRoundStart(1, difficulty);
 
+  audioManager.init(); // init AFTER preload() has already constructed it
+
   setupPointerLock();
 }
 
-// ── Pause/resume — always go through these, never set isPaused directly ───────
 function _pause() {
   if (isPaused) return;
   isPaused = true;
   pauseClock.pause();
+  if (typeof audioManager !== "undefined") audioManager.stopAll();
   _intentionalUnlock = true;
   document.exitPointerLock();
 }
@@ -85,15 +88,12 @@ function _resume() {
   if (!isPaused) return;
   isPaused = false;
   pauseClock.resume();
-  // Re-acquire pointer lock — this will fire pointerlockchange but
-  // _intentionalUnlock is false here so it won't auto-pause
   document.querySelector("canvas").requestPointerLock();
 }
 
 function setupPointerLock() {
   let cnv = document.querySelector("canvas");
 
-  // Acquire lock on first interaction
   let lockOnFirst = function () {
     cnv.requestPointerLock();
     document.removeEventListener("keydown", lockOnFirst);
@@ -127,17 +127,14 @@ function setupPointerLock() {
 
     if (!pointerLocked) {
       if (_intentionalUnlock) {
-        // We caused this — clear flag, don't auto-pause
         _intentionalUnlock = false;
       } else if (!isPaused && !uiRenderer.isShopOpen() && !gameState.gameOver) {
-        // External cause (alt-tab, browser-native ESC, etc.) — auto-pause
         isPaused = true;
         pauseClock.pause();
       }
     }
   });
 
-  // Canvas click: re-acquire pointer lock only — does NOT resume
   cnv.addEventListener("click", function () {
     if (gameState.gameOver || uiRenderer.isShopOpen()) return;
     if (!pointerLocked) cnv.requestPointerLock();
@@ -245,20 +242,15 @@ function startNextRound() {
 }
 
 function displayGame() {
-  // World-space (camera offset)
   push();
   translate(-camX, -camY);
   gameRenderer.renderGame(gameState.player, gameState.base, vx, vy);
   weaponPickupManager.display();
   pop();
 
-  // Screen-space: popups converted from world coords
   uiRenderer.drawScorePopupsScreenSpace(camX, camY);
-
-  // HUD + shop
   uiRenderer.renderAll(gameState.player, gameState.roundManager, shopManager);
 
-  // Intermission
   let rm = gameState.roundManager;
   if (rm.inIntermission && !uiRenderer.isShopOpen()) {
     uiRenderer.drawIntermissionCenter(rm.currentRound, rm.intermissionTimeLeft);
@@ -295,9 +287,7 @@ function mouseWheel(event) {
 function keyPressed() {
   if (keyCode === ESCAPE) {
     if (gameState.gameOver) return;
-
-    // ── Debounce: ignore rapid ESC presses ───────────────────────────────
-    let now = millis(); // real time, not game time
+    let now = millis();
     if (now - _lastEscTime < ESC_DEBOUNCE_MS) return;
     _lastEscTime = now;
 
@@ -307,16 +297,11 @@ function keyPressed() {
       return;
     }
 
-    // Single atomic toggle
-    if (isPaused) {
-      _resume();
-    } else {
-      _pause();
-    }
+    if (isPaused) _resume();
+    else _pause();
     return;
   }
 
-  // Everything below: ignore if paused or shop open
   if (isPaused) return;
 
   if (
