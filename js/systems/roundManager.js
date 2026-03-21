@@ -106,23 +106,21 @@ class RoundManager {
   }
 
   spawnCluster(clusterSize, gameState) {
-    let W = typeof WORLD_WIDTH !== "undefined" ? WORLD_WIDTH : width;
-    let H = typeof WORLD_HEIGHT !== "undefined" ? WORLD_HEIGHT : height;
     let side = Math.floor(Math.random() * 4);
     let bx = 0,
       by = 0;
     if (side === 0) {
-      bx = Math.random() * W;
+      bx = Math.random() * width;
       by = -50;
     } else if (side === 1) {
-      bx = W + 50;
-      by = Math.random() * H;
+      bx = width + 50;
+      by = Math.random() * height;
     } else if (side === 2) {
-      bx = Math.random() * W;
-      by = H + 50;
+      bx = Math.random() * width;
+      by = height + 50;
     } else {
       bx = -50;
-      by = Math.random() * H;
+      by = Math.random() * height;
     }
 
     let zombies = [];
@@ -141,23 +139,21 @@ class RoundManager {
   }
 
   spawnZombie(gameState) {
-    let W = typeof WORLD_WIDTH !== "undefined" ? WORLD_WIDTH : width;
-    let H = typeof WORLD_HEIGHT !== "undefined" ? WORLD_HEIGHT : height;
     let side = Math.floor(Math.random() * 4);
     let sx = 0,
       sy = 0;
     if (side === 0) {
-      sx = Math.random() * W;
+      sx = Math.random() * width;
       sy = -50;
     } else if (side === 1) {
-      sx = W + 50;
-      sy = Math.random() * H;
+      sx = width + 50;
+      sy = Math.random() * height;
     } else if (side === 2) {
-      sx = Math.random() * W;
-      sy = H + 50;
+      sx = Math.random() * width;
+      sy = height + 50;
     } else {
       sx = -50;
-      sy = Math.random() * H;
+      sy = Math.random() * height;
     }
     return this.createZombie(sx, sy, this.getZombieType(), gameState);
   }
