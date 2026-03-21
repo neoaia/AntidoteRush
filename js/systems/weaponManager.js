@@ -15,11 +15,6 @@ class WeaponPickupManager {
       { x: canvasWidth - 380, y: canvasHeight - 130, w: 380, h: 130 },
     ];
 
-    // ─────────────────────────────────────────────────
-    // DEBUG: Set this to the weapon you want to test.
-    // Options: "shotgun" | "rifle" | "sniper" | null
-    // Set to null to disable debug weapon on start.
-    // ─────────────────────────────────────────────────
     this.debugWeapon = "sniper";
   }
 
@@ -74,10 +69,10 @@ class WeaponPickupManager {
 
   getWeaponDef(weaponType) {
     const defs = {
-      // ─── SHOTGUN ─────────────────────────────────────────────────────────
+      // ─── SHOTGUN ──────────────────────────────────────────────────────────
       shotgun: {
         name: "Shotgun",
-        damage: 12, // damage per pellet (up to 72 if all hit)
+        damage: 12,
         range: 9999,
         aimRange: 120,
         cooldown: 500,
@@ -85,10 +80,9 @@ class WeaponPickupManager {
         reloadTime: 500,
         pellets: 6,
         spreadAngle: 0.4,
-        // Piercing: each pellet goes through up to 7 zombies (damage decays per hit)
         piercing: true,
         maxPierce: 7,
-        pierceDamageFalloff: 0.5, // each zombie hit does 50% of previous damage
+        pierceDamageFalloff: 0.5,
         bulletSize: 4,
         bulletSpeed: 10,
         bulletColor: "#cc4400",
@@ -101,6 +95,10 @@ class WeaponPickupManager {
         unlimited: false,
         isAuto: false,
         isHeld: false,
+        // Combat feel
+        knockback: 14, // high — each pellet can push
+        recoil: 0.3, // strong kick
+        fireMoveSlowMultiplier: 0.45, // heavy slowdown on fire
       },
 
       // ─── AUTO RIFLE ───────────────────────────────────────────────────────
@@ -112,7 +110,6 @@ class WeaponPickupManager {
         cooldown: 80,
         magSize: 25,
         reloadTime: 2000,
-        // No piercing — standard bullets
         piercing: false,
         maxPierce: 0,
         bulletSize: 5,
@@ -127,6 +124,10 @@ class WeaponPickupManager {
         unlimited: false,
         isAuto: true,
         isHeld: false,
+        // Combat feel
+        knockback: 4, // light per bullet, but fast
+        recoil: 0.06, // small per shot, adds up on auto
+        fireMoveSlowMultiplier: 0.7, // moderate slow while spraying
       },
 
       // ─── SNIPER ───────────────────────────────────────────────────────────
@@ -138,12 +139,11 @@ class WeaponPickupManager {
         cooldown: 500,
         magSize: 8,
         reloadTime: 3000,
-        // Piercing: bullet goes through up to 4 zombies (damage decays per hit)
         piercing: true,
         maxPierce: 4,
-        pierceDamageFalloff: 0.65, // each zombie hit does 65% of previous damage
+        pierceDamageFalloff: 0.65,
         bulletSize: 6,
-        bulletSpeed: 18, // faster than normal bullets
+        bulletSpeed: 18,
         bulletColor: "#ffe066",
         canShoot: true,
         lastShootTime: 0,
@@ -154,6 +154,10 @@ class WeaponPickupManager {
         unlimited: false,
         isAuto: false,
         isHeld: false,
+        // Combat feel
+        knockback: 20, // strongest single-shot knockback
+        recoil: 0.45, // biggest kick
+        fireMoveSlowMultiplier: 0.2, // near-stop when firing — scope discipline
       },
     };
     return Object.assign({}, defs[weaponType]);
@@ -163,7 +167,6 @@ class WeaponPickupManager {
     let current = player.weapons.equipped;
     let def = this.getWeaponDef(weaponType);
     if (current !== null && current.name === def.name) {
-      // Same gun — refill
       current.totalAmmo = def.totalAmmo;
       current.currentAmmo = current.magSize;
       current.isReloading = false;
@@ -174,7 +177,6 @@ class WeaponPickupManager {
     player.currentWeapon = "equipped";
   }
 
-  // Called once from setup() to give player a debug weapon immediately
   applyDebugWeapon(player) {
     if (this.debugWeapon !== null) {
       this.equipWeapon(player, this.debugWeapon);
@@ -200,7 +202,6 @@ class WeaponPickupManager {
       }
     }
 
-    // Drop gun when out of ammo
     let eq = player.weapons.equipped;
     if (
       eq !== null &&

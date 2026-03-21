@@ -9,7 +9,7 @@ class Player {
     this.color = "#00ff00";
     this.health = 100;
     this.maxHealth = 100;
-    this.currentWeapon = "handgun";
+    this.currentWeapon = "melee";
 
     this.stamina = 100;
     this.maxStamina = 100;
@@ -18,6 +18,10 @@ class Player {
     this.staminaRegenRateInBase = 40;
     this.isSprinting = false;
     this.isInBase = false;
+
+    // Sprint lockout
+    this._sprintLocked = false;
+    this._shiftWasHeld = false;
 
     this.skillPressed = false;
     this.skillPressTime = 0;
@@ -33,15 +37,33 @@ class Player {
     this.damageMultiplier = 1.0;
     this.precisionBonus = 0;
 
+    this._kbX = 0;
+    this._kbY = 0;
+    this._kbDecay = 0.75;
+    this._recoilOffset = 0;
+    this._recoilDecay = 0.72;
+    this._fireSlow = 1.0;
+    this._fireSlowDecay = 0.8;
+
+    // Knife swing state
+    this._knifeSwinging = false;
+    this._knifeSwingStart = 0;
+    this._knifeSwingDur = 220;
+
+    this._gameState = null;
+
     this.weapons = {
       melee: {
-        name: "Melee",
+        name: "Knife",
         damage: 30,
-        range: 50,
+        range: 50, // gameplay range — unchanged
         aimRange: 30,
         cooldown: 500,
         canShoot: true,
         lastShootTime: 0,
+        knockback: 8,
+        recoil: 0.12,
+        fireMoveSlowMultiplier: 0.4,
       },
       handgun: {
         name: "Handgun",
@@ -59,6 +81,9 @@ class Player {
         unlimited: true,
         isAuto: false,
         isHeld: false,
+        knockback: 3,
+        recoil: 0.08,
+        fireMoveSlowMultiplier: 0.85,
       },
       equipped: null,
     };
@@ -70,14 +95,34 @@ class Player {
     this.spriteState = new SpriteState(8, 4);
   }
 
+  applyKnockback(kbX, kbY) {
+    this._kbX = kbX;
+    this._kbY = kbY;
+  }
+  applyRecoil(r) {
+    this._recoilOffset = r;
+  }
+  applyFireSlow(m) {
+    this._fireSlow = m;
+  }
+
+  triggerKnifeSwing() {
+    this._knifeSwinging = true;
+    this._knifeSwingStart = millis();
+  }
+
   update(canvasWidth, canvasHeight) {
     let moving = false;
     let newX = this.x,
       newY = this.y;
 
     let shiftHeld = keyIsDown(SHIFT);
-    this.isSprinting = shiftHeld && this.stamina > 0;
-    this.speed = this.isSprinting ? this.sprintSpeed : this.baseSpeed;
+    if (!shiftHeld) this._sprintLocked = false;
+    this.isSprinting = shiftHeld && !this._sprintLocked && this.stamina > 0;
+    this._shiftWasHeld = shiftHeld;
+
+    let baseSpd = this.isSprinting ? this.sprintSpeed : this.baseSpeed;
+    this.speed = baseSpd * this._fireSlow;
 
     if (keyIsDown(87)) {
       newY -= this.speed;
@@ -96,6 +141,26 @@ class Player {
       moving = true;
     }
 
+    newX += this._kbX;
+    newY += this._kbY;
+    this._kbX *= this._kbDecay;
+    this._kbY *= this._kbDecay;
+    if (Math.abs(this._kbX) < 0.05) this._kbX = 0;
+    if (Math.abs(this._kbY) < 0.05) this._kbY = 0;
+
+    this._fireSlow += (1.0 - this._fireSlow) * (1 - this._fireSlowDecay);
+    if (this._fireSlow > 0.995) this._fireSlow = 1.0;
+
+    this._recoilOffset *= this._recoilDecay;
+    if (Math.abs(this._recoilOffset) < 0.001) this._recoilOffset = 0;
+
+    if (
+      this._knifeSwinging &&
+      millis() - this._knifeSwingStart > this._knifeSwingDur
+    ) {
+      this._knifeSwinging = false;
+    }
+
     let half = this.size / 2;
     this.x = constrain(newX, half, canvasWidth - half);
     this.y = constrain(newY, half, canvasHeight - half);
@@ -106,15 +171,15 @@ class Player {
     let dt = deltaTime / 1000;
     if (this.isSprinting && moving) {
       this.stamina = max(0, this.stamina - this.staminaDrainRate * dt);
+      if (this.stamina <= 0) {
+        this._sprintLocked = true;
+        this.isSprinting = false;
+      }
     } else {
       let regenRate = this.isInBase
         ? this.staminaRegenRateInBase
         : this.staminaRegenRate;
       this.stamina = min(this.maxStamina, this.stamina + regenRate * dt);
-    }
-    if (this.stamina <= 0) {
-      this.isSprinting = false;
-      this.speed = this.baseSpeed;
     }
 
     let w = this.weapons[this.currentWeapon];
@@ -169,14 +234,10 @@ class Player {
   }
 
   display() {
-    // ── Shadow — flat ellipse at sprite feet ──────────────────────────────
-    // Sprite is 32px * 1.5 scale = 48px tall, centered on this.y
-    // So sprite bottom = this.y + 24px
     noStroke();
     fill(0, 0, 0, 80);
     ellipse(this.x, this.y + 24, 32, 10);
 
-    // ── Sprite ────────────────────────────────────────────────────────────
     let drawn = SpriteRenderer.draw(
       this.spriteSheet,
       this.spriteState,
@@ -190,10 +251,8 @@ class Player {
       circle(this.x, this.y, this.size);
     }
 
-    // ── Held weapon ───────────────────────────────────────────────────────
     this._drawHeldWeapon();
 
-    // ── Skill indicator ───────────────────────────────────────────────────
     if (this.skillPressed) {
       let elapsed = millis() - this.skillPressTime;
       if (elapsed < this.skillDisplayDuration) {
@@ -212,10 +271,11 @@ class Player {
 
   _drawHeldWeapon() {
     let w = this.weapons[this.currentWeapon];
-    if (!w || this.currentWeapon === "melee") return;
+    if (!w) return;
     if (typeof spriteManager === "undefined") return;
 
     let keyMap = {
+      Knife: "gun_knife",
       Handgun: "gun_handgun",
       "Auto Rifle": "gun_rifle",
       Shotgun: "gun_shotgun",
@@ -223,21 +283,76 @@ class Player {
     };
     let sprKey = keyMap[w.name];
     if (!sprKey) return;
-
     let sheet = spriteManager.get(sprKey);
     if (!sheet || !sheet.img) return;
 
-    let sc = 0.9;
-    let dw = sheet.frameW * sc,
-      dh = sheet.frameH * sc;
+    let isKnife = w.name === "Knife";
 
     push();
     translate(this.x, this.y);
-    rotate(this.aimAngle);
-    if (Math.abs(this.aimAngle) > Math.PI / 2) scale(1, -1);
-    imageMode(CENTER);
-    let offsetX = this.size / 2 + 2;
-    image(sheet.img, offsetX, 5, dw, dh, 0, 0, sheet.frameW, sheet.frameH);
+
+    if (isKnife) {
+      // ── Visual scale only — gameplay range/hitbox is unchanged ─────────
+      let sc = 0.12; // small visual size
+      let dw = sheet.frameW * sc;
+      let dh = sheet.frameH * sc;
+
+      // Swing arc relative to aimAngle
+      let swingAngle;
+      if (this._knifeSwinging) {
+        let t = Math.min(
+          (millis() - this._knifeSwingStart) / this._knifeSwingDur,
+          1,
+        );
+        let eased = 1 - Math.pow(1 - t, 2);
+        swingAngle = this.aimAngle + map(eased, 0, 1, -PI / 2.5, PI / 2.5);
+      } else {
+        swingAngle = this.aimAngle - PI / 10;
+      }
+
+      rotate(swingAngle);
+
+      // The knife asset: handle is on the RIGHT, blade on the LEFT.
+      // We want the BLADE to point AWAY from the player (in the aim direction).
+      // Since we rotated by swingAngle (= aimAngle), +x is "away from player".
+      // The asset blade is on the LEFT (-x side), so we flip it horizontally
+      // so the blade faces +x (away).
+      scale(-1, 1);
+
+      // Also flip vertically when aiming left to keep readable
+      if (Math.abs(swingAngle) > Math.PI / 2) scale(1, -1);
+
+      imageMode(CENTER);
+      // Place knife ahead of player in the now-flipped space
+      let offsetX = -(this.size / 2 + dw * 0.35);
+      image(sheet.img, offsetX, 0, dw, dh, 0, 0, sheet.frameW, sheet.frameH);
+    } else {
+      // ── Guns ───────────────────────────────────────────────────────────
+      let sc = 0.9;
+      let dw = sheet.frameW * sc,
+        dh = sheet.frameH * sc;
+
+      let recoilAng = this.aimAngle + Math.PI;
+      translate(
+        Math.cos(recoilAng) * this._recoilOffset * 8,
+        Math.sin(recoilAng) * this._recoilOffset * 8,
+      );
+      rotate(this.aimAngle);
+      if (Math.abs(this.aimAngle) > Math.PI / 2) scale(1, -1);
+      imageMode(CENTER);
+      image(
+        sheet.img,
+        this.size / 2 + 2,
+        5,
+        dw,
+        dh,
+        0,
+        0,
+        sheet.frameW,
+        sheet.frameH,
+      );
+    }
+
     pop();
   }
 
@@ -279,10 +394,19 @@ class Player {
     return { type: "bullet", weapon: w };
   }
 
-  takeDamage(damage) {
+  takeDamage(damage, gameState) {
     this.health -= damage;
     if (this.health < 0) this.health = 0;
     this.spriteState.flash();
+    let gs = gameState || this._gameState;
+    if (gs) {
+      let offsetX = (Math.random() - 0.5) * 16;
+      gs.spawnPlayerDamagePopup(
+        this.x + offsetX,
+        this.y - this.size / 2 - 14,
+        damage,
+      );
+    }
   }
 
   getLeft() {
@@ -304,8 +428,7 @@ Player.prototype.cycleEquippedWeapon = function (direction) {
   let idx = slots.indexOf(this.currentWeapon);
   if (idx === -1) idx = 1;
   idx = (idx + direction + slots.length) % slots.length;
-  if (slots[idx] === "equipped" && this.weapons.equipped === null) {
+  if (slots[idx] === "equipped" && this.weapons.equipped === null)
     idx = (idx + direction + slots.length) % slots.length;
-  }
   this.currentWeapon = slots[idx];
 };

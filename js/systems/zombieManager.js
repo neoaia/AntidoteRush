@@ -9,20 +9,37 @@ class ZombieManager {
       z.update(player.x, player.y);
 
       if (!z.active) {
-        // Score
-        this.gameState.increaseScore(z.points);
-        this.gameState.spawnScorePopup(z.x, z.y - z.size / 2 - 12, z.points);
+        let coins = z.coins;
+        let exp = z.exp;
+        let px = z.x;
+        let py = z.y;
+        let psize = z.size;
 
-        // Coins — offset slightly so popups don't stack
-        this.gameState.addCoins(z.coins);
-        this.gameState.spawnCoinPopup(z.x, z.y - z.size / 2 - 28, z.coins);
+        this.gameState.addCoins(coins);
+        this.gameState.spawnCoinPopup(px, py - psize / 2 - 12, coins);
+        this.gameState.addExp(exp);
+        this.gameState.spawnExpPopup(px, py - psize / 2 - 28, exp);
 
         this.gameState.removeZombie(i);
         continue;
       }
 
-      if (checkCollision(player, z) && z.canAttack()) {
-        player.takeDamage(z.damage);
+      // Hit detection using per-zombie attackRange
+      if (z.consumePendingHit()) {
+        let dx = player.x - z.x;
+        let dy = player.y - z.y;
+        let distance = Math.sqrt(dx * dx + dy * dy);
+
+        if (distance <= z.attackRange) {
+          // Pass gameState so player.takeDamage can spawn the red popup
+          player.takeDamage(z.damage, this.gameState);
+
+          if (distance > 0) {
+            let kbX = (dx / distance) * z.knockback;
+            let kbY = (dy / distance) * z.knockback;
+            player.applyKnockback(kbX, kbY);
+          }
+        }
       }
     }
   }

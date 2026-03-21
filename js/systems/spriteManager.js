@@ -37,6 +37,7 @@ var SPRITE_DEFS = {
     layout: "horizontal",
   },
 
+  // ── Guns ─────────────────────────────────────────────────────────────────
   gun_handgun: {
     path: "../assets/guns/handgun.png",
     frames: 1,
@@ -54,6 +55,13 @@ var SPRITE_DEFS = {
   },
   gun_sniper: {
     path: "../assets/guns/sniper.png",
+    frames: 1,
+    layout: "horizontal",
+  },
+
+  // ── Melee ─────────────────────────────────────────────────────────────────
+  gun_knife: {
+    path: "../assets/guns/knife.png",
     frames: 1,
     layout: "horizontal",
   },

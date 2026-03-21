@@ -2,8 +2,7 @@ class GameState {
   constructor() {
     this.playerName = null;
     this.inputMethod = null;
-    this.difficulty = "easy"; // "easy" | "hard" | "hell"
-    this.score = 0;
+    this.difficulty = "easy";
     this.coins = 0;
     this.gameOver = false;
     this.roundTransitioning = false;
@@ -27,11 +26,12 @@ class GameState {
     this.meleeSlashStartTime = 0;
     this.meleeSlashDuration = 200;
 
-    // Tracks which zombie types have been introduced (for health scaling)
-    // Maps type -> true once that type has spawned at least once
-    this.introductedZombieTypes = {};
+    // EXP system
+    this.exp = 0;
+    this.level = 1;
+    this.expToNextLevel = 100;
 
-    // Per-type health multiplier, starts at 1.0, grows 0.5% per round AFTER introduction
+    this.introductedZombieTypes = {};
     this.zombieHealthMultipliers = {
       normal: 1.0,
       witch: 1.0,
@@ -48,7 +48,6 @@ class GameState {
   }
 
   reset() {
-    this.score = 0;
     this.coins = 0;
     this.gameOver = false;
     this.roundTransitioning = false;
@@ -59,6 +58,9 @@ class GameState {
     this.currentAntidote = null;
     this.playerHasAntidote = false;
     this.antidoteCanSpawn = true;
+    this.exp = 0;
+    this.level = 1;
+    this.expToNextLevel = 100;
     this.introductedZombieTypes = {};
     this.zombieHealthMultipliers = {
       normal: 1.0,
@@ -85,23 +87,27 @@ class GameState {
     this.zombies.splice(i, 1);
   }
 
-  increaseScore(points) {
-    this.score += points;
-  }
   addCoins(amount) {
     this.coins += amount;
   }
 
-  // Mark a zombie type as introduced (health scaling begins next round)
+  addExp(amount) {
+    this.exp += amount;
+    while (this.exp >= this.expToNextLevel) {
+      this.exp -= this.expToNextLevel;
+      this.level++;
+      this.expToNextLevel = Math.floor(this.expToNextLevel * 1.4);
+    }
+  }
+
   introduceZombieType(type) {
     if (!this.introductedZombieTypes[type]) {
       this.introductedZombieTypes[type] = true;
     }
   }
 
-  // Called at the start of each new round — tick health multipliers for introduced types
   tickHealthMultipliers() {
-    const growthPerRound = 0.005; // 0.5% per round
+    const growthPerRound = 0.005;
     for (let type of Object.keys(this.zombieHealthMultipliers)) {
       if (this.introductedZombieTypes[type]) {
         this.zombieHealthMultipliers[type] += growthPerRound;
@@ -109,19 +115,51 @@ class GameState {
     }
   }
 
-  spawnScorePopup(x, y, value) {
-    this.scorePopups.push({ x, y, value, spawnTime: millis(), lifetime: 1200 });
-  }
-
+  // Coin popup — yellow with coin icon
   spawnCoinPopup(x, y, amount) {
-    // Coin popups are gold-coloured; reuse scorePopups with a prefix
     this.scorePopups.push({
       x,
       y,
-      value: "+" + amount + "¢",
+      value: amount,
       isCoin: true,
       spawnTime: millis(),
       lifetime: 1200,
+    });
+  }
+
+  // EXP popup — blue
+  spawnExpPopup(x, y, amount) {
+    this.scorePopups.push({
+      x,
+      y,
+      value: amount,
+      isExp: true,
+      spawnTime: millis(),
+      lifetime: 1200,
+    });
+  }
+
+  // Zombie hit popup — white
+  spawnDamagePopup(x, y, amount) {
+    this.scorePopups.push({
+      x,
+      y,
+      value: Math.round(amount),
+      isDamage: true,
+      spawnTime: millis(),
+      lifetime: 800,
+    });
+  }
+
+  // Player took damage popup — red, appears above player
+  spawnPlayerDamagePopup(x, y, amount) {
+    this.scorePopups.push({
+      x,
+      y,
+      value: Math.round(amount),
+      isPlayerDamage: true,
+      spawnTime: millis(),
+      lifetime: 900,
     });
   }
 

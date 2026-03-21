@@ -53,8 +53,8 @@ class ShopManager {
         apply: (player) => {
           player.precisionBonus += 2;
           // Apply +2 damage to all current weapons
-          if (player.weapons.handgun) player.weapons.handgun.damage += .5;
-          if (player.weapons.equipped) player.weapons.equipped.damage += .5;
+          if (player.weapons.handgun) player.weapons.handgun.damage += 1;
+          if (player.weapons.equipped) player.weapons.equipped.damage += 1;
         },
       },
     };
