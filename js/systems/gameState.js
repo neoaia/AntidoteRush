@@ -63,11 +63,11 @@ class GameState {
     this.expToNextLevel = 100;
     this.introductedZombieTypes = {};
     this.zombieHealthMultipliers = {
-      normal: 1.0,
-      witch: 1.0,
-      crawler: 1.0,
-      slasher: 1.0,
-      tank: 1.0,
+      normal: 1,
+      witch: 1,
+      crawler: 1,
+      slasher: 1,
+      tank: 1,
     };
   }
 
@@ -86,9 +86,8 @@ class GameState {
   removeZombie(i) {
     this.zombies.splice(i, 1);
   }
-
-  addCoins(amount) {
-    this.coins += amount;
+  addCoins(n) {
+    this.coins += n;
   }
 
   addExp(amount) {
@@ -101,74 +100,61 @@ class GameState {
   }
 
   introduceZombieType(type) {
-    if (!this.introductedZombieTypes[type]) {
+    if (!this.introductedZombieTypes[type])
       this.introductedZombieTypes[type] = true;
-    }
   }
 
   tickHealthMultipliers() {
-    const growthPerRound = 0.005;
-    for (let type of Object.keys(this.zombieHealthMultipliers)) {
-      if (this.introductedZombieTypes[type]) {
-        this.zombieHealthMultipliers[type] += growthPerRound;
-      }
-    }
+    const g = 0.005;
+    for (let t of Object.keys(this.zombieHealthMultipliers))
+      if (this.introductedZombieTypes[t]) this.zombieHealthMultipliers[t] += g;
   }
 
-  // Coin popup — yellow with coin icon
+  // ── Popup helpers ─────────────────────────────────────────────────────────
+  // spawnTime stored in real millis() — not pauseClock.now()
+  // pausedMsAtSpawn stores totalPausedMs at spawn time so we can exclude
+  // pause duration from progress calculation
+  _makePopup(x, y, value, flags, lifetime) {
+    return {
+      x,
+      y,
+      value,
+      ...flags,
+      spawnTime: millis(),
+      pausedMsAtSpawn: pauseClock.totalPausedMs(),
+      lifetime: lifetime || 1200,
+    };
+  }
+
   spawnCoinPopup(x, y, amount) {
-    this.scorePopups.push({
-      x,
-      y,
-      value: amount,
-      isCoin: true,
-      spawnTime: millis(),
-      lifetime: 1200,
-    });
+    this.scorePopups.push(this._makePopup(x, y, amount, { isCoin: true }));
   }
 
-  // EXP popup — blue
   spawnExpPopup(x, y, amount) {
-    this.scorePopups.push({
-      x,
-      y,
-      value: amount,
-      isExp: true,
-      spawnTime: millis(),
-      lifetime: 1200,
-    });
+    this.scorePopups.push(this._makePopup(x, y, amount, { isExp: true }));
   }
 
-  // Zombie hit popup — white
   spawnDamagePopup(x, y, amount) {
-    this.scorePopups.push({
-      x,
-      y,
-      value: Math.round(amount),
-      isDamage: true,
-      spawnTime: millis(),
-      lifetime: 800,
-    });
+    this.scorePopups.push(
+      this._makePopup(x, y, Math.round(amount), { isDamage: true }, 800),
+    );
   }
 
-  // Player took damage popup — red, appears above player
   spawnPlayerDamagePopup(x, y, amount) {
-    this.scorePopups.push({
-      x,
-      y,
-      value: Math.round(amount),
-      isPlayerDamage: true,
-      spawnTime: millis(),
-      lifetime: 900,
-    });
+    this.scorePopups.push(
+      this._makePopup(x, y, Math.round(amount), { isPlayerDamage: true }, 900),
+    );
   }
 
   updateScorePopups() {
     let now = millis();
+    let totalPaused = pauseClock.totalPausedMs();
     for (let i = this.scorePopups.length - 1; i >= 0; i--) {
-      if (now - this.scorePopups[i].spawnTime > this.scorePopups[i].lifetime) {
-        this.scorePopups.splice(i, 1);
-      }
+      let p = this.scorePopups[i];
+      // Elapsed real time minus any pause time that happened after spawn
+      let pausedSinceSpawn = totalPaused - p.pausedMsAtSpawn;
+      let elapsed = now - p.spawnTime - pausedSinceSpawn;
+      if (elapsed > p.lifetime) this.scorePopups.splice(i, 1);
     }
   }
 }

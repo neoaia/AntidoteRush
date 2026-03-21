@@ -6,7 +6,7 @@ class WeaponPickupManager {
 
     this.minWait = 15000;
     this.maxWait = 35000;
-    this.nextSpawnTime = millis() + this.getRandomWait();
+    this.nextSpawnTime = pauseClock.now() + this.getRandomWait();
     this.maxPickups = 2;
 
     this.unsafeZones = [
@@ -69,7 +69,6 @@ class WeaponPickupManager {
 
   getWeaponDef(weaponType) {
     const defs = {
-      // ─── SHOTGUN ──────────────────────────────────────────────────────────
       shotgun: {
         name: "Shotgun",
         damage: 12,
@@ -95,13 +94,10 @@ class WeaponPickupManager {
         unlimited: false,
         isAuto: false,
         isHeld: false,
-        // Combat feel
-        knockback: 14, // high — each pellet can push
-        recoil: 0.3, // strong kick
-        fireMoveSlowMultiplier: 0.45, // heavy slowdown on fire
+        knockback: 14,
+        recoil: 0.3,
+        fireMoveSlowMultiplier: 0.45,
       },
-
-      // ─── AUTO RIFLE ───────────────────────────────────────────────────────
       rifle: {
         name: "Auto Rifle",
         damage: 18,
@@ -124,13 +120,10 @@ class WeaponPickupManager {
         unlimited: false,
         isAuto: true,
         isHeld: false,
-        // Combat feel
-        knockback: 4, // light per bullet, but fast
-        recoil: 0.06, // small per shot, adds up on auto
-        fireMoveSlowMultiplier: 0.7, // moderate slow while spraying
+        knockback: 4,
+        recoil: 0.06,
+        fireMoveSlowMultiplier: 0.7,
       },
-
-      // ─── SNIPER ───────────────────────────────────────────────────────────
       sniper: {
         name: "Sniper",
         damage: 80,
@@ -154,10 +147,9 @@ class WeaponPickupManager {
         unlimited: false,
         isAuto: false,
         isHeld: false,
-        // Combat feel
-        knockback: 20, // strongest single-shot knockback
-        recoil: 0.45, // biggest kick
-        fireMoveSlowMultiplier: 0.2, // near-stop when firing — scope discipline
+        knockback: 20,
+        recoil: 0.45,
+        fireMoveSlowMultiplier: 0.2,
       },
     };
     return Object.assign({}, defs[weaponType]);
@@ -178,15 +170,13 @@ class WeaponPickupManager {
   }
 
   applyDebugWeapon(player) {
-    if (this.debugWeapon !== null) {
-      this.equipWeapon(player, this.debugWeapon);
-    }
+    if (this.debugWeapon !== null) this.equipWeapon(player, this.debugWeapon);
   }
 
   update(player, base) {
-    if (millis() >= this.nextSpawnTime) {
+    if (pauseClock.now() >= this.nextSpawnTime) {
       this.spawn(base);
-      this.nextSpawnTime = millis() + this.getRandomWait();
+      this.nextSpawnTime = pauseClock.now() + this.getRandomWait();
     }
 
     for (let i = this.gameState.weaponPickups.length - 1; i >= 0; i--) {

@@ -4,7 +4,6 @@ var SPRITE_DEFS = {
     frames: 4,
     layout: "horizontal",
   },
-
   zombie_normal: {
     path: "../assets/zombies/normal.png",
     frames: 3,
@@ -36,8 +35,6 @@ var SPRITE_DEFS = {
     frames: 1,
     layout: "horizontal",
   },
-
-  // ── Guns ─────────────────────────────────────────────────────────────────
   gun_handgun: {
     path: "../assets/guns/handgun.png",
     frames: 1,
@@ -58,15 +55,11 @@ var SPRITE_DEFS = {
     frames: 1,
     layout: "horizontal",
   },
-
-  // ── Melee ─────────────────────────────────────────────────────────────────
   gun_knife: {
     path: "../assets/guns/knife.png",
     frames: 1,
     layout: "horizontal",
   },
-
-  // ── Land tiles (128x128) ──────────────────────────────────────────────────
   land01: {
     path: "../assets/grass/land_1.png",
     frames: 1,
@@ -82,8 +75,6 @@ var SPRITE_DEFS = {
     frames: 1,
     layout: "horizontal",
   },
-
-  // ── Grass (64x64) ─────────────────────────────────────────────────────────
   grass_1: {
     path: "../assets/grass/grass_1.png",
     frames: 1,
@@ -119,8 +110,6 @@ var SPRITE_DEFS = {
     frames: 1,
     layout: "horizontal",
   },
-
-  // ── Bushes (128x128) ──────────────────────────────────────────────────────
   bush_1: {
     path: "../assets/grass/bush_1.png",
     frames: 1,
@@ -131,7 +120,6 @@ var SPRITE_DEFS = {
     frames: 1,
     layout: "horizontal",
   },
-
   icon_heart: {
     path: "../assets/gui/heart.png",
     frames: 1,
@@ -157,8 +145,7 @@ class SpriteManager {
 
   preload() {
     for (let key of Object.keys(SPRITE_DEFS)) {
-      let def = SPRITE_DEFS[key];
-      this._images[key] = loadImage(def.path);
+      this._images[key] = loadImage(SPRITE_DEFS[key].path);
     }
   }
 
@@ -183,7 +170,6 @@ class SpriteSheet {
     this.img = img;
     this.frames = frames;
     this.layout = layout;
-
     if (layout === "horizontal") {
       this.frameW = img.width / frames;
       this.frameH = img.height;
@@ -192,13 +178,10 @@ class SpriteSheet {
       this.frameH = img.height / frames;
     }
   }
-
   sourceFor(frameIdx) {
-    if (this.layout === "horizontal") {
+    if (this.layout === "horizontal")
       return { sx: frameIdx * this.frameW, sy: 0 };
-    } else {
-      return { sx: 0, sy: frameIdx * this.frameH };
-    }
+    return { sx: 0, sy: frameIdx * this.frameH };
   }
 }
 
@@ -209,51 +192,39 @@ class SpriteState {
     this.animSpeed = animSpeed;
     this.totalFrames = totalFrames;
     this.flipX = false;
-
     this.hitFlashing = false;
     this.hitFlashStart = 0;
     this.hitFlashDur = 500;
   }
-
   tick() {
     this.frameTick++;
-    if (this.frameTick % this.animSpeed === 0) {
+    if (this.frameTick % this.animSpeed === 0)
       this.frameIdx = (this.frameIdx + 1) % this.totalFrames;
-    }
-    if (this.hitFlashing && millis() - this.hitFlashStart > this.hitFlashDur) {
+    // Use pauseClock.now() so flash doesn't advance while paused
+    if (
+      this.hitFlashing &&
+      pauseClock.now() - this.hitFlashStart > this.hitFlashDur
+    )
       this.hitFlashing = false;
-    }
   }
-
   flash() {
     this.hitFlashing = true;
-    this.hitFlashStart = millis();
+    this.hitFlashStart = pauseClock.now();
   }
 }
 
 class SpriteRenderer {
   static draw(sheet, state, x, y, drawScale = 1.5) {
     if (!sheet || !sheet.img) return false;
-
     state.tick();
-
     let { sx, sy } = sheet.sourceFor(state.frameIdx);
-    let dw = sheet.frameW * drawScale;
-    let dh = sheet.frameH * drawScale;
-
+    let dw = sheet.frameW * drawScale,
+      dh = sheet.frameH * drawScale;
     push();
     translate(x, y);
-
-    if (state.flipX) {
-      applyMatrix(-1, 0, 0, 1, 0, 0);
-    }
-
-    if (state.hitFlashing) {
-      tint(255, 0, 0, 255);
-    } else {
-      noTint();
-    }
-
+    if (state.flipX) applyMatrix(-1, 0, 0, 1, 0, 0);
+    if (state.hitFlashing) tint(255, 0, 0, 255);
+    else noTint();
     imageMode(CORNER);
     image(
       sheet.img,
@@ -268,7 +239,6 @@ class SpriteRenderer {
     );
     noTint();
     pop();
-
     return true;
   }
 }

@@ -19,7 +19,6 @@ class Player {
     this.isSprinting = false;
     this.isInBase = false;
 
-    // Sprint lockout
     this._sprintLocked = false;
     this._shiftWasHeld = false;
 
@@ -45,18 +44,16 @@ class Player {
     this._fireSlow = 1.0;
     this._fireSlowDecay = 0.8;
 
-    // Knife swing state
     this._knifeSwinging = false;
     this._knifeSwingStart = 0;
     this._knifeSwingDur = 220;
-
     this._gameState = null;
 
     this.weapons = {
       melee: {
         name: "Knife",
         damage: 30,
-        range: 50, // gameplay range — unchanged
+        range: 50,
         aimRange: 30,
         cooldown: 500,
         canShoot: true,
@@ -90,7 +87,6 @@ class Player {
 
     this.mouseIsHeld = false;
     this.aimAngle = 0;
-
     this.spriteSheet = null;
     this.spriteState = new SpriteState(8, 4);
   }
@@ -108,12 +104,12 @@ class Player {
 
   triggerKnifeSwing() {
     this._knifeSwinging = true;
-    this._knifeSwingStart = millis();
+    this._knifeSwingStart = pauseClock.now();
   }
 
   update(canvasWidth, canvasHeight) {
-    let moving = false;
-    let newX = this.x,
+    let moving = false,
+      newX = this.x,
       newY = this.y;
 
     let shiftHeld = keyIsDown(SHIFT);
@@ -150,13 +146,12 @@ class Player {
 
     this._fireSlow += (1.0 - this._fireSlow) * (1 - this._fireSlowDecay);
     if (this._fireSlow > 0.995) this._fireSlow = 1.0;
-
     this._recoilOffset *= this._recoilDecay;
     if (Math.abs(this._recoilOffset) < 0.001) this._recoilOffset = 0;
 
     if (
       this._knifeSwinging &&
-      millis() - this._knifeSwingStart > this._knifeSwingDur
+      pauseClock.now() - this._knifeSwingStart > this._knifeSwingDur
     ) {
       this._knifeSwinging = false;
     }
@@ -184,7 +179,7 @@ class Player {
 
     let w = this.weapons[this.currentWeapon];
     if (!w) return;
-    let now = millis();
+    let now = pauseClock.now();
 
     if (w.isReloading) {
       if (now - w.reloadStartTime >= w.reloadTime) {
@@ -214,7 +209,7 @@ class Player {
 
   activateSkill() {
     this.skillPressed = true;
-    this.skillPressTime = millis();
+    this.skillPressTime = pauseClock.now();
   }
 
   tryAutoFire(targetX, targetY) {
@@ -229,7 +224,7 @@ class Player {
     if (w.currentAmmo === w.magSize) return;
     if (!w.unlimited && w.totalAmmo <= 0) return;
     w.isReloading = true;
-    w.reloadStartTime = millis();
+    w.reloadStartTime = pauseClock.now();
     w.canShoot = false;
   }
 
@@ -237,7 +232,6 @@ class Player {
     noStroke();
     fill(0, 0, 0, 80);
     ellipse(this.x, this.y + 24, 32, 10);
-
     let drawn = SpriteRenderer.draw(
       this.spriteSheet,
       this.spriteState,
@@ -250,11 +244,9 @@ class Player {
       noStroke();
       circle(this.x, this.y, this.size);
     }
-
     this._drawHeldWeapon();
-
     if (this.skillPressed) {
-      let elapsed = millis() - this.skillPressTime;
+      let elapsed = pauseClock.now() - this.skillPressTime;
       if (elapsed < this.skillDisplayDuration) {
         let alpha = map(elapsed, 0, this.skillDisplayDuration, 255, 0);
         let floatOff = map(elapsed, 0, this.skillDisplayDuration, 0, 20);
@@ -273,7 +265,6 @@ class Player {
     let w = this.weapons[this.currentWeapon];
     if (!w) return;
     if (typeof spriteManager === "undefined") return;
-
     let keyMap = {
       Knife: "gun_knife",
       Handgun: "gun_handgun",
@@ -285,23 +276,17 @@ class Player {
     if (!sprKey) return;
     let sheet = spriteManager.get(sprKey);
     if (!sheet || !sheet.img) return;
-
     let isKnife = w.name === "Knife";
-
     push();
     translate(this.x, this.y);
-
     if (isKnife) {
-      // ── Visual scale only — gameplay range/hitbox is unchanged ─────────
-      let sc = 0.12; // small visual size
-      let dw = sheet.frameW * sc;
-      let dh = sheet.frameH * sc;
-
-      // Swing arc relative to aimAngle
+      let sc = 0.18,
+        dw = sheet.frameW * sc,
+        dh = sheet.frameH * sc;
       let swingAngle;
       if (this._knifeSwinging) {
         let t = Math.min(
-          (millis() - this._knifeSwingStart) / this._knifeSwingDur,
+          (pauseClock.now() - this._knifeSwingStart) / this._knifeSwingDur,
           1,
         );
         let eased = 1 - Math.pow(1 - t, 2);
@@ -309,29 +294,16 @@ class Player {
       } else {
         swingAngle = this.aimAngle - PI / 10;
       }
-
       rotate(swingAngle);
-
-      // The knife asset: handle is on the RIGHT, blade on the LEFT.
-      // We want the BLADE to point AWAY from the player (in the aim direction).
-      // Since we rotated by swingAngle (= aimAngle), +x is "away from player".
-      // The asset blade is on the LEFT (-x side), so we flip it horizontally
-      // so the blade faces +x (away).
       scale(-1, 1);
-
-      // Also flip vertically when aiming left to keep readable
       if (Math.abs(swingAngle) > Math.PI / 2) scale(1, -1);
-
       imageMode(CENTER);
-      // Place knife ahead of player in the now-flipped space
       let offsetX = -(this.size / 2 + dw * 0.35);
       image(sheet.img, offsetX, 0, dw, dh, 0, 0, sheet.frameW, sheet.frameH);
     } else {
-      // ── Guns ───────────────────────────────────────────────────────────
-      let sc = 0.9;
-      let dw = sheet.frameW * sc,
+      let sc = 0.9,
+        dw = sheet.frameW * sc,
         dh = sheet.frameH * sc;
-
       let recoilAng = this.aimAngle + Math.PI;
       translate(
         Math.cos(recoilAng) * this._recoilOffset * 8,
@@ -352,15 +324,14 @@ class Player {
         sheet.frameH,
       );
     }
-
     pop();
   }
 
   displayHealthBar() {
     let barWidth = 40,
-      barHeight = 5;
-    let barX = this.x - barWidth / 2;
-    let barY = this.y - this.size / 2 - 10;
+      barHeight = 5,
+      barX = this.x - barWidth / 2,
+      barY = this.y - this.size / 2 - 10;
     fill(255, 0, 0);
     noStroke();
     rect(barX, barY, barWidth, barHeight);
@@ -384,7 +355,7 @@ class Player {
     let w = this.weapons[this.currentWeapon];
     if (!w || !w.canShoot || w.isReloading) return null;
     w.canShoot = false;
-    w.lastShootTime = millis();
+    w.lastShootTime = pauseClock.now();
     if (this.currentWeapon === "melee") return { type: "melee", weapon: w };
     if (w.magSize !== undefined) {
       w.currentAmmo = Math.max(0, w.currentAmmo - 1);
