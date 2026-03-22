@@ -68,6 +68,7 @@ class ShopManager {
     this.gameState.coins -= cost;
     this.statShop[key].purchased++;
     this.statShop[key].apply(player);
+    if (typeof audioManager !== "undefined") audioManager.playPurchase();
     return true;
   }
 }

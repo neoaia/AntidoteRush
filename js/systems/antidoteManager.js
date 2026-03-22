@@ -80,6 +80,8 @@ class AntidoteManager {
       ) {
         this.gameState.playerHasAntidote = true;
         this.gameState.currentAntidote = null;
+
+        if (typeof audioManager !== "undefined") audioManager.playPickup();
       }
     }
 
@@ -95,6 +97,8 @@ class AntidoteManager {
       player.health = Math.min(player.maxHealth, player.health + 20);
       this.gameState.playerHasAntidote = false;
       this.scheduleNext();
+
+      if (typeof audioManager !== "undefined") audioManager.playRetrieve();
     }
   }
 

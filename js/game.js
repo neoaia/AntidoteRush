@@ -22,6 +22,7 @@ let pointerLocked = false;
 let vx = 0;
 let vy = 0;
 
+let _preGame = true; // true until the pre-round-1 intermission ends
 let _intentionalUnlock = false;
 let _lastEscTime = 0;
 const ESC_DEBOUNCE_MS = 400;
@@ -31,8 +32,8 @@ function preload() {
   assetManager.preload();
   spriteManager = new SpriteManager();
   spriteManager.preload();
-  audioManager = new AudioManager(); // instantiate here so it exists before setup()
-  bgmManager = new BgmManager(); // instantiate BGM manager
+  audioManager = new AudioManager();
+  bgmManager = new BgmManager();
 }
 
 function setup() {
@@ -69,12 +70,14 @@ function setup() {
   gameRenderer = new GameRenderer(gameState, uiRenderer);
   inputHandler = new InputHandler(gameState, combatManager);
 
-  gameState.roundManager.startRound(null);
+  // Start with a 15-second pre-game intermission instead of launching round 1 immediately
+  gameState.roundManager.beginIntermission();
+  uiRenderer.startPreGameUI();
+
   antidoteManager.scheduleNext();
   weaponPickupManager.applyDebugWeapon(gameState.player);
-  uiRenderer.showRoundStart(1, difficulty);
 
-  audioManager.init(); // init AFTER preload() has already constructed it
+  audioManager.init();
 
   bgmManager.init();
   bgmManager.playIngame();
@@ -87,7 +90,6 @@ function _pause() {
   isPaused = true;
   pauseClock.pause();
   if (typeof bgmManager !== "undefined") bgmManager.pause();
-
   if (typeof audioManager !== "undefined") audioManager.stopAll();
   _intentionalUnlock = true;
   document.exitPointerLock();
@@ -98,7 +100,6 @@ function _resume() {
   isPaused = false;
   pauseClock.resume();
   if (typeof bgmManager !== "undefined") bgmManager.resume();
-
   document.querySelector("canvas").requestPointerLock();
 }
 
@@ -181,7 +182,7 @@ function updateGame() {
   if (uiRenderer.isShopOpen()) {
     if (rm.inIntermission) {
       rm.updateIntermission();
-      if (rm.intermissionTimeLeft <= 0) startNextRound();
+      if (rm.intermissionTimeLeft <= 0) _endIntermission();
     }
     return;
   }
@@ -223,10 +224,10 @@ function updateGame() {
   } else if (rm.roundComplete && !rm.inIntermission) {
     rm.beginIntermission();
     uiRenderer.startIntermissionUI(rm.currentRound);
-    zombieManager.clearProjectiles(); // ← clear witch projectiles NOW
+    zombieManager.clearProjectiles();
   } else if (rm.inIntermission) {
     rm.updateIntermission();
-    if (rm.intermissionTimeLeft <= 0) startNextRound();
+    if (rm.intermissionTimeLeft <= 0) _endIntermission();
   }
 
   gameState.updateScorePopups();
@@ -245,6 +246,27 @@ function updateGame() {
   }
 }
 
+// Single handler for ending any intermission — pre-game or between rounds
+function _endIntermission() {
+  if (_preGame) {
+    _preGame = false;
+    startFirstRound();
+  } else {
+    startNextRound();
+  }
+}
+
+// Dedicated starter for round 1 — does NOT call nextRound() so zombie counts stay correct
+function startFirstRound() {
+  zombieManager.clearProjectiles();
+  let difficulty = localStorage.getItem("difficulty") || "easy";
+  uiRenderer.closeShop();
+  gameState.roundManager.startRound(gameState);
+  uiRenderer.showRoundStart(1, difficulty);
+  if (typeof audioManager !== "undefined") audioManager.playRoundStart();
+  document.querySelector("canvas").requestPointerLock();
+}
+
 function startNextRound() {
   zombieManager.clearProjectiles();
   let difficulty = localStorage.getItem("difficulty") || "easy";
@@ -252,6 +274,7 @@ function startNextRound() {
   gameState.roundManager.nextRound();
   gameState.roundManager.startRound(gameState);
   uiRenderer.showRoundStart(gameState.roundManager.currentRound, difficulty);
+  if (typeof audioManager !== "undefined") audioManager.playRoundStart();
   document.querySelector("canvas").requestPointerLock();
 }
 
@@ -347,7 +370,7 @@ function keyPressed() {
     !uiRenderer.isShopOpen()
   ) {
     gameState.roundManager.skipIntermission();
-    startNextRound();
+    _endIntermission();
     return;
   }
 

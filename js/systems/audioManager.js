@@ -58,6 +58,13 @@ class AudioManager {
         dead: 0.85,
       },
       explosion: 0.9,
+      equip: 0.7,
+      level_up: 0.85,
+      pickup: 0.75,
+      retrieve: 0.8,
+      purchase: 0.7,
+      round_start: 0.75,
+      error: 0.6,
     };
     // ────────────────────────────────────────────────────────────────────────
 
@@ -109,6 +116,13 @@ class AudioManager {
       player_hurt: "../assets/audios/player/hurt.mp3",
       player_dead: "../assets/audios/player/dead.mp3",
       explosion: "../assets/audios/zombies/attack/explosion.mp3",
+      equip: "../assets/audios/guns/equip.mp3",
+      level_up: "../assets/audios/misc/level_up.mp3",
+      pickup: "../assets/audios/misc/pickup.mp3",
+      retrieve: "../assets/audios/misc/retrieve.mp3",
+      purchase: "../assets/audios/misc/purchase.mp3",
+      round_start: "../assets/audios/misc/round-start.mp3",
+      error: "../assets/audios/gui/error.mp3",
     };
   }
 
@@ -264,6 +278,28 @@ class AudioManager {
   // ── Explosion ───────────────────────────────────────────────────────────
   playExplosion() {
     this._play("explosion", this._volumes.explosion);
+  }
+
+  playEquip() {
+    this._play("equip", this._volumes.equip);
+  }
+  playLevelUp() {
+    this._play("level_up", this._volumes.level_up);
+  }
+  playPickup() {
+    this._play("pickup", this._volumes.pickup);
+  }
+  playRetrieve() {
+    this._play("retrieve", this._volumes.retrieve);
+  }
+  playPurchase() {
+    this._play("purchase", this._volumes.purchase);
+  }
+  playRoundStart() {
+    this._play("round_start", this._volumes.round_start);
+  }
+  playError() {
+    this._play("error", this._volumes.error);
   }
 
   stopAll() {}

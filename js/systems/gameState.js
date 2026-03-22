@@ -99,6 +99,8 @@ class GameState {
       this.level++;
       this.expToNextLevel = Math.floor(this.expToNextLevel * 1.4);
 
+      if (typeof audioManager !== "undefined") audioManager.playLevelUp();
+
       // ── Level up effects ────────────────────────────────────────────────
       // 1. Spawn "LEVEL UP!" popup above player
       if (this.player) {
