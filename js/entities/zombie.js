@@ -12,7 +12,6 @@ class Zombie {
     this.type = type;
     this.active = true;
 
-    // ── Per-type stats ────────────────────────────────────────────────────
     if (type === "normal") {
       this.size = 20;
       this.hitW = 22;
@@ -32,7 +31,6 @@ class Zombie {
       this.attackStopDuration = 500;
       this.attackTiltAmount = 0.35;
       this.attackCooldown = 1000;
-      // Normal uses melee state machine
       this.isRanged = false;
     } else if (type === "witch") {
       this.size = 22;
@@ -47,19 +45,14 @@ class Zombie {
       this.spriteKey = "zombie_witch";
       this.spriteFrames = 3;
       this.knockback = 2;
-
-      // ── Witch ranged config (tune here) ──────────────────────────────
       this.isRanged = true;
-      this.preferredRange = 200; // stop moving at this distance from player
-      this.preferredRangeSlack = 30; // hysteresis: resume moving if > range + slack
-      this.projectileDamage = 8; // base damage per projectile
-      this.attackCooldown = 1800; // ms between projectile shots
-      this.projectileSpeed = 4.5; // px/frame (set on WitchProjectile)
-      // ─────────────────────────────────────────────────────────────────
-
+      this.preferredRange = 200;
+      this.preferredRangeSlack = 30;
+      this.projectileDamage = 8;
+      this.attackCooldown = 1800;
       this.lastAttackTime = 0;
-      this._witchState = "approach"; // "approach" | "ranged"
-      this._pendingShot = false; // signal to manager to spawn projectile
+      this._witchState = "approach";
+      this._pendingShot = false;
     } else if (type === "crawler") {
       this.size = 18;
       this.hitW = 20;
@@ -81,12 +74,15 @@ class Zombie {
       this.attackCooldown = 800;
       this.isRanged = false;
 
-      // ── Crawler explosion config (tune here) ──────────────────────────
+      // ── Crawler explosion config ────────────────────────────────────────
       this.explodes = true;
-      this.explosionRadius = 90; // px
-      this.explosionPlayerDamage = 35; // damage dealt to player
-      this.explosionZombieDamage = 20; // damage dealt to nearby zombies
-      this._exploded = false;
+      this.explosionRadius = 90;
+      this.explosionPlayerDamage = 35;
+      this.explosionZombieDamage = 20;
+      // Two-phase: indicator shows for this long before the blast fires
+      this.explosionIndicatorDuration = 500; // ms
+      this._explodePhase = "none"; // "none" | "indicator" | "done"
+      this._explodeStart = 0;
       // ─────────────────────────────────────────────────────────────────
     } else if (type === "slasher") {
       this.size = 32;
@@ -133,13 +129,10 @@ class Zombie {
     this.health = Math.floor(this.baseHealth * healthMultiplier);
     this.maxHealth = this.health;
 
-    // Shared state
     this.lastAttackTime = this.lastAttackTime || 0;
     this._zkbX = 0;
     this._zkbY = 0;
     this._zkbDecay = 0.7;
-
-    // Melee attack state (non-witch)
     this._attackPhase = "idle";
     this._attackPhaseStart = 0;
     this._tiltAngle = 0;
@@ -157,13 +150,10 @@ class Zombie {
     if (gameState) this._gameState = gameState;
   }
 
-  // ── Scale damage based on round (called after construction) ──────────────
   applyRoundScaling(round) {
-    // Every 3 rounds past round 1, increase special damages by 10%
     let scale = 1 + Math.floor((round - 1) / 3) * 0.1;
-    if (this.type === "witch" && this.projectileDamage !== undefined) {
+    if (this.type === "witch" && this.projectileDamage !== undefined)
       this.projectileDamage = Math.floor(this.projectileDamage * scale);
-    }
     if (this.type === "crawler" && this.explodes) {
       this.explosionPlayerDamage = Math.floor(
         this.explosionPlayerDamage * scale,
@@ -179,7 +169,6 @@ class Zombie {
     this._zkbY = kbY;
   }
 
-  // ── Hitbox ────────────────────────────────────────────────────────────────
   getLeft() {
     return this.x - this.hitW / 2;
   }
@@ -193,7 +182,6 @@ class Zombie {
     return this.y + this.hitH / 2;
   }
 
-  // ── Update ────────────────────────────────────────────────────────────────
   update(playerX, playerY) {
     let now = pauseClock.now();
 
@@ -205,10 +193,9 @@ class Zombie {
     if (Math.abs(this._zkbX) < 0.05) this._zkbX = 0;
     if (Math.abs(this._zkbY) < 0.05) this._zkbY = 0;
 
-    let dx = playerX - this.x;
-    let dy = playerY - this.y;
+    let dx = playerX - this.x,
+      dy = playerY - this.y;
     let distance = Math.sqrt(dx * dx + dy * dy);
-
     if (dx !== 0) this.spriteState.flipX = dx < 0;
 
     if (this.isRanged) {
@@ -218,41 +205,31 @@ class Zombie {
     }
   }
 
-  // ── Witch ranged state machine ────────────────────────────────────────────
   _updateWitch(dx, dy, distance, now) {
     let preferred = this.preferredRange;
     let slack = this.preferredRangeSlack;
 
     if (this._witchState === "approach") {
-      // Move toward player until within preferred range
       if (distance > preferred) {
         this.x += (dx / distance) * this.speed;
         this.y += (dy / distance) * this.speed;
       } else {
-        // Close enough — switch to ranged attack
         this._witchState = "ranged";
       }
       this._tiltAngle = 0;
     } else if (this._witchState === "ranged") {
-      // Stand still and shoot
-      // If player moves too far away, resume approaching
       if (distance > preferred + slack) {
         this._witchState = "approach";
         return;
       }
-
-      // Fire projectile on cooldown
       if (now - this.lastAttackTime >= this.attackCooldown) {
         this.lastAttackTime = now;
-        this._pendingShot = true; // zombieManager will consume this
+        this._pendingShot = true;
       }
-
-      // Slight levitation bob on tilt for visual flair
       this._tiltAngle = Math.sin(now * 0.003) * 0.08;
     }
   }
 
-  // Returns true if witch has a shot ready to fire, resets flag
   consumePendingShot() {
     if (this._pendingShot) {
       this._pendingShot = false;
@@ -261,7 +238,6 @@ class Zombie {
     return false;
   }
 
-  // ── Melee state machine (normal/slasher/tank/crawler) ────────────────────
   _updateMelee(dx, dy, distance, now) {
     switch (this._attackPhase) {
       case "idle": {
@@ -323,9 +299,41 @@ class Zombie {
     return false;
   }
 
-  // ── Display ───────────────────────────────────────────────────────────────
+  // ── Crawler two-phase explosion ───────────────────────────────────────────
+  // Returns "indicator" while showing warning, "explode" when ready to blast, "none" otherwise
+  updateExplosion() {
+    if (!this.explodes) return "none";
+    let now = pauseClock.now();
+
+    if (this._explodePhase === "none" && !this.active) {
+      // Just died — start indicator phase
+      this._explodePhase = "indicator";
+      this._explodeStart = now;
+      return "indicator";
+    }
+
+    if (this._explodePhase === "indicator") {
+      let elapsed = now - this._explodeStart;
+      if (elapsed >= this.explosionIndicatorDuration) {
+        this._explodePhase = "done";
+        return "explode"; // signal to zombieManager to run the blast
+      }
+      return "indicator";
+    }
+
+    return "none";
+  }
+
+  // Returns 0..1 indicator progress for drawing
+  explosionIndicatorProgress() {
+    if (this._explodePhase !== "indicator") return 0;
+    return Math.min(
+      1,
+      (pauseClock.now() - this._explodeStart) / this.explosionIndicatorDuration,
+    );
+  }
+
   display() {
-    // Shadow
     noStroke();
     fill(0, 0, 0, 70);
     ellipse(
@@ -344,7 +352,6 @@ class Zombie {
       translate(0, -pivotY);
     }
 
-    // Witch floating glow
     if (this.type === "witch" && this._witchState === "ranged") {
       noStroke();
       fill(180, 80, 255, 40);
@@ -375,6 +382,42 @@ class Zombie {
     this.displayHealthBar();
   }
 
+  // Draw explosion indicator (called by zombieManager while phase === "indicator")
+  displayExplosionIndicator() {
+    let progress = this.explosionIndicatorProgress();
+    let r = this.explosionRadius;
+
+    // Pulsing fill
+    let pulse = 0.5 + 0.5 * Math.sin(progress * Math.PI * 6);
+    noStroke();
+    fill(255, 60, 30, 40 + pulse * 40);
+    circle(this.x, this.y, r * 2);
+
+    // Expanding ring
+    let ringR = r * (0.5 + progress * 0.5);
+    noFill();
+    stroke(255, 80, 30, 200 - progress * 120);
+    strokeWeight(3);
+    circle(this.x, this.y, ringR * 2);
+
+    // Dashed outer boundary
+    stroke(255, 60, 30, 160);
+    strokeWeight(1.5);
+    drawingContext.setLineDash([8, 6]);
+    circle(this.x, this.y, r * 2);
+    drawingContext.setLineDash([]);
+
+    // Progress bar ring — grows as countdown fills
+    noFill();
+    stroke(255, 200, 60, 220);
+    strokeWeight(4);
+    let startAng = -HALF_PI;
+    let endAng = startAng + TWO_PI * progress;
+    arc(this.x, this.y, r * 2 + 8, r * 2 + 8, startAng, endAng);
+
+    noStroke();
+  }
+
   displayHealthBar() {
     let barWidth = 40,
       barHeight = 7;
@@ -392,7 +435,6 @@ class Zombie {
     rect(barX, barY, barWidth * pct, barHeight);
   }
 
-  // ── Damage & death ────────────────────────────────────────────────────────
   takeDamage(damage, gameState) {
     this.health -= damage;
     this.spriteState.flash();

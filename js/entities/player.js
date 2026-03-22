@@ -44,6 +44,10 @@ class Player {
     this._fireSlow = 1.0;
     this._fireSlowDecay = 0.8;
 
+    // Witch projectile slow debuff
+    this._witchSlowMult = 1.0; // speed multiplier when slowed (< 1.0)
+    this._witchSlowUntil = 0; // pauseClock.now() timestamp when slow expires
+
     this._knifeSwinging = false;
     this._knifeSwingStart = 0;
     this._knifeSwingDur = 220;
@@ -95,11 +99,19 @@ class Player {
     this._kbX = kbX;
     this._kbY = kbY;
   }
+
   applyRecoil(r) {
     this._recoilOffset = r;
   }
+
   applyFireSlow(m) {
     this._fireSlow = m;
+  }
+
+  // Called by WitchProjectile on player hit
+  applyWitchSlow(multiplier, durationMs) {
+    this._witchSlowMult = multiplier;
+    this._witchSlowUntil = pauseClock.now() + durationMs;
   }
 
   triggerKnifeSwing() {
@@ -117,7 +129,14 @@ class Player {
     this.isSprinting = shiftHeld && !this._sprintLocked && this.stamina > 0;
 
     let baseSpd = this.isSprinting ? this.sprintSpeed : this.baseSpeed;
-    this.speed = baseSpd * this._fireSlow;
+
+    // Witch slow overrides fire slow when active
+    if (pauseClock.now() < this._witchSlowUntil) {
+      this.speed = baseSpd * this._witchSlowMult;
+    } else {
+      this._witchSlowMult = 1.0; // reset once expired
+      this.speed = baseSpd * this._fireSlow;
+    }
 
     if (keyIsDown(87)) {
       newY -= this.speed;
@@ -183,13 +202,12 @@ class Player {
     let now = pauseClock.now();
 
     // ── Reload delay state (shotgun uses this) ────────────────────────────
-    // If weapon has a reloadDelay pending, wait it out before starting reload
     if (w._reloadDelayUntil !== undefined && w._reloadDelayUntil > 0) {
       if (now >= w._reloadDelayUntil) {
         w._reloadDelayUntil = 0;
         this._beginReload(w);
       }
-      return; // don't process further while waiting for delay
+      return;
     }
 
     // ── Reload in progress ────────────────────────────────────────────────
@@ -220,7 +238,6 @@ class Player {
     }
   }
 
-  // ── Internal: actually begin reloading ───────────────────────────────────
   _beginReload(w) {
     w.isReloading = true;
     w.reloadStartTime = pauseClock.now();
@@ -228,14 +245,12 @@ class Player {
     if (typeof audioManager !== "undefined") audioManager.playReload(w.name);
   }
 
-  // ── Public: trigger a reload (with optional delay support) ───────────────
   startReload() {
     let w = this.weapons[this.currentWeapon];
     if (!w || w.magSize === undefined || w.isReloading) return;
     if (w.currentAmmo === w.magSize) return;
     if (!w.unlimited && w.totalAmmo <= 0) return;
 
-    // If this weapon has a reloadDelay, schedule instead of starting immediately
     if (w.reloadDelay && w.reloadDelay > 0) {
       w._reloadDelayUntil = pauseClock.now() + w.reloadDelay;
       w.canShoot = false;
@@ -272,6 +287,18 @@ class Player {
       circle(this.x, this.y, this.size);
     }
     this._drawHeldWeapon();
+
+    // Witch slow visual indicator — purple tint ring around player
+    if (pauseClock.now() < this._witchSlowUntil) {
+      let remaining = this._witchSlowUntil - pauseClock.now();
+      let alpha = map(remaining, 0, 500, 60, 160);
+      noFill();
+      stroke(180, 80, 255, alpha);
+      strokeWeight(2.5);
+      circle(this.x, this.y, this.size * 2.2);
+      noStroke();
+    }
+
     if (this.skillPressed) {
       let elapsed = pauseClock.now() - this.skillPressTime;
       if (elapsed < this.skillDisplayDuration) {

@@ -26,18 +26,27 @@ class AudioManager {
         shotgun: 0.6,
         sniper: 0.55,
       },
+      melee: {
+        knife_swing: 0.6, // plays on every swing attempt
+        knife_attack: 0.8, // plays when swing actually hits a zombie
+      },
     };
     // ────────────────────────────────────────────────────────────────────────
 
     this._files = {
+      // Guns — fire
       fire_handgun: "../assets/audios/guns/fire/handgun.mp3",
       fire_rifle: "../assets/audios/guns/fire/rifle.mp3",
       fire_shotgun: "../assets/audios/guns/fire/shotgun.mp3",
       fire_sniper: "../assets/audios/guns/fire/sniper.mp3",
+      // Guns — reload
       reload_handgun: "../assets/audios/guns/reload/handgun.mp3",
       reload_rifle: "../assets/audios/guns/reload/rifle.mp3",
       reload_shotgun: "../assets/audios/guns/reload/shotgun.mp3",
       reload_sniper: "../assets/audios/guns/reload/sniper.mp3",
+      // Melee
+      knife_swing: "../assets/audios/guns/knife_swing.wav",
+      knife_attack: "../assets/audios/guns/knife_attack.wav",
     };
   }
 
@@ -82,7 +91,7 @@ class AudioManager {
   _loadBuffer(key, path) {
     fetch(path)
       .then((r) => {
-        if (!r.ok) throw new Error("HTTP " + r.status + " loading " + path);
+        if (!r.ok) throw new Error("HTTP " + r.status + " for " + path);
         return r.arrayBuffer();
       })
       .then((ab) => this._ctx.decodeAudioData(ab))
@@ -92,7 +101,7 @@ class AudioManager {
       .catch((e) => console.warn("AudioManager: failed to load", path, e));
   }
 
-  _play(bufferKey, volume) {
+  _play(bufferKey, volume, allowOverlap) {
     if (!this._ctx) return;
     if (typeof pauseClock !== "undefined" && pauseClock.isPaused()) return;
 
@@ -115,6 +124,7 @@ class AudioManager {
     }
   }
 
+  // ── Gun sounds ──────────────────────────────────────────────────────────
   playFire(weaponName) {
     let key = this._keyFor(weaponName);
     if (!key) return;
@@ -127,8 +137,19 @@ class AudioManager {
     this._play("reload_" + key, this._volumes.reload[key] || 0.5);
   }
 
+  // ── Melee sounds ────────────────────────────────────────────────────────
+  // Call on every knife swing (whether it hits or not)
+  playKnifeSwing() {
+    this._play("knife_swing", this._volumes.melee.knife_swing);
+  }
+
+  // Call when knife swing actually connects with a zombie
+  playKnifeHit() {
+    this._play("knife_attack", this._volumes.melee.knife_attack);
+  }
+
   stopAll() {
-    // One-shot BufferSource nodes auto-GC — nothing to stop.
+    // One-shot BufferSource nodes auto-GC.
     // Pause flag in _play() prevents new sounds while paused.
   }
 }

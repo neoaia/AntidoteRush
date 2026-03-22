@@ -18,9 +18,7 @@ class CombatManager {
       player.applyFireSlow(w.fireMoveSlowMultiplier);
 
     if (shootResult.type === "bullet") {
-      // Fire sound
       if (typeof audioManager !== "undefined") audioManager.playFire(w.name);
-
       this.gameState.addBullet(
         new Bullet(player.x, player.y, targetX, targetY, w.damage, {
           piercing: w.piercing || false,
@@ -33,13 +31,10 @@ class CombatManager {
         }),
       );
     } else if (shootResult.type === "shotgun") {
-      // Single fire sound for the whole blast
       if (typeof audioManager !== "undefined") audioManager.playFire(w.name);
-
       let pellets = w.pellets || 6;
       let spreadAngle = w.spreadAngle || 0.4;
       let baseAngle = atan2(targetY - player.y, targetX - player.x);
-
       for (let i = 0; i < pellets; i++) {
         let angle = baseAngle + (Math.random() - 0.5) * spreadAngle;
         this.gameState.addBullet(
@@ -62,40 +57,111 @@ class CombatManager {
         );
       }
     } else if (shootResult.type === "melee") {
-      // Knife: no fire sound
       player.triggerKnifeSwing();
+      if (typeof audioManager !== "undefined") audioManager.playKnifeSwing();
+
       this.gameState.meleeSlashActive = true;
       this.gameState.meleeSlashStartTime = pauseClock.now();
       this.gameState.meleeSlashAngle = atan2(
         targetY - player.y,
         targetX - player.x,
       );
-      this.executeMeleeAttack(player, w, this.gameState.meleeSlashAngle);
+
+      let hitCount = this.executeMeleeAttack(
+        player,
+        w,
+        this.gameState.meleeSlashAngle,
+      );
+
+      // Destroy any witch projectiles caught in the swing
+      this.executeMeleeProjectileDestroy(
+        player,
+        w,
+        this.gameState.meleeSlashAngle,
+      );
+
+      if (hitCount > 0 && typeof audioManager !== "undefined") {
+        audioManager.playKnifeHit();
+      }
     }
   }
 
+  // ── Knife AoE: depth-based damage ────────────────────────────────────────
+  // Damage falls off from center to edge of arc.
+  // Center of swing = full damage, edge = minDamageFraction of full damage.
   executeMeleeAttack(player, weapon, attackAngle) {
-    let arcAngle = PI / 3;
+    let arcAngle = PI / 3; // ±60° total arc (same as before)
+    let range = weapon.range; // px from player center
+    let minDamageFrac = 0.55; // edge gets 55% of full damage
+    let hitCount = 0;
+
     for (let i = this.gameState.zombies.length - 1; i >= 0; i--) {
       let z = this.gameState.zombies[i];
-      let distance = dist(player.x, player.y, z.x, z.y);
-      if (distance < weapon.range + z.size / 2) {
-        let angleToZombie = atan2(z.y - player.y, z.x - player.x);
-        let angleDiff = angleToZombie - attackAngle;
-        while (angleDiff > PI) angleDiff -= TWO_PI;
-        while (angleDiff < -PI) angleDiff += TWO_PI;
-        if (abs(angleDiff) <= arcAngle) {
-          z.takeDamage(weapon.damage, this.gameState);
-          if (weapon.knockback && distance > 0) {
-            let dx = z.x - player.x,
-              dy = z.y - player.y;
-            let d = Math.sqrt(dx * dx + dy * dy);
-            z.applyKnockback(
-              (dx / d) * weapon.knockback,
-              (dy / d) * weapon.knockback,
-            );
-          }
-        }
+
+      let dx = z.x - player.x;
+      let dy = z.y - player.y;
+      let distance = Math.sqrt(dx * dx + dy * dy);
+
+      // Effective reach: range + half of zombie hitbox size for reliability
+      let effectiveRange = range + z.hitW / 2;
+      if (distance > effectiveRange) continue;
+
+      let angleToZombie = atan2(dy, dx);
+      let angleDiff = angleToZombie - attackAngle;
+      while (angleDiff > PI) angleDiff -= TWO_PI;
+      while (angleDiff < -PI) angleDiff += TWO_PI;
+
+      if (abs(angleDiff) > arcAngle) continue;
+
+      // Depth score: 0 = at edge of arc, 1 = dead center of swing
+      // Combines angular depth and distance depth
+      let angularDepth = 1 - abs(angleDiff) / arcAngle; // 0..1
+      let distanceDepth = 1 - distance / effectiveRange; // 0..1
+      let depth = angularDepth * 0.6 + distanceDepth * 0.4; // weighted
+
+      // Damage: lerp from minDamageFrac to 1.0 based on depth
+      let damageMult = minDamageFrac + (1 - minDamageFrac) * depth;
+      let finalDmg = Math.round(weapon.damage * damageMult);
+
+      z.takeDamage(finalDmg, this.gameState);
+      hitCount++;
+
+      if (weapon.knockback && distance > 0) {
+        z.applyKnockback(
+          (dx / distance) * weapon.knockback,
+          (dy / distance) * weapon.knockback,
+        );
+      }
+    }
+
+    return hitCount;
+  }
+
+  // ── Melee destroys witch projectiles in swing arc ─────────────────────────
+  executeMeleeProjectileDestroy(player, weapon, attackAngle) {
+    if (!this.gameState._zombieManager) return;
+    let projectiles = this.gameState._zombieManager.witchProjectiles;
+    if (!projectiles) return;
+
+    let arcAngle = PI / 3;
+    let range = weapon.range + 10; // slightly extended for projectile intercept
+
+    for (let i = projectiles.length - 1; i >= 0; i--) {
+      let p = projectiles[i];
+      let dx = p.x - player.x;
+      let dy = p.y - player.y;
+      let distance = Math.sqrt(dx * dx + dy * dy);
+
+      if (distance > range + p.size / 2) continue;
+
+      let angleToProj = atan2(dy, dx);
+      let angleDiff = angleToProj - attackAngle;
+      while (angleDiff > PI) angleDiff -= TWO_PI;
+      while (angleDiff < -PI) angleDiff += TWO_PI;
+
+      if (abs(angleDiff) <= arcAngle) {
+        p.active = false;
+        projectiles.splice(i, 1);
       }
     }
   }
@@ -149,3 +215,4 @@ class CombatManager {
     }
   }
 }
+  

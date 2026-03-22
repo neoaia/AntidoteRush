@@ -1,18 +1,22 @@
 class ZombieManager {
   constructor(gameState) {
     this.gameState = gameState;
-    // Active witch projectiles live here
     this.witchProjectiles = [];
+
+    // Dead crawlers awaiting explosion
+    this._pendingCrawlers = [];
+
+    // Register self on gameState so combatManager can reach witchProjectiles
+    this.gameState._zombieManager = this;
   }
 
   update(player) {
-    let now = pauseClock.now();
-
+    // ── Live zombie updates ───────────────────────────────────────────────
     for (let i = this.gameState.zombies.length - 1; i >= 0; i--) {
       let z = this.gameState.zombies[i];
       z.update(player.x, player.y);
 
-      // ── Witch: spawn projectile ─────────────────────────────────────────
+      // Witch: spawn projectile
       if (z.type === "witch" && z.consumePendingShot()) {
         this.witchProjectiles.push(
           new WitchProjectile(z.x, z.y, player.x, player.y, z.projectileDamage),
@@ -20,20 +24,17 @@ class ZombieManager {
       }
 
       if (!z.active) {
-        // Save values before splice
         let zx = z.x,
           zy = z.y,
           zCoins = z.coins,
           zExp = z.exp,
           zSize = z.size;
 
-        // ── Crawler: explosion on death ─────────────────────────────────
-        if (z.type === "crawler" && z.explodes && !z._exploded) {
-          z._exploded = true;
-          this._crawlerExplosion(z, player);
+        // Crawler: start two-phase explosion sequence
+        if (z.type === "crawler" && z.explodes) {
+          this._pendingCrawlers.push(z); // keep alive for indicator + blast
         }
 
-        // Rewards
         this.gameState.addCoins(zCoins);
         this.gameState.spawnCoinPopup(zx, zy - zSize / 2 - 12, zCoins);
         this.gameState.addExp(zExp);
@@ -43,14 +44,13 @@ class ZombieManager {
         continue;
       }
 
-      // ── Melee hit registration ──────────────────────────────────────────
+      // Melee hit registration for non-ranged zombies
       if (!z.isRanged && z.consumePendingHit()) {
         let dx = player.x - z.x,
           dy = player.y - z.y;
         let dist = Math.sqrt(dx * dx + dy * dy);
         if (dist <= z.attackRange) {
           player.takeDamage(z.damage, this.gameState);
-          // Player knockback away from zombie
           if (dist > 0) {
             player.applyKnockback(
               (dx / dist) * (z.knockback || 4),
@@ -61,11 +61,23 @@ class ZombieManager {
       }
     }
 
-    // ── Witch projectile updates ────────────────────────────────────────────
+    // ── Pending crawler explosion phases ─────────────────────────────────
+    for (let i = this._pendingCrawlers.length - 1; i >= 0; i--) {
+      let c = this._pendingCrawlers[i];
+      let phase = c.updateExplosion();
+
+      if (phase === "explode") {
+        this._crawlerExplosion(c, player);
+        this._pendingCrawlers.splice(i, 1);
+      } else if (phase === "none" && c._explodePhase === "done") {
+        this._pendingCrawlers.splice(i, 1);
+      }
+    }
+
+    // ── Witch projectile updates ──────────────────────────────────────────
     for (let i = this.witchProjectiles.length - 1; i >= 0; i--) {
       let p = this.witchProjectiles[i];
       p.update();
-
       if (!p.active) {
         this.witchProjectiles.splice(i, 1);
         continue;
@@ -73,7 +85,6 @@ class ZombieManager {
 
       if (p.checkPlayerHit(player)) {
         player.takeDamage(p.damage, this.gameState);
-        // Small knockback from projectile direction
         player.applyKnockback(p.vx * 1.5, p.vy * 1.5);
         p.active = false;
         this.witchProjectiles.splice(i, 1);
@@ -81,45 +92,40 @@ class ZombieManager {
     }
   }
 
-  // ── Crawler explosion ─────────────────────────────────────────────────────
+  // ── Crawler explosion blast ───────────────────────────────────────────────
   _crawlerExplosion(crawler, player) {
     let cx = crawler.x,
-      cy = crawler.y;
-    let r = crawler.explosionRadius;
+      cy = crawler.y,
+      r = crawler.explosionRadius;
 
-    // Visual — spawn a temporary explosion effect via gameState
-    if (this.gameState.spawnExplosion) {
-      this.gameState.spawnExplosion(cx, cy, r);
-    }
+    // Visual explosion effect
+    this.gameState.spawnExplosion(cx, cy, r);
 
-    // Damage player if in radius
+    // Damage player
     let pdx = player.x - cx,
       pdy = player.y - cy;
-    let pdist = Math.sqrt(pdx * pdx + pdy * pdy);
-    if (pdist < r + player.size / 2) {
+    let pd = Math.sqrt(pdx * pdx + pdy * pdy);
+    if (pd < r + player.size / 2) {
       player.takeDamage(crawler.explosionPlayerDamage, this.gameState);
-      // Knockback player outward
-      if (pdist > 0) {
-        let force = map(pdist, 0, r, 12, 2);
-        player.applyKnockback((pdx / pdist) * force, (pdy / pdist) * force);
+      if (pd > 0) {
+        let force = map(pd, 0, r, 12, 2);
+        player.applyKnockback((pdx / pd) * force, (pdy / pd) * force);
       }
     }
 
-    // Damage nearby zombies (friendly fire — crawler is chaos)
+    // Damage nearby zombies (friendly fire)
     for (let z of this.gameState.zombies) {
       if (z === crawler || !z.active) continue;
       let zdx = z.x - cx,
         zdy = z.y - cy;
-      let zdist = Math.sqrt(zdx * zdx + zdy * zdy);
-      if (zdist < r + z.size / 2) {
-        // Falloff: full damage at center, half at edge
-        let falloff = 1 - (zdist / r) * 0.5;
+      let zd = Math.sqrt(zdx * zdx + zdy * zdy);
+      if (zd < r + z.size / 2) {
+        let falloff = 1 - (zd / r) * 0.5;
         let dmg = Math.floor(crawler.explosionZombieDamage * falloff);
         z.takeDamage(dmg, this.gameState);
-        // Knockback other zombies
-        if (zdist > 0) {
-          let force = map(zdist, 0, r, 8, 1);
-          z.applyKnockback((zdx / zdist) * force, (zdy / zdist) * force);
+        if (zd > 0) {
+          let force = map(zd, 0, r, 8, 1);
+          z.applyKnockback((zdx / zd) * force, (zdy / zd) * force);
         }
       }
     }
@@ -132,26 +138,27 @@ class ZombieManager {
       this.gameState.zombies,
       this.gameState,
     );
-
     if (spawnResult !== null) {
-      if (spawnResult.type === "cluster") {
+      if (spawnResult.type === "cluster")
         this.gameState.addZombies(spawnResult.zombies);
-      } else {
-        this.gameState.addZombie(spawnResult);
-      }
+      else this.gameState.addZombie(spawnResult);
     }
   }
 
   display() {
+    // Live zombies
     for (let z of this.gameState.zombies) z.display();
 
-    // Draw witch projectiles (in world space — called inside push/translate)
+    // Pending crawler indicators (drawn in world space)
+    for (let c of this._pendingCrawlers) {
+      if (c._explodePhase === "indicator") c.displayExplosionIndicator();
+    }
+
+    // Witch projectiles
     for (let p of this.witchProjectiles) p.display();
 
-    // Draw explosion effects
-    if (this.gameState.explosions) {
-      this._drawExplosions();
-    }
+    // Explosion flash effects
+    if (this.gameState.explosions) this._drawExplosions();
   }
 
   _drawExplosions() {
@@ -159,31 +166,29 @@ class ZombieManager {
     for (let i = this.gameState.explosions.length - 1; i >= 0; i--) {
       let ex = this.gameState.explosions[i];
       let elapsed = now - ex.startTime;
-      let duration = 500; // ms
-
+      let duration = 500;
       if (elapsed > duration) {
         this.gameState.explosions.splice(i, 1);
         continue;
       }
 
       let progress = elapsed / duration;
-      let alpha = (1 - progress) * 200;
-      let outerR = ex.radius * (0.6 + progress * 0.7);
-      let innerR = ex.radius * (0.3 + progress * 0.4);
+      let alpha = (1 - progress) * 220;
 
-      noStroke();
-      // Outer shockwave ring
-      fill(255, 160, 40, alpha * 0.5);
-      circle(ex.x, ex.y, outerR * 2);
       // Core flash
-      fill(255, 220, 100, alpha * (1 - progress));
-      circle(ex.x, ex.y, innerR * 2);
-      // Dark smoke edge
-      fill(80, 60, 40, alpha * 0.4);
+      noStroke();
+      fill(255, 220, 80, alpha * (1 - progress) * 1.4);
+      circle(ex.x, ex.y, ex.radius * (0.4 + progress * 0.6) * 2);
+
+      // Expanding shockwave
+      fill(255, 120, 30, alpha * 0.5);
+      circle(ex.x, ex.y, ex.radius * (0.6 + progress * 0.8) * 2);
+
+      // Ring
       noFill();
-      stroke(200, 100, 20, alpha * 0.6);
+      stroke(220, 80, 20, alpha * 0.7);
       strokeWeight(3 * (1 - progress));
-      circle(ex.x, ex.y, outerR * 2);
+      circle(ex.x, ex.y, ex.radius * (0.8 + progress * 0.5) * 2);
       noStroke();
     }
   }

@@ -1,7 +1,6 @@
 /**
  * WitchProjectile — green ranged attack fired by the Witch enemy.
- * Travels in a straight line toward a target position.
- * Damages the player on contact.
+ * On player hit: deals damage + applies 0.5s movement slow debuff.
  */
 class WitchProjectile {
   constructor(x, y, targetX, targetY, damage) {
@@ -12,29 +11,28 @@ class WitchProjectile {
     this.size = 10;
     this.active = true;
 
-    // Direction toward target
     let dx = targetX - x;
     let dy = targetY - y;
     let dist = Math.sqrt(dx * dx + dy * dy);
     this.vx = dist > 0 ? (dx / dist) * this.speed : 0;
     this.vy = dist > 0 ? (dy / dist) * this.speed : 0;
 
-    // Visual
-    this.bobTick = 0;
-    this.trail = []; // last N positions for trail effect
+    // ── Slow debuff config ────────────────────────────────────────────────
+    this.slowMultiplier = 0.4; // player moves at 40% speed when slowed
+    this.slowDuration = 500; // ms
+    // ─────────────────────────────────────────────────────────────────────
+
+    this.trail = [];
     this.maxTrail = 6;
   }
 
   update() {
-    // Store trail
     this.trail.push({ x: this.x, y: this.y });
     if (this.trail.length > this.maxTrail) this.trail.shift();
 
     this.x += this.vx;
     this.y += this.vy;
-    this.bobTick += 0.3;
 
-    // Out of world bounds
     let W = typeof WORLD_WIDTH !== "undefined" ? WORLD_WIDTH : 2400;
     let H = typeof WORLD_HEIGHT !== "undefined" ? WORLD_HEIGHT : 2400;
     if (this.x < -50 || this.x > W + 50 || this.y < -50 || this.y > H + 50) {
@@ -47,10 +45,9 @@ class WitchProjectile {
     for (let i = 0; i < this.trail.length; i++) {
       let t = i / this.trail.length;
       let alpha = t * 140;
-      let r = this.size * 0.5 * t;
       noStroke();
       fill(80, 220, 80, alpha);
-      circle(this.trail[i].x, this.trail[i].y, r * 2);
+      circle(this.trail[i].x, this.trail[i].y, this.size * t);
     }
 
     // Outer glow
@@ -64,7 +61,7 @@ class WitchProjectile {
     strokeWeight(1.5);
     circle(this.x, this.y, this.size);
 
-    // Inner highlight
+    // Highlight
     noStroke();
     fill(180, 255, 180, 180);
     circle(
@@ -76,12 +73,17 @@ class WitchProjectile {
     noStroke();
   }
 
-  // Returns true if this projectile hit the player
+  // Returns true if hit. Also applies slow to player.
   checkPlayerHit(player) {
     let dx = player.x - this.x;
     let dy = player.y - this.y;
     let dist = Math.sqrt(dx * dx + dy * dy);
-    return dist < this.size / 2 + player.size / 2;
+    if (dist < this.size / 2 + player.size / 2) {
+      // Apply movement slow debuff on the player
+      player.applyWitchSlow(this.slowMultiplier, this.slowDuration);
+      return true;
+    }
+    return false;
   }
 
   getLeft() {
