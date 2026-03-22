@@ -44,14 +44,18 @@ class Player {
     this._fireSlow = 1.0;
     this._fireSlowDecay = 0.8;
 
-    // Witch projectile slow debuff
-    this._witchSlowMult = 1.0; // speed multiplier when slowed (< 1.0)
-    this._witchSlowUntil = 0; // pauseClock.now() timestamp when slow expires
+    this._witchSlowMult = 1.0;
+    this._witchSlowUntil = 0;
+
+    this._levelUpBoostUntil = 0;
+    this._levelUpBoostMult = 1.8;
 
     this._knifeSwinging = false;
     this._knifeSwingStart = 0;
     this._knifeSwingDur = 220;
     this._gameState = null;
+
+    this._isMoving = false;
 
     this.weapons = {
       melee: {
@@ -91,7 +95,8 @@ class Player {
 
     this.mouseIsHeld = false;
     this.aimAngle = 0;
-    this.spriteSheet = null;
+    this.spriteSheet = null; // idle / bounce sprite
+    this.walkSpriteSheet = null; // walk sprite
     this.spriteState = new SpriteState(8, 4);
   }
 
@@ -99,19 +104,20 @@ class Player {
     this._kbX = kbX;
     this._kbY = kbY;
   }
-
   applyRecoil(r) {
     this._recoilOffset = r;
   }
-
   applyFireSlow(m) {
     this._fireSlow = m;
   }
 
-  // Called by WitchProjectile on player hit
   applyWitchSlow(multiplier, durationMs) {
     this._witchSlowMult = multiplier;
     this._witchSlowUntil = pauseClock.now() + durationMs;
+  }
+
+  applyLevelUpBoost(durationMs) {
+    this._levelUpBoostUntil = pauseClock.now() + durationMs;
   }
 
   triggerKnifeSwing() {
@@ -128,13 +134,16 @@ class Player {
     if (!shiftHeld) this._sprintLocked = false;
     this.isSprinting = shiftHeld && !this._sprintLocked && this.stamina > 0;
 
+    let now = pauseClock.now();
     let baseSpd = this.isSprinting ? this.sprintSpeed : this.baseSpeed;
 
-    // Witch slow overrides fire slow when active
-    if (pauseClock.now() < this._witchSlowUntil) {
+    if (now < this._witchSlowUntil) {
       this.speed = baseSpd * this._witchSlowMult;
+    } else if (now < this._levelUpBoostUntil) {
+      this._witchSlowMult = 1.0;
+      this.speed = baseSpd * this._levelUpBoostMult;
     } else {
-      this._witchSlowMult = 1.0; // reset once expired
+      this._witchSlowMult = 1.0;
       this.speed = baseSpd * this._fireSlow;
     }
 
@@ -155,6 +164,8 @@ class Player {
       moving = true;
     }
 
+    this._isMoving = moving;
+
     // Knockback
     newX += this._kbX;
     newY += this._kbY;
@@ -171,7 +182,7 @@ class Player {
 
     if (
       this._knifeSwinging &&
-      pauseClock.now() - this._knifeSwingStart > this._knifeSwingDur
+      now - this._knifeSwingStart > this._knifeSwingDur
     ) {
       this._knifeSwinging = false;
     }
@@ -199,9 +210,8 @@ class Player {
 
     let w = this.weapons[this.currentWeapon];
     if (!w) return;
-    let now = pauseClock.now();
 
-    // ── Reload delay state (shotgun uses this) ────────────────────────────
+    // Reload delay (shotgun)
     if (w._reloadDelayUntil !== undefined && w._reloadDelayUntil > 0) {
       if (now >= w._reloadDelayUntil) {
         w._reloadDelayUntil = 0;
@@ -210,7 +220,7 @@ class Player {
       return;
     }
 
-    // ── Reload in progress ────────────────────────────────────────────────
+    // Reload in progress
     if (w.isReloading) {
       if (now - w.reloadStartTime >= w.reloadTime) {
         if (w.unlimited) {
@@ -227,7 +237,7 @@ class Player {
       return;
     }
 
-    // ── Cooldown after shot ───────────────────────────────────────────────
+    // Cooldown after shot
     if (!w.canShoot && w.magSize !== undefined) {
       if (now - w.lastShootTime > w.cooldown) {
         if (w.currentAmmo > 0) w.canShoot = true;
@@ -250,7 +260,6 @@ class Player {
     if (!w || w.magSize === undefined || w.isReloading) return;
     if (w.currentAmmo === w.magSize) return;
     if (!w.unlimited && w.totalAmmo <= 0) return;
-
     if (w.reloadDelay && w.reloadDelay > 0) {
       w._reloadDelayUntil = pauseClock.now() + w.reloadDelay;
       w.canShoot = false;
@@ -271,11 +280,19 @@ class Player {
   }
 
   display() {
+    // Shadow
     noStroke();
     fill(0, 0, 0, 80);
     ellipse(this.x, this.y + 24, 32, 10);
+
+    // Use walk sprite when moving, idle/bounce sprite when still
+    let activeSheet =
+      this._isMoving && this.walkSpriteSheet
+        ? this.walkSpriteSheet
+        : this.spriteSheet;
+
     let drawn = SpriteRenderer.draw(
-      this.spriteSheet,
+      activeSheet,
       this.spriteState,
       this.x,
       this.y,
@@ -286,11 +303,14 @@ class Player {
       noStroke();
       circle(this.x, this.y, this.size);
     }
+
     this._drawHeldWeapon();
 
-    // Witch slow visual indicator — purple tint ring around player
-    if (pauseClock.now() < this._witchSlowUntil) {
-      let remaining = this._witchSlowUntil - pauseClock.now();
+    let now = pauseClock.now();
+
+    // Witch slow — purple ring
+    if (now < this._witchSlowUntil) {
+      let remaining = this._witchSlowUntil - now;
       let alpha = map(remaining, 0, 500, 60, 160);
       noFill();
       stroke(180, 80, 255, alpha);
@@ -299,8 +319,20 @@ class Player {
       noStroke();
     }
 
+    // Level-up boost — gold pulsing ring
+    if (now < this._levelUpBoostUntil) {
+      let remaining = this._levelUpBoostUntil - now;
+      let pulse = 0.5 + 0.5 * Math.sin(now * 0.01);
+      let alpha = map(remaining, 0, 3000, 40, 160) * pulse;
+      noFill();
+      stroke(255, 220, 50, alpha);
+      strokeWeight(3);
+      circle(this.x, this.y, this.size * 2.6);
+      noStroke();
+    }
+
     if (this.skillPressed) {
-      let elapsed = pauseClock.now() - this.skillPressTime;
+      let elapsed = now - this.skillPressTime;
       if (elapsed < this.skillDisplayDuration) {
         let alpha = map(elapsed, 0, this.skillDisplayDuration, 255, 0);
         let floatOff = map(elapsed, 0, this.skillDisplayDuration, 0, 20);
@@ -317,8 +349,7 @@ class Player {
 
   _drawHeldWeapon() {
     let w = this.weapons[this.currentWeapon];
-    if (!w) return;
-    if (typeof spriteManager === "undefined") return;
+    if (!w || typeof spriteManager === "undefined") return;
     let keyMap = {
       Knife: "gun_knife",
       Handgun: "gun_handgun",
@@ -432,15 +463,10 @@ class Player {
     this.health -= damage;
     if (this.health < 0) this.health = 0;
     this.spriteState.flash();
-
     if (typeof audioManager !== "undefined") {
-      if (this.health <= 0) {
-        audioManager.playPlayerDead(); // death sound only
-      } else {
-        audioManager.playPlayerHurt(); // hurt sound only
-      }
+      if (this.health <= 0) audioManager.playPlayerDead();
+      else audioManager.playPlayerHurt();
     }
-
     let gs = gameState || this._gameState;
     if (gs) {
       let offsetX = (Math.random() - 0.5) * 16;

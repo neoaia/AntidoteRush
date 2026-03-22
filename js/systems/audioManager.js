@@ -34,30 +34,32 @@ class AudioManager {
         knife_attack: 0.8,
       },
       zombie_attack: {
-        normal: 0.65,
-        crawler: 0.7,
-        slasher: 0.8,
-        witch: 0.6,
+        normal: 0.4,
+        crawler: 0.3,
+        slasher: 0.3,
+        witch: 0.3,
       },
+      // Lowered hurt/dead volumes to reduce audio spike on burst kills
       zombie_hurt_layer: {
-        normal: 0.55,
-        crawler: 0.55,
-        slasher: 0.6,
-        witch: 0.55,
+        normal: 0.28,
+        crawler: 0.28,
+        slasher: 0.32,
+        witch: 0.28,
       },
       zombie_type_layer: {
-        normal: 0.5,
-        crawler: 0.5,
-        slasher: 0.55,
-        witch: 0.5,
+        normal: 0.22,
+        crawler: 0.22,
+        slasher: 0.26,
+        witch: 0.22,
       },
-      zombie_dead_layer: 0.65,
+      zombie_dead_layer: 0.4,
       player: {
         hurt: 0.75,
         dead: 0.85,
       },
       explosion: 0.9,
     };
+    // ────────────────────────────────────────────────────────────────────────
 
     this._maxConcurrent = {
       zombie_hurt: 2,
@@ -82,7 +84,6 @@ class AudioManager {
       player_dead: 0,
       explosion: 0,
     };
-    // ────────────────────────────────────────────────────────────────────────
 
     this._files = {
       fire_handgun: "../assets/audios/guns/fire/handgun.mp3",
@@ -106,7 +107,7 @@ class AudioManager {
       zombie_hurt: "../assets/audios/zombies/hurt/hurt.wav",
       zombie_dead: "../assets/audios/zombies/hurt/dead.wav",
       player_hurt: "../assets/audios/player/hurt.mp3",
-      player_dead: "../assets/audios/player/dead.mp3", 
+      player_dead: "../assets/audios/player/dead.mp3",
       explosion: "../assets/audios/zombies/attack/explosion.mp3",
     };
   }
@@ -227,28 +228,28 @@ class AudioManager {
     this._play(key, this._volumes.zombie_attack[zombieType] || 0.65);
   }
 
-  // ── Zombie hurt (skipGeneric = true for knife) ──────────────────────────
+  // ── Zombie hurt (skipGeneric = true for knife hits) ─────────────────────
   playZombieHurt(zombieType, skipGeneric) {
     if (!skipGeneric) {
       this._play(
         "zombie_hurt",
-        this._volumes.zombie_hurt_layer[zombieType] || 0.55,
+        this._volumes.zombie_hurt_layer[zombieType] || 0.28,
       );
     }
     let typeKey = "zombie_type_" + zombieType;
     if (this._files[typeKey]) {
-      this._play(typeKey, this._volumes.zombie_type_layer[zombieType] || 0.5);
+      this._play(typeKey, this._volumes.zombie_type_layer[zombieType] || 0.22);
     }
   }
 
-  // ── Zombie dead (skipGeneric = true for knife) ──────────────────────────
+  // ── Zombie dead (skipGeneric = true for knife kills) ────────────────────
   playZombieDead(zombieType, skipGeneric) {
     if (!skipGeneric) {
-      this._play("zombie_dead", this._volumes.zombie_dead_layer || 0.65);
+      this._play("zombie_dead", this._volumes.zombie_dead_layer || 0.4);
     }
     let typeKey = "zombie_type_" + zombieType;
     if (this._files[typeKey]) {
-      this._play(typeKey, this._volumes.zombie_type_layer[zombieType] || 0.5);
+      this._play(typeKey, this._volumes.zombie_type_layer[zombieType] || 0.22);
     }
   }
 
@@ -260,7 +261,7 @@ class AudioManager {
     this._play("player_dead", this._volumes.player.dead);
   }
 
-  // ── Explosion — dedicated key, correct path ─────────────────────────────
+  // ── Explosion ───────────────────────────────────────────────────────────
   playExplosion() {
     this._play("explosion", this._volumes.explosion);
   }

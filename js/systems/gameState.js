@@ -98,6 +98,26 @@ class GameState {
       this.exp -= this.expToNextLevel;
       this.level++;
       this.expToNextLevel = Math.floor(this.expToNextLevel * 1.4);
+
+      // ── Level up effects ────────────────────────────────────────────────
+      // 1. Spawn "LEVEL UP!" popup above player
+      if (this.player) {
+        this.spawnLevelUpPopup(
+          this.player.x,
+          this.player.y - this.player.size / 2 - 30,
+        );
+      }
+
+      // 2. Fully restore health and stamina
+      if (this.player) {
+        this.player.health = this.player.maxHealth;
+        this.player.stamina = this.player.maxStamina;
+      }
+
+      // 3. Apply 3-second movement speed boost
+      if (this.player) {
+        this.player.applyLevelUpBoost(3000);
+      }
     }
   }
 
@@ -147,6 +167,12 @@ class GameState {
   spawnPlayerDamagePopup(x, y, amount) {
     this.scorePopups.push(
       this._makePopup(x, y, Math.round(amount), { isPlayerDamage: true }, 900),
+    );
+  }
+
+  spawnLevelUpPopup(x, y) {
+    this.scorePopups.push(
+      this._makePopup(x, y, "LEVEL UP!", { isLevelUp: true }, 2000),
     );
   }
 

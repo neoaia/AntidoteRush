@@ -4,6 +4,12 @@ var SPRITE_DEFS = {
     frames: 4,
     layout: "horizontal",
   },
+  player_walk: {
+    path: "../assets/player/player-walk.png",
+    frames: 4,
+    layout: "horizontal",
+  },
+
   zombie_normal: {
     path: "../assets/zombies/normal.png",
     frames: 3,

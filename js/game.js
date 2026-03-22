@@ -53,6 +53,8 @@ function setup() {
 
   spriteManager.init();
   gameState.player.spriteSheet = spriteManager.get("player");
+  gameState.player.walkSpriteSheet = spriteManager.get("player_walk");
+
   gameState.base.initSprite();
 
   vx = WORLD_WIDTH / 2;

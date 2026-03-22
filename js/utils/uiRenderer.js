@@ -48,13 +48,11 @@ class UIRenderer {
   shopClick(mx, my, shopManager, player) {
     if (!this._shopOpen) return false;
     let layout = this._getShopLayout();
-
     let cb = layout.closeBtn;
     if (mx >= cb.x && mx <= cb.x + cb.w && my >= cb.y && my <= cb.y + cb.h) {
       this.closeShop();
       return true;
     }
-
     let keys = Object.keys(shopManager.statShop);
     for (let i = 0; i < keys.length; i++) {
       let btn = layout.btnRects[i];
@@ -77,34 +75,27 @@ class UIRenderer {
     let panelH = min(560, height * 0.86);
     let panelX = width / 2 - panelW / 2;
     let panelY = height / 2 - panelH / 2;
-    let headerH = 72;
-    let footerH = 36;
-
-    // 5 stats in a non-scrolling grid: 2 columns × 3 rows (last row has 1 centered)
-    let cols = 2;
-    let contentX = panelX + 20;
-    let contentY = panelY + headerH + 14;
-    let contentW = panelW - 40;
-    let contentH = panelH - headerH - footerH - 14;
-
+    let headerH = 72,
+      footerH = 36,
+      cols = 2;
+    let contentX = panelX + 20,
+      contentY = panelY + headerH + 14;
+    let contentW = panelW - 40,
+      contentH = panelH - headerH - footerH - 14;
     let gapX = 12,
       gapY = 12;
     let cardW = (contentW - gapX) / cols;
-    let cardH = (contentH - gapY * 2) / 3; // 3 rows max
-
+    let cardH = (contentH - gapY * 2) / 3;
     let keys = ["health", "stamina", "speed", "strength", "precision"];
     let btnRects = [];
-
     for (let i = 0; i < keys.length; i++) {
-      let col = i % cols;
-      let row = Math.floor(i / cols);
-      // Last item (index 4) centered
+      let col = i % cols,
+        row = Math.floor(i / cols);
       let cardX =
         i === 4
           ? contentX + contentW / 2 - cardW / 2
           : contentX + col * (cardW + gapX);
       let cardY = contentY + row * (cardH + gapY);
-
       let btnW = cardW - 24,
         btnH = 44;
       btnRects.push({
@@ -118,7 +109,6 @@ class UIRenderer {
         cardH,
       });
     }
-
     return {
       panelX,
       panelY,
@@ -144,10 +134,8 @@ class UIRenderer {
     };
   }
 
-  // ── Shop draw ─────────────────────────────────────────────────────────────
   drawShop(roundManager, shopManager, player) {
     if (!this._shopOpen) return;
-
     let layout = this._getShopLayout();
     let {
       panelX,
@@ -155,7 +143,6 @@ class UIRenderer {
       panelW,
       panelH,
       headerH,
-      footerH,
       contentX,
       contentY,
       contentW,
@@ -166,23 +153,15 @@ class UIRenderer {
       gapY,
       btnRects,
     } = layout;
-
     let mx = mouseX,
       my = mouseY;
 
-    // Overlay
     noStroke();
     fill(0, 0, 0, 200);
     rect(0, 0, width, height);
-
-    // Shadow
     fill(0, 0, 0, 120);
     rect(panelX + 7, panelY + 7, panelW, panelH, 10);
-
-    // Panel
     this._drawWoodPanelLarge(panelX, panelY, panelW, panelH);
-
-    // Header
     fill(30, 18, 6, 220);
     noStroke();
     rect(panelX + 4, panelY + 4, panelW - 8, headerH - 4, 6, 6, 0, 0);
@@ -233,7 +212,6 @@ class UIRenderer {
       text(this.gameState.coins, coinX + 36, panelY + headerH / 2);
     }
 
-    // Close button
     let cb = layout.closeBtn;
     let cbHover =
       mx >= cb.x && mx <= cb.x + cb.w && my >= cb.y && my <= cb.y + cb.h;
@@ -245,45 +223,33 @@ class UIRenderer {
     fill(255);
     text("X", cb.x + cb.w / 2, cb.y + cb.h / 2);
 
-    // Stat cards
     let keys = Object.keys(shopManager.statShop);
     for (let i = 0; i < keys.length; i++) {
-      let key = keys[i];
-      let stat = shopManager.statShop[key];
-      let cost = shopManager.getStatCurrentCost(key);
-      let canAfford = this.gameState.coins >= cost;
+      let key = keys[i],
+        stat = shopManager.statShop[key];
+      let cost = shopManager.getStatCurrentCost(key),
+        canAfford = this.gameState.coins >= cost;
       let btn = btnRects[i];
-
       this._drawWoodPanelMed(btn.cardX, btn.cardY, btn.cardW, btn.cardH);
-
-      // Stat label
       textSize(20);
       textAlign(LEFT, TOP);
       noStroke();
       fill(255, 230, 160);
       text(stat.label.toUpperCase(), btn.cardX + 14, btn.cardY + 12);
-
-      // Description
       textSize(13);
       fill(180, 160, 120);
       textAlign(LEFT, TOP);
       text(stat.description, btn.cardX + 14, btn.cardY + 38);
-
-      // Level
       textSize(13);
       fill(200, 160, 80);
       textAlign(LEFT, TOP);
       text("Lv. " + stat.purchased, btn.cardX + 14, btn.cardY + 58);
-
-      // Pips
-      let maxPips = 10;
-      let pip = min(stat.purchased, maxPips);
+      let maxPips = 10,
+        pip = min(stat.purchased, maxPips);
       for (let p = 0; p < pip; p++) {
         fill(180, 130, 60);
         rect(btn.cardX + 14 + p * 11, btn.cardY + 76, 9, 9, 2);
       }
-
-      // Upgrade button
       let hover =
         mx >= btn.x &&
         mx <= btn.x + btn.w &&
@@ -300,7 +266,6 @@ class UIRenderer {
       strokeWeight(1.5);
       rect(btn.x, btn.y, btn.w, btn.h, 6);
       noStroke();
-
       textSize(14);
       textAlign(CENTER, CENTER);
       fill(canAfford ? color(200, 255, 180) : color(120, 100, 70));
@@ -309,8 +274,6 @@ class UIRenderer {
       fill(canAfford ? color(255, 220, 50) : color(110, 90, 55));
       text("¢ " + cost, btn.x + btn.w / 2, btn.y + btn.h / 2 + 10);
     }
-
-    // Footer
     textSize(12);
     textAlign(CENTER, CENTER);
     fill(120, 90, 50);
@@ -378,11 +341,9 @@ class UIRenderer {
     noStroke();
   }
 
-  // ── Intermission center UI ────────────────────────────────────────────────
   drawIntermissionCenter(roundNum, intermissionTimeLeft) {
-    let now = pauseClock.now();
-    let elapsed = now - this._interPhaseStart;
-
+    let now = pauseClock.now(),
+      elapsed = now - this._interPhaseStart;
     if (this._interPhase === "cleared") {
       let alpha;
       if (elapsed < this._clearedFadeDur) {
@@ -438,7 +399,6 @@ class UIRenderer {
           : color(255, 80, 80);
     fill(c);
     text(sec, width / 2, height / 2 - 40);
-
     textSize(24);
     textAlign(CENTER, CENTER);
     fill(0, 0, 0, 200);
@@ -448,7 +408,6 @@ class UIRenderer {
           text("[B]  Open Shop", width / 2 + ox, height / 2 + 95 + oy);
     fill(220, 210, 180);
     text("[B]  Open Shop", width / 2, height / 2 + 95);
-
     textSize(20);
     textAlign(CENTER, CENTER);
     fill(0, 0, 0, 180);
@@ -460,13 +419,11 @@ class UIRenderer {
     text("[ENTER]  Start Now", width / 2, height / 2 + 130);
   }
 
-  // ── Round start fade (with difficulty subtitle) ───────────────────────────
   updateAndDrawRoundStart() {
     if (this._roundStartPhase === "off") return;
     let now = pauseClock.now(),
       elapsed = now - this._roundStartStart;
     let alpha = 0;
-
     if (this._roundStartPhase === "fadein") {
       alpha = constrain(
         map(elapsed, 0, this._roundStartFadeIn, 0, 255),
@@ -494,8 +451,6 @@ class UIRenderer {
         return;
       }
     }
-
-    // Main round title
     textSize(72);
     textAlign(CENTER, CENTER);
     fill(0, 0, 0, alpha);
@@ -509,15 +464,13 @@ class UIRenderer {
           );
     fill(255, 255, 255, alpha);
     text("ROUND " + this._roundStartNum, width / 2, height / 2 - 20);
-
-    // Difficulty subtitle
     let diffLabel = this._roundStartDiff.toUpperCase();
-    let diffColor;
-    if (this._roundStartDiff === "hell") diffColor = color(255, 60, 60, alpha);
-    else if (this._roundStartDiff === "hard")
-      diffColor = color(255, 180, 40, alpha);
-    else diffColor = color(100, 220, 100, alpha);
-
+    let diffColor =
+      this._roundStartDiff === "hell"
+        ? color(255, 60, 60, alpha)
+        : this._roundStartDiff === "hard"
+          ? color(255, 180, 40, alpha)
+          : color(100, 220, 100, alpha);
     textSize(28);
     textAlign(CENTER, CENTER);
     fill(0, 0, 0, alpha);
@@ -528,7 +481,7 @@ class UIRenderer {
     text(diffLabel, width / 2, height / 2 + 40);
   }
 
-  // ── HUD ───────────────────────────────────────────────────────────────────
+  // ── Font size constants ───────────────────────────────────────────────────
   static get FS_HP_TEXT() {
     return 20;
   }
@@ -542,11 +495,11 @@ class UIRenderer {
     return 22;
   }
   static get FS_AMMO() {
-    return 18;
-  }
+    return 24;
+  } // bigger ammo numbers
   static get FS_WEAPON_NAME() {
-    return 20;
-  }
+    return 24;
+  } // bigger knife label
   static get FS_HOTKEY() {
     return 11;
   }
@@ -1003,16 +956,17 @@ class UIRenderer {
           text(totalStr, startX + groupW + 10, ammoY);
         }
       } else if (s.key === "melee") {
-        textSize(13);
+        // Knife label — uses FS_WEAPON_NAME (now 24px)
+        textSize(UIRenderer.FS_WEAPON_NAME);
         textAlign(CENTER, CENTER);
         this.drawTextWithOutline(
           w.name,
           x + slotSize / 2,
-          y + slotSize - 18,
+          y + slotSize - 20,
           220,
           200,
           160,
-          1,
+          2,
         );
       }
     }
@@ -1200,24 +1154,22 @@ class UIRenderer {
   }
 
   drawScorePopupsScreenSpace(camX, camY) {
-    let now = millis(); // real time
-    let totalPaused = pauseClock.totalPausedMs(); // total pause duration so far
+    let now = millis();
+    let totalPaused = pauseClock.totalPausedMs();
     let coinSheet =
       typeof spriteManager !== "undefined"
         ? spriteManager.get("icon_coin")
         : null;
 
     for (let p of this.gameState.scorePopups) {
-      // Elapsed game time = real elapsed - pause time that happened after spawn
       let pausedSinceSpawn = totalPaused - p.pausedMsAtSpawn;
       let elapsed = now - p.spawnTime - pausedSinceSpawn;
       let progress = elapsed / p.lifetime;
       let alpha = 255 * (1 - progress);
       if (alpha <= 0) continue;
 
-      // World → screen coordinates
       let sx = p.x - camX;
-      let sy = p.y - camY - 40 * progress; // float upward in screen space
+      let sy = p.y - camY - 40 * progress;
 
       if (p.isCoin) {
         let iconSize = 16,
@@ -1281,6 +1233,17 @@ class UIRenderer {
             if (ox || oy) text(label, sx + ox, sy + oy);
         fill(255, 60, 60, alpha);
         text(label, sx, sy);
+      } else if (p.isLevelUp) {
+        // ── LEVEL UP popup — large gold, floats high ──────────────────
+        let label = p.value; // "LEVEL UP!"
+        textSize(28);
+        textAlign(CENTER, CENTER);
+        fill(0, 0, 0, alpha);
+        for (let ox = -3; ox <= 3; ox++)
+          for (let oy = -3; oy <= 3; oy++)
+            if (ox || oy) text(label, sx + ox, sy + oy);
+        fill(255, 220, 50, alpha);
+        text(label, sx, sy);
       } else {
         textSize(20);
         textAlign(CENTER, CENTER);
@@ -1311,7 +1274,7 @@ class UIRenderer {
     );
     textSize(26);
     this.drawTextWithOutline(
-      "Press ESC or click to resume",
+      "Press ESC to resume",
       width / 2,
       height / 2 + 20,
       200,
