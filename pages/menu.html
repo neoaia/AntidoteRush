@@ -1,0 +1,414 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Antidote Rush</title>
+
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap" rel="stylesheet">
+
+    <style>
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            min-height: 100vh;
+            background: rgb(44, 44, 44);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            font-family: "Press Start 2P", cursive;
+            overflow: hidden;
+            position: relative;
+            color: #fff;
+        }
+
+        /* Scanlines */
+        body::before {
+            content: "";
+            position: absolute;
+            inset: 0;
+            background: repeating-linear-gradient(0deg,
+                    rgba(237, 237, 237, 0.05) 0px,
+                    rgba(255, 255, 255, 0.05) 1px,
+                    transparent 1px,
+                    transparent 3px);
+            pointer-events: none;
+            z-index: 9999;
+        }
+
+        /* ── Screens ── */
+        .screen {
+            display: none;
+            flex-direction: column;
+            align-items: center;
+            text-align: center;
+            width: 100%;
+            max-width: 900px;
+            padding: 3rem 2rem;
+            position: relative;
+            z-index: 10;
+        }
+
+        .screen.active {
+            display: flex;
+        }
+
+        /* ── Title screen ── */
+        .title {
+            font-size: 5.5rem;
+            font-weight: bold;
+            letter-spacing: 8px;
+            text-transform: uppercase;
+            line-height: 1.1;
+            color: #ffffff;
+            text-shadow:
+                -4px -4px 0 #000, 4px -4px 0 #000,
+                -4px 4px 0 #000, 4px 4px 0 #000,
+                -6px -6px 0 #000, 6px -6px 0 #000,
+                -6px 6px 0 #000, 6px 6px 0 #000;
+            animation: breathe 3s ease-in-out infinite;
+            margin-bottom: 5rem;
+        }
+
+        @keyframes breathe {
+
+            0%,
+            100% {
+                transform: scale(1);
+            }
+
+            50% {
+                transform: scale(1.05);
+            }
+        }
+
+        /* ── Name input screen ── */
+        .screen-title {
+            font-size: 1.8rem;
+            letter-spacing: 4px;
+            margin-bottom: 3rem;
+            text-shadow: -2px -2px 0 #000, 2px 2px 0 #000;
+        }
+
+        input[type="text"] {
+            font-family: "Press Start 2P", cursive;
+            font-size: 1.2rem;
+            padding: 1rem 1.5rem;
+            border: 4px solid #000;
+            background: #fff;
+            color: #000;
+            width: 100%;
+            max-width: 400px;
+            margin-bottom: 2.5rem;
+            outline: none;
+            text-align: center;
+        }
+
+        input[type="text"]:focus {
+            box-shadow: 0 0 10px #00ff00;
+        }
+
+        /* ── Difficulty screen ── */
+        .cards {
+            display: flex;
+            gap: 2rem;
+            flex-wrap: wrap;
+            justify-content: center;
+            margin-bottom: 2.5rem;
+        }
+
+        .card {
+            border: 4px solid #555;
+            padding: 1.5rem;
+            width: 200px;
+            cursor: pointer;
+            transition: all 0.1s;
+            background: #1a1a1a;
+        }
+
+        .card:hover {
+            border-color: #fff;
+            transform: translateY(-4px);
+        }
+
+        .card.selected {
+            border-color: #ffeb3b;
+            background: #2a2a00;
+        }
+
+        .card.easy {
+            border-color: #4caf50;
+        }
+
+        .card.easy.selected {
+            border-color: #ffeb3b;
+        }
+
+        .card.hard {
+            border-color: #ff9800;
+        }
+
+        .card.hard.selected {
+            border-color: #ffeb3b;
+        }
+
+        .card.hell {
+            border-color: #f44336;
+        }
+
+        .card.hell.selected {
+            border-color: #ffeb3b;
+        }
+
+        .card .label {
+            font-size: 1.1rem;
+            margin-bottom: 0.8rem;
+        }
+
+        .card.easy .label {
+            color: #4caf50;
+        }
+
+        .card.hard .label {
+            color: #ff9800;
+        }
+
+        .card.hell .label {
+            color: #f44336;
+        }
+
+        .card .desc {
+            font-size: 0.55rem;
+            line-height: 1.8;
+            color: #aaa;
+            margin-bottom: 0.8rem;
+        }
+
+        .card .stats {
+            font-size: 0.5rem;
+            line-height: 2;
+            color: #777;
+        }
+
+        /* ── Buttons ── */
+        .btn-group {
+            display: flex;
+            flex-direction: column;
+            gap: 2rem;
+            align-items: center;
+            width: 100%;
+        }
+
+        button {
+            width: 100%;
+            max-width: 400px;
+            padding: 1.5rem 2rem;
+            font-family: "Press Start 2P", cursive;
+            font-size: 1.5rem;
+            background: #ffffff;
+            color: #000;
+            border: 6px solid #000;
+            cursor: pointer;
+            transition: all 0.1s ease;
+            box-shadow: 0 8px 0 #000, 0 12px 30px rgba(0, 0, 0, 0.2);
+            position: relative;
+            letter-spacing: 2px;
+        }
+
+        button::before {
+            content: "▶";
+            position: absolute;
+            left: 20px;
+            opacity: 0;
+            transition: all 0.2s;
+        }
+
+        button:hover {
+            background: #ffeb3b;
+            color: #000;
+            box-shadow: 0 8px 0 #000, 0 12px 40px rgba(255, 235, 59, 0.4);
+            transform: translateY(-3px);
+        }
+
+        button:hover::before {
+            opacity: 1;
+            left: 15px;
+        }
+
+        button:active {
+            transform: translateY(4px);
+            box-shadow: 0 2px 0 #000;
+        }
+
+        button:disabled {
+            opacity: 0.4;
+            cursor: default;
+            transform: none;
+        }
+
+        button:disabled:hover {
+            background: #fff;
+            transform: none;
+            box-shadow: 0 8px 0 #000;
+        }
+
+        button:disabled::before {
+            opacity: 0;
+        }
+
+        /* Back button — smaller */
+        .btn-back {
+            max-width: 180px;
+            font-size: 0.8rem;
+            padding: 0.8rem 1rem;
+            margin-top: 1.5rem;
+            background: #333;
+            color: #aaa;
+            border-color: #555;
+            box-shadow: 0 4px 0 #000;
+        }
+
+        .btn-back:hover {
+            background: #555;
+            color: #fff;
+        }
+
+        @media (max-width: 768px) {
+            .title {
+                font-size: 3rem;
+                letter-spacing: 4px;
+            }
+
+            button {
+                font-size: 1rem;
+                padding: 1.2rem 1.5rem;
+                max-width: 300px;
+            }
+
+            .cards {
+                flex-direction: column;
+                align-items: center;
+            }
+        }
+    </style>
+</head>
+
+<body>
+
+    <!-- ── SCREEN 1: Title ─────────────────────────────────── -->
+    <div id="screen-title" class="screen active">
+        <h1 class="title">ANTIDOTE<br>RUSH</h1>
+        <div class="btn-group">
+            <button onclick="showScreen('name')">PLAY</button>
+        </div>
+    </div>
+
+    <!-- ── SCREEN 2: Name Input ───────────────────────────── -->
+    <div id="screen-name" class="screen">
+        <p class="screen-title">ENTER YOUR NAME</p>
+        <input type="text" id="playerName" maxlength="15" placeholder="Your Name" />
+        <div class="btn-group">
+            <button id="nameBtn" onclick="submitName()" disabled>START</button>
+            <button class="btn-back" onclick="showScreen('title')">◀ BACK</button>
+        </div>
+    </div>
+
+    <!-- ── SCREEN 3: Difficulty ───────────────────────────── -->
+    <div id="screen-difficulty" class="screen">
+        <p class="screen-title">SELECT DIFFICULTY</p>
+        <div class="cards">
+            <div class="card easy" onclick="selectDifficulty('easy', this)">
+                <div class="label">EASY</div>
+                <div class="desc">Standard zombie rush.<br>Good for learning.</div>
+                <div class="stats">Zombies/Round: base<br>Speed: normal<br>Health: normal</div>
+            </div>
+            <div class="card hard" onclick="selectDifficulty('hard', this)">
+                <div class="label">HARD</div>
+                <div class="desc">More zombies, faster.<br>For the prepared.</div>
+                <div class="stats">Zombies/Round: +10<br>Speed: +0.5<br>Health: normal</div>
+            </div>
+            <div class="card hell" onclick="selectDifficulty('hell', this)">
+                <div class="label">HELL</div>
+                <div class="desc">Maximum chaos.<br>You will not survive.</div>
+                <div class="stats">Zombies/Round: +20<br>Speed: +1.5<br>Health: +20 base</div>
+            </div>
+        </div>
+        <button id="diffBtn" onclick="startGame()" disabled>START</button>
+        <button class="btn-back" onclick="showScreen('name')">◀ BACK</button>
+    </div>
+
+    <script>
+        // ── Screen routing ────────────────────────────────────────────────────
+        function showScreen(name) {
+            document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+            document.getElementById('screen-' + name).classList.add('active');
+            if (name === 'name') {
+                setTimeout(() => document.getElementById('playerName').focus(), 50);
+            }
+        }
+
+        // ── Name input ────────────────────────────────────────────────────────
+        var nameInput = document.getElementById('playerName');
+        var nameBtn = document.getElementById('nameBtn');
+
+        nameInput.addEventListener('input', function () {
+            nameBtn.disabled = nameInput.value.trim().length === 0;
+        });
+        nameInput.addEventListener('keypress', function (e) {
+            if (e.key === 'Enter') submitName();
+        });
+
+        function submitName() {
+            var name = nameInput.value.trim();
+            if (!name) return;
+            localStorage.setItem('playerName', name);
+            showScreen('difficulty');
+        }
+
+        // ── Difficulty ────────────────────────────────────────────────────────
+        var selectedDifficulty = null;
+
+        function selectDifficulty(diff, el) {
+            selectedDifficulty = diff;
+            document.querySelectorAll('.card').forEach(c => c.classList.remove('selected'));
+            el.classList.add('selected');
+            document.getElementById('diffBtn').disabled = false;
+        }
+
+        function startGame() {
+            if (!selectedDifficulty) return;
+            localStorage.setItem('difficulty', selectedDifficulty);
+            // Stop BGM before entering game
+            if (bgm) { bgm.pause(); bgm.src = ''; }
+            window.location.href = 'game.html';
+        }
+
+        // ── Menu BGM — single audio instance, never restarts ─────────────────
+        var bgm = new Audio('../assets/audios/bgm/menu.mp3');
+        bgm.loop = true;
+        bgm.volume = 0.45;
+
+        // Try to play immediately; if blocked, wait for first click
+        bgm.play().catch(function () {
+            var unlock = function () {
+                bgm.play();
+                document.removeEventListener('click', unlock);
+                document.removeEventListener('keydown', unlock);
+                document.removeEventListener('touchstart', unlock);
+            };
+            document.addEventListener('click', unlock);
+            document.addEventListener('keydown', unlock);
+            document.addEventListener('touchstart', unlock);
+        });
+    </script>
+
+</body>
+
+</html>

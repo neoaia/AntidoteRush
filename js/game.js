@@ -15,6 +15,7 @@ let uiRenderer;
 let gameRenderer;
 let inputHandler;
 let audioManager;
+let bgmManager;
 
 let isPaused = false;
 let pointerLocked = false;
@@ -31,6 +32,7 @@ function preload() {
   spriteManager = new SpriteManager();
   spriteManager.preload();
   audioManager = new AudioManager(); // instantiate here so it exists before setup()
+  bgmManager = new BgmManager(); // instantiate BGM manager
 }
 
 function setup() {
@@ -72,6 +74,9 @@ function setup() {
 
   audioManager.init(); // init AFTER preload() has already constructed it
 
+  bgmManager.init();
+  bgmManager.playIngame();
+
   setupPointerLock();
 }
 
@@ -79,6 +84,8 @@ function _pause() {
   if (isPaused) return;
   isPaused = true;
   pauseClock.pause();
+  if (typeof bgmManager !== "undefined") bgmManager.pause();
+
   if (typeof audioManager !== "undefined") audioManager.stopAll();
   _intentionalUnlock = true;
   document.exitPointerLock();
@@ -88,6 +95,8 @@ function _resume() {
   if (!isPaused) return;
   isPaused = false;
   pauseClock.resume();
+  if (typeof bgmManager !== "undefined") bgmManager.resume();
+
   document.querySelector("canvas").requestPointerLock();
 }
 
@@ -228,6 +237,7 @@ function updateGame() {
     setTimeout(() => {
       _intentionalUnlock = true;
       document.exitPointerLock();
+      if (typeof bgmManager !== "undefined") bgmManager.stop();
       window.location.href = "../pages/game-over.html";
     }, 1200);
   }
