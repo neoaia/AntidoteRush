@@ -233,6 +233,7 @@ function updateGame() {
 }
 
 function startNextRound() {
+  zombieManager.clearProjectiles();
   let difficulty = localStorage.getItem("difficulty") || "easy";
   uiRenderer.closeShop();
   gameState.roundManager.nextRound();

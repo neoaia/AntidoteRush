@@ -123,7 +123,7 @@ class CombatManager {
       let damageMult = minDamageFrac + (1 - minDamageFrac) * depth;
       let finalDmg = Math.round(weapon.damage * damageMult);
 
-      z.takeDamage(finalDmg, this.gameState);
+      z.takeDamage(finalDmg, this.gameState, "melee");
       hitCount++;
 
       if (weapon.knockback && distance > 0) {
@@ -215,4 +215,3 @@ class CombatManager {
     }
   }
 }
-  

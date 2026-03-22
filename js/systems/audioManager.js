@@ -12,6 +12,11 @@ class AudioManager {
     this._unlocked = false;
     this._pending = [];
 
+    // Per-key: last-played timestamp (ms) for rate limiting
+    this._lastPlayed = {};
+    // Per-key: current active instance count for concurrency limiting
+    this._activeCounts = {};
+
     // ── ADJUST VOLUMES HERE ─────────────────────────────────────────────────
     this._volumes = {
       fire: {
@@ -27,9 +32,61 @@ class AudioManager {
         sniper: 0.55,
       },
       melee: {
-        knife_swing: 0.6, // plays on every swing attempt
-        knife_attack: 0.8, // plays when swing actually hits a zombie
+        knife_swing: 0.6,
+        knife_attack: 0.8,
       },
+      zombie_attack: {
+        normal: 0.65,
+        crawler: 0.7,
+        slasher: 0.8,
+        witch: 0.6,
+      },
+      zombie_hurt_layer: {
+        normal: 0.55,
+        crawler: 0.55,
+        slasher: 0.6,
+        witch: 0.55,
+      },
+      zombie_type_layer: {
+        normal: 0.5,
+        crawler: 0.5,
+        slasher: 0.55,
+        witch: 0.5,
+      },
+      zombie_dead_layer: 0.65,
+      player: {
+        hurt: 0.75,
+        dead: 0.85,
+      },
+      explosion: 0.9,
+    };
+
+    // ── CONCURRENCY CONFIG ──────────────────────────────────────────────────
+    // max simultaneous instances of each key
+    this._maxConcurrent = {
+      zombie_hurt: 2, // generic hurt layer — cap at 2 simultaneous
+      zombie_dead: 2,
+      zombie_type_normal: 2,
+      zombie_type_crawler: 2,
+      zombie_type_slasher: 2,
+      zombie_type_witch: 2,
+      explosion: 1, // only one explosion at a time
+      player_hurt: 1,
+      player_dead: 1,
+    };
+
+    // ── RATE LIMIT CONFIG ───────────────────────────────────────────────────
+    // minimum ms between plays of the same key (0 = no limit)
+    this._rateLimit = {
+      zombie_hurt: 60,
+      zombie_dead: 80,
+      zombie_type_normal: 60,
+      zombie_type_crawler: 60,
+      zombie_type_slasher: 60,
+      zombie_type_witch: 60,
+      player_hurt: 200,
+      player_dead: 0,
+      explosion: 0,
     };
     // ────────────────────────────────────────────────────────────────────────
 
@@ -47,6 +104,24 @@ class AudioManager {
       // Melee
       knife_swing: "../assets/audios/guns/knife_swing.wav",
       knife_attack: "../assets/audios/guns/knife_attack.wav",
+      // Zombie — attack
+      zombie_atk_normal: "../assets/audios/zombies/attack/normal.wav",
+      zombie_atk_crawler: "../assets/audios/zombies/attack/crawler.wav",
+      zombie_atk_slasher: "../assets/audios/zombies/attack/slasher.wav",
+      zombie_atk_witch: "../assets/audios/zombies/attack/witch.mp3",
+      // Zombie — type-specific hurt/dead layer
+      zombie_type_normal: "../assets/audios/zombies/hurt/normal.wav",
+      zombie_type_crawler: "../assets/audios/zombies/hurt/crawler.wav",
+      zombie_type_slasher: "../assets/audios/zombies/hurt/slasher.wav",
+      zombie_type_witch: "../assets/audios/zombies/hurt/witch.wav",
+      // Zombie — shared generic hurt/dead
+      zombie_hurt: "../assets/audios/zombies/hurt/hurt.wav",
+      zombie_dead: "../assets/audios/zombies/hurt/dead.wav",
+      // Player
+      player_hurt: "../assets/audios/player/hurt.mp3",
+      player_dead: "../assets/audios/player/dead.mp3",
+      // Explosion — crawler death
+      explosion: "../assets/audios/zombies/attack/crawler.wav",
     };
   }
 
@@ -67,11 +142,9 @@ class AudioManager {
       console.warn("AudioManager: Web Audio API not supported.", e);
       return;
     }
-
     for (let [key, path] of Object.entries(this._files)) {
       this._loadBuffer(key, path);
     }
-
     const unlock = () => {
       if (this._unlocked || !this._ctx) return;
       this._ctx.resume().then(() => {
@@ -91,7 +164,7 @@ class AudioManager {
   _loadBuffer(key, path) {
     fetch(path)
       .then((r) => {
-        if (!r.ok) throw new Error("HTTP " + r.status + " for " + path);
+        if (!r.ok) throw new Error("HTTP " + r.status + " loading " + path);
         return r.arrayBuffer();
       })
       .then((ab) => this._ctx.decodeAudioData(ab))
@@ -101,19 +174,50 @@ class AudioManager {
       .catch((e) => console.warn("AudioManager: failed to load", path, e));
   }
 
-  _play(bufferKey, volume, allowOverlap) {
+  // ── Core play with rate-limit + concurrency guard ─────────────────────────
+  _play(bufferKey, volume) {
     if (!this._ctx) return;
     if (typeof pauseClock !== "undefined" && pauseClock.isPaused()) return;
 
     const doPlay = () => {
       let buf = this._buffers[bufferKey];
       if (!buf) return;
+
+      let now = performance.now();
+
+      // Rate limit check
+      let minGap = this._rateLimit[bufferKey] || 0;
+      if (minGap > 0) {
+        let last = this._lastPlayed[bufferKey] || 0;
+        if (now - last < minGap) return;
+      }
+
+      // Concurrency limit check
+      let maxC = this._maxConcurrent[bufferKey];
+      if (maxC !== undefined) {
+        let active = this._activeCounts[bufferKey] || 0;
+        if (active >= maxC) return;
+      }
+
+      // Track
+      this._lastPlayed[bufferKey] = now;
+      this._activeCounts[bufferKey] = (this._activeCounts[bufferKey] || 0) + 1;
+
       let source = this._ctx.createBufferSource();
       source.buffer = buf;
+
       let gain = this._ctx.createGain();
       gain.gain.value = volume != null ? volume : 1.0;
       source.connect(gain);
       gain.connect(this._ctx.destination);
+
+      source.onended = () => {
+        this._activeCounts[bufferKey] = Math.max(
+          0,
+          (this._activeCounts[bufferKey] || 1) - 1,
+        );
+      };
+
       source.start(0);
     };
 
@@ -138,18 +242,59 @@ class AudioManager {
   }
 
   // ── Melee sounds ────────────────────────────────────────────────────────
-  // Call on every knife swing (whether it hits or not)
   playKnifeSwing() {
     this._play("knife_swing", this._volumes.melee.knife_swing);
   }
 
-  // Call when knife swing actually connects with a zombie
   playKnifeHit() {
     this._play("knife_attack", this._volumes.melee.knife_attack);
   }
 
-  stopAll() {
-    // One-shot BufferSource nodes auto-GC.
-    // Pause flag in _play() prevents new sounds while paused.
+  // ── Zombie: attack ──────────────────────────────────────────────────────
+  playZombieAttack(zombieType) {
+    let key = "zombie_atk_" + zombieType;
+    if (!this._files[key]) return;
+    this._play(key, this._volumes.zombie_attack[zombieType] || 0.65);
   }
+
+  // ── Zombie: hurt (skipGeneric = true for knife hits) ───────────────────
+  playZombieHurt(zombieType, skipGeneric) {
+    if (!skipGeneric) {
+      this._play(
+        "zombie_hurt",
+        this._volumes.zombie_hurt_layer[zombieType] || 0.55,
+      );
+    }
+    let typeKey = "zombie_type_" + zombieType;
+    if (this._files[typeKey]) {
+      this._play(typeKey, this._volumes.zombie_type_layer[zombieType] || 0.5);
+    }
+  }
+
+  // ── Zombie: dead (skipGeneric = true for knife kills) ──────────────────
+  playZombieDead(zombieType, skipGeneric) {
+    if (!skipGeneric) {
+      this._play("zombie_dead", this._volumes.zombie_dead_layer || 0.65);
+    }
+    let typeKey = "zombie_type_" + zombieType;
+    if (this._files[typeKey]) {
+      this._play(typeKey, this._volumes.zombie_type_layer[zombieType] || 0.5);
+    }
+  }
+
+  // ── Player sounds ───────────────────────────────────────────────────────
+  playPlayerHurt() {
+    this._play("player_hurt", this._volumes.player.hurt);
+  }
+
+  playPlayerDead() {
+    this._play("player_dead", this._volumes.player.dead);
+  }
+
+  // ── Explosion ───────────────────────────────────────────────────────────
+  playExplosion() {
+    this._play("explosion", this._volumes.explosion);
+  }
+
+  stopAll() {}
 }

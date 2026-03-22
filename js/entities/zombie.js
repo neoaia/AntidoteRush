@@ -80,7 +80,7 @@ class Zombie {
       this.explosionPlayerDamage = 35;
       this.explosionZombieDamage = 20;
       // Two-phase: indicator shows for this long before the blast fires
-      this.explosionIndicatorDuration = 500; // ms
+      this.explosionIndicatorDuration = 1000; // ms
       this._explodePhase = "none"; // "none" | "indicator" | "done"
       this._explodeStart = 0;
       // ─────────────────────────────────────────────────────────────────
@@ -435,10 +435,28 @@ class Zombie {
     rect(barX, barY, barWidth * pct, barHeight);
   }
 
-  takeDamage(damage, gameState) {
+  takeDamage(damage, gameState, source) {
     this.health -= damage;
-    this.spriteState.flash();
     let gs = gameState || this._gameState;
+    let isMelee = source === "melee";
+
+    if (this.health <= 0) {
+      this.health = 0;
+      this.active = false;
+
+      // Dead: skip generic dead.wav when killed by knife
+      if (typeof audioManager !== "undefined") {
+        audioManager.playZombieDead(this.type, isMelee);
+      }
+    } else {
+      this.spriteState.flash();
+
+      // Hurt: skip generic hurt.wav when damaged by knife
+      if (typeof audioManager !== "undefined") {
+        audioManager.playZombieHurt(this.type, isMelee);
+      }
+    }
+
     if (gs) {
       let offsetX = (Math.random() - 0.5) * 20;
       gs.spawnDamagePopup(
@@ -447,6 +465,5 @@ class Zombie {
         damage,
       );
     }
-    if (this.health <= 0) this.active = false;
   }
 }

@@ -432,6 +432,15 @@ class Player {
     this.health -= damage;
     if (this.health < 0) this.health = 0;
     this.spriteState.flash();
+
+    if (typeof audioManager !== "undefined") {
+      if (this.health <= 0) {
+        audioManager.playPlayerDead(); // death sound only
+      } else {
+        audioManager.playPlayerHurt(); // hurt sound only
+      }
+    }
+
     let gs = gameState || this._gameState;
     if (gs) {
       let offsetX = (Math.random() - 0.5) * 16;

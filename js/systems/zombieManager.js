@@ -2,12 +2,15 @@ class ZombieManager {
   constructor(gameState) {
     this.gameState = gameState;
     this.witchProjectiles = [];
-
-    // Dead crawlers awaiting explosion
     this._pendingCrawlers = [];
 
-    // Register self on gameState so combatManager can reach witchProjectiles
+    // Register self so combatManager can reach witchProjectiles
     this.gameState._zombieManager = this;
+  }
+
+  // ── Call this when a round ends to clear lingering projectiles ────────────
+  clearProjectiles() {
+    this.witchProjectiles = [];
   }
 
   update(player) {
@@ -16,11 +19,14 @@ class ZombieManager {
       let z = this.gameState.zombies[i];
       z.update(player.x, player.y);
 
-      // Witch: spawn projectile
+      // Witch: spawn projectile + play attack sound
       if (z.type === "witch" && z.consumePendingShot()) {
         this.witchProjectiles.push(
           new WitchProjectile(z.x, z.y, player.x, player.y, z.projectileDamage),
         );
+        if (typeof audioManager !== "undefined") {
+          audioManager.playZombieAttack("witch");
+        }
       }
 
       if (!z.active) {
@@ -32,7 +38,7 @@ class ZombieManager {
 
         // Crawler: start two-phase explosion sequence
         if (z.type === "crawler" && z.explodes) {
-          this._pendingCrawlers.push(z); // keep alive for indicator + blast
+          this._pendingCrawlers.push(z);
         }
 
         this.gameState.addCoins(zCoins);
@@ -44,8 +50,12 @@ class ZombieManager {
         continue;
       }
 
-      // Melee hit registration for non-ranged zombies
+      // Melee hit: play attack sound on swing, damage only if in range
       if (!z.isRanged && z.consumePendingHit()) {
+        if (typeof audioManager !== "undefined") {
+          audioManager.playZombieAttack(z.type);
+        }
+
         let dx = player.x - z.x,
           dy = player.y - z.y;
         let dist = Math.sqrt(dx * dx + dy * dy);
@@ -98,8 +108,11 @@ class ZombieManager {
       cy = crawler.y,
       r = crawler.explosionRadius;
 
-    // Visual explosion effect
+    // Visual + sound
     this.gameState.spawnExplosion(cx, cy, r);
+    if (typeof audioManager !== "undefined") {
+      audioManager.playExplosion();
+    }
 
     // Damage player
     let pdx = player.x - cx,
@@ -113,7 +126,7 @@ class ZombieManager {
       }
     }
 
-    // Damage nearby zombies (friendly fire)
+    // Damage nearby zombies
     for (let z of this.gameState.zombies) {
       if (z === crawler || !z.active) continue;
       let zdx = z.x - cx,
@@ -146,18 +159,14 @@ class ZombieManager {
   }
 
   display() {
-    // Live zombies
     for (let z of this.gameState.zombies) z.display();
 
-    // Pending crawler indicators (drawn in world space)
     for (let c of this._pendingCrawlers) {
       if (c._explodePhase === "indicator") c.displayExplosionIndicator();
     }
 
-    // Witch projectiles
     for (let p of this.witchProjectiles) p.display();
 
-    // Explosion flash effects
     if (this.gameState.explosions) this._drawExplosions();
   }
 
@@ -175,16 +184,11 @@ class ZombieManager {
       let progress = elapsed / duration;
       let alpha = (1 - progress) * 220;
 
-      // Core flash
       noStroke();
       fill(255, 220, 80, alpha * (1 - progress) * 1.4);
       circle(ex.x, ex.y, ex.radius * (0.4 + progress * 0.6) * 2);
-
-      // Expanding shockwave
       fill(255, 120, 30, alpha * 0.5);
       circle(ex.x, ex.y, ex.radius * (0.6 + progress * 0.8) * 2);
-
-      // Ring
       noFill();
       stroke(220, 80, 20, alpha * 0.7);
       strokeWeight(3 * (1 - progress));
