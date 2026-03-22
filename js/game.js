@@ -244,7 +244,7 @@ function startNextRound() {
 function displayGame() {
   push();
   translate(-camX, -camY);
-  gameRenderer.renderGame(gameState.player, gameState.base, vx, vy);
+  gameRenderer.renderGame(gameState.player, gameState.base, vx, vy, zombieManager);
   weaponPickupManager.display();
   pop();
 

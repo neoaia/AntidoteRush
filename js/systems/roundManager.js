@@ -8,7 +8,7 @@ class RoundManager {
     this.roundComplete = false;
 
     this.inIntermission = false;
-    this.intermissionDuration = 15000; // 15 seconds
+    this.intermissionDuration = 15000;
     this.intermissionStartTime = 0;
     this.intermissionTimeLeft = 0;
 
@@ -166,6 +166,10 @@ class RoundManager {
     let mult = gameState ? gameState.zombieHealthMultipliers[type] : 1.0;
     let z = new Zombie(x, y, type, mult, this.speedBonus, this.baseHealthBonus);
     z.initSprite(gameState);
+
+    // Apply round-based damage scaling for special types
+    z.applyRoundScaling(this.currentRound);
+
     return z;
   }
 

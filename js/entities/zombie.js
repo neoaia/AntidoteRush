@@ -12,9 +12,9 @@ class Zombie {
     this.type = type;
     this.active = true;
 
+    // ── Per-type stats ────────────────────────────────────────────────────
     if (type === "normal") {
       this.size = 20;
-      // hitbox: width x height in world px (covers visible sprite body)
       this.hitW = 22;
       this.hitH = 32;
       this.speed = 1 + speedBonus;
@@ -32,25 +32,34 @@ class Zombie {
       this.attackStopDuration = 500;
       this.attackTiltAmount = 0.35;
       this.attackCooldown = 1000;
+      // Normal uses melee state machine
+      this.isRanged = false;
     } else if (type === "witch") {
       this.size = 22;
       this.hitW = 24;
       this.hitH = 36;
-      this.speed = 1.5 + speedBonus;
+      this.speed = 1.2 + speedBonus;
       this.baseHealth = 75 + baseHealthBonus;
-      this.damage = 15;
+      this.damage = 12;
       this.color = "#FF00FF";
       this.coins = 4;
       this.exp = 15;
       this.spriteKey = "zombie_witch";
       this.spriteFrames = 3;
-      this.stoppingDistance = 20;
-      this.attackRange = 56;
-      this.knockback = 5;
-      this.attackWindupDuration = 250;
-      this.attackStopDuration = 450;
-      this.attackTiltAmount = 0.4;
-      this.attackCooldown = 900;
+      this.knockback = 2;
+
+      // ── Witch ranged config (tune here) ──────────────────────────────
+      this.isRanged = true;
+      this.preferredRange = 200; // stop moving at this distance from player
+      this.preferredRangeSlack = 30; // hysteresis: resume moving if > range + slack
+      this.projectileDamage = 8; // base damage per projectile
+      this.attackCooldown = 1800; // ms between projectile shots
+      this.projectileSpeed = 4.5; // px/frame (set on WitchProjectile)
+      // ─────────────────────────────────────────────────────────────────
+
+      this.lastAttackTime = 0;
+      this._witchState = "approach"; // "approach" | "ranged"
+      this._pendingShot = false; // signal to manager to spawn projectile
     } else if (type === "crawler") {
       this.size = 18;
       this.hitW = 20;
@@ -70,6 +79,15 @@ class Zombie {
       this.attackStopDuration = 350;
       this.attackTiltAmount = 0.5;
       this.attackCooldown = 800;
+      this.isRanged = false;
+
+      // ── Crawler explosion config (tune here) ──────────────────────────
+      this.explodes = true;
+      this.explosionRadius = 90; // px
+      this.explosionPlayerDamage = 35; // damage dealt to player
+      this.explosionZombieDamage = 20; // damage dealt to nearby zombies
+      this._exploded = false;
+      // ─────────────────────────────────────────────────────────────────
     } else if (type === "slasher") {
       this.size = 32;
       this.hitW = 34;
@@ -89,6 +107,7 @@ class Zombie {
       this.attackStopDuration = 600;
       this.attackTiltAmount = 0.55;
       this.attackCooldown = 1200;
+      this.isRanged = false;
     } else if (type === "tank") {
       this.size = 60;
       this.hitW = 64;
@@ -108,15 +127,19 @@ class Zombie {
       this.attackStopDuration = 800;
       this.attackTiltAmount = 0.6;
       this.attackCooldown = 1500;
+      this.isRanged = false;
     }
 
     this.health = Math.floor(this.baseHealth * healthMultiplier);
     this.maxHealth = this.health;
-    this.lastAttackTime = 0;
 
+    // Shared state
+    this.lastAttackTime = this.lastAttackTime || 0;
     this._zkbX = 0;
     this._zkbY = 0;
     this._zkbDecay = 0.7;
+
+    // Melee attack state (non-witch)
     this._attackPhase = "idle";
     this._attackPhaseStart = 0;
     this._tiltAngle = 0;
@@ -134,14 +157,29 @@ class Zombie {
     if (gameState) this._gameState = gameState;
   }
 
+  // ── Scale damage based on round (called after construction) ──────────────
+  applyRoundScaling(round) {
+    // Every 3 rounds past round 1, increase special damages by 10%
+    let scale = 1 + Math.floor((round - 1) / 3) * 0.1;
+    if (this.type === "witch" && this.projectileDamage !== undefined) {
+      this.projectileDamage = Math.floor(this.projectileDamage * scale);
+    }
+    if (this.type === "crawler" && this.explodes) {
+      this.explosionPlayerDamage = Math.floor(
+        this.explosionPlayerDamage * scale,
+      );
+      this.explosionZombieDamage = Math.floor(
+        this.explosionZombieDamage * scale,
+      );
+    }
+  }
+
   applyKnockback(kbX, kbY) {
     this._zkbX = kbX;
     this._zkbY = kbY;
   }
 
-  // ── Rect-based hitbox getters ─────────────────────────────────────────────
-  // Hitbox is centered on (x, y) horizontally, but offset slightly upward
-  // so the feet align near y+hitH/2 (sprite is drawn centered on y)
+  // ── Hitbox ────────────────────────────────────────────────────────────────
   getLeft() {
     return this.x - this.hitW / 2;
   }
@@ -155,18 +193,9 @@ class Zombie {
     return this.y + this.hitH / 2;
   }
 
-  // Circle approximation for attack stopping — keep using size for movement logic
-  _stopRadius() {
-    return this.stoppingDistance + this.size / 2;
-  }
-
+  // ── Update ────────────────────────────────────────────────────────────────
   update(playerX, playerY) {
-    let dx = playerX - this.x,
-      dy = playerY - this.y;
-    let distance = Math.sqrt(dx * dx + dy * dy);
     let now = pauseClock.now();
-
-    if (dx !== 0) this.spriteState.flipX = dx < 0;
 
     // Knockback
     this.x += this._zkbX;
@@ -176,14 +205,67 @@ class Zombie {
     if (Math.abs(this._zkbX) < 0.05) this._zkbX = 0;
     if (Math.abs(this._zkbY) < 0.05) this._zkbY = 0;
 
-    // Recompute after knockback
-    dx = playerX - this.x;
-    dy = playerY - this.y;
-    distance = Math.sqrt(dx * dx + dy * dy);
+    let dx = playerX - this.x;
+    let dy = playerY - this.y;
+    let distance = Math.sqrt(dx * dx + dy * dy);
 
+    if (dx !== 0) this.spriteState.flipX = dx < 0;
+
+    if (this.isRanged) {
+      this._updateWitch(dx, dy, distance, now);
+    } else {
+      this._updateMelee(dx, dy, distance, now);
+    }
+  }
+
+  // ── Witch ranged state machine ────────────────────────────────────────────
+  _updateWitch(dx, dy, distance, now) {
+    let preferred = this.preferredRange;
+    let slack = this.preferredRangeSlack;
+
+    if (this._witchState === "approach") {
+      // Move toward player until within preferred range
+      if (distance > preferred) {
+        this.x += (dx / distance) * this.speed;
+        this.y += (dy / distance) * this.speed;
+      } else {
+        // Close enough — switch to ranged attack
+        this._witchState = "ranged";
+      }
+      this._tiltAngle = 0;
+    } else if (this._witchState === "ranged") {
+      // Stand still and shoot
+      // If player moves too far away, resume approaching
+      if (distance > preferred + slack) {
+        this._witchState = "approach";
+        return;
+      }
+
+      // Fire projectile on cooldown
+      if (now - this.lastAttackTime >= this.attackCooldown) {
+        this.lastAttackTime = now;
+        this._pendingShot = true; // zombieManager will consume this
+      }
+
+      // Slight levitation bob on tilt for visual flair
+      this._tiltAngle = Math.sin(now * 0.003) * 0.08;
+    }
+  }
+
+  // Returns true if witch has a shot ready to fire, resets flag
+  consumePendingShot() {
+    if (this._pendingShot) {
+      this._pendingShot = false;
+      return true;
+    }
+    return false;
+  }
+
+  // ── Melee state machine (normal/slasher/tank/crawler) ────────────────────
+  _updateMelee(dx, dy, distance, now) {
     switch (this._attackPhase) {
       case "idle": {
-        let stopAt = this._stopRadius();
+        let stopAt = this.stoppingDistance + this.size / 2;
         if (distance > stopAt) {
           this.x += (dx / distance) * this.speed;
           this.y += (dy / distance) * this.speed;
@@ -241,7 +323,9 @@ class Zombie {
     return false;
   }
 
+  // ── Display ───────────────────────────────────────────────────────────────
   display() {
+    // Shadow
     noStroke();
     fill(0, 0, 0, 70);
     ellipse(
@@ -259,6 +343,16 @@ class Zombie {
       rotate(this._tiltAngle);
       translate(0, -pivotY);
     }
+
+    // Witch floating glow
+    if (this.type === "witch" && this._witchState === "ranged") {
+      noStroke();
+      fill(180, 80, 255, 40);
+      circle(0, 0, this.size * 3);
+      fill(200, 100, 255, 20);
+      circle(0, 0, this.size * 4);
+    }
+
     let drawn = SpriteRenderer.draw(
       this.spriteSheet,
       this.spriteState,
@@ -285,7 +379,7 @@ class Zombie {
     let barWidth = 40,
       barHeight = 7;
     let barX = this.x - barWidth / 2;
-    let barY = this.y - this.hitH / 2 - 14; // align with top of hitbox
+    let barY = this.y - this.hitH / 2 - 14;
     fill(0);
     noStroke();
     rect(barX - 1, barY - 1, barWidth + 2, barHeight + 2);
@@ -298,6 +392,7 @@ class Zombie {
     rect(barX, barY, barWidth * pct, barHeight);
   }
 
+  // ── Damage & death ────────────────────────────────────────────────────────
   takeDamage(damage, gameState) {
     this.health -= damage;
     this.spriteState.flash();

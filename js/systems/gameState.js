@@ -11,6 +11,7 @@ class GameState {
     this.zombies = [];
     this.weaponPickups = [];
     this.scorePopups = [];
+    this.explosions = []; // crawler death explosions
 
     this.player = null;
     this.roundManager = null;
@@ -26,7 +27,7 @@ class GameState {
     this.meleeSlashStartTime = 0;
     this.meleeSlashDuration = 200;
 
-    // EXP system
+    // EXP / level
     this.exp = 0;
     this.level = 1;
     this.expToNextLevel = 100;
@@ -55,6 +56,7 @@ class GameState {
     this.zombies = [];
     this.weaponPickups = [];
     this.scorePopups = [];
+    this.explosions = [];
     this.currentAntidote = null;
     this.playerHasAntidote = false;
     this.antidoteCanSpawn = true;
@@ -99,6 +101,11 @@ class GameState {
     }
   }
 
+  // Spawn a visual explosion at world position (x, y) with given radius
+  spawnExplosion(x, y, radius) {
+    this.explosions.push({ x, y, radius, startTime: pauseClock.now() });
+  }
+
   introduceZombieType(type) {
     if (!this.introductedZombieTypes[type])
       this.introductedZombieTypes[type] = true;
@@ -110,10 +117,7 @@ class GameState {
       if (this.introductedZombieTypes[t]) this.zombieHealthMultipliers[t] += g;
   }
 
-  // ── Popup helpers ─────────────────────────────────────────────────────────
-  // spawnTime stored in real millis() — not pauseClock.now()
-  // pausedMsAtSpawn stores totalPausedMs at spawn time so we can exclude
-  // pause duration from progress calculation
+  // ── Popups (spawnTime in real millis, pausedMsAtSpawn for correct progress) ─
   _makePopup(x, y, value, flags, lifetime) {
     return {
       x,
@@ -151,7 +155,6 @@ class GameState {
     let totalPaused = pauseClock.totalPausedMs();
     for (let i = this.scorePopups.length - 1; i >= 0; i--) {
       let p = this.scorePopups[i];
-      // Elapsed real time minus any pause time that happened after spawn
       let pausedSinceSpawn = totalPaused - p.pausedMsAtSpawn;
       let elapsed = now - p.spawnTime - pausedSinceSpawn;
       if (elapsed > p.lifetime) this.scorePopups.splice(i, 1);
