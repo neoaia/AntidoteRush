@@ -6,8 +6,12 @@ class WeaponPickup {
     this.size = 30;
     this.active = true;
 
-    this.spawnTime = millis();
-    this.lifetime = 15000; // match antidote lifetime
+    this.spawnTime = pauseClock.now();
+    this.lifetime = 15000;
+
+    // Pickup radius — weapon box sprite ~0.85 scale on a ~32px frame ≈ 27px
+    // 34px covers the visible box + comfortable margin
+    this.pickupRadius = 34;
 
     const colors = { shotgun: "#FF6600", rifle: "#00AAFF", sniper: "#AA00FF" };
     this.color = colors[weaponType] || "#FFFFFF";
@@ -15,12 +19,10 @@ class WeaponPickup {
     const labels = { shotgun: "SG", rifle: "AR", sniper: "SR" };
     this.label = labels[weaponType] || "?";
 
-    // Bob
-    this.bobTick = Math.random() * Math.PI * 2; // random start offset
+    this.bobTick = Math.random() * Math.PI * 2;
     this.bobAmp = 4;
     this.bobSpeed = 0.05;
 
-    // Sprite
     this.spriteSheet = null;
     this.spriteState = new SpriteState(8, 1);
     if (typeof spriteManager !== "undefined") {
@@ -30,32 +32,29 @@ class WeaponPickup {
 
   update() {
     this.bobTick += this.bobSpeed;
-    if (millis() - this.spawnTime > this.lifetime) this.active = false;
+    if (pauseClock.now() - this.spawnTime > this.lifetime) this.active = false;
   }
 
   display() {
-    let elapsed = millis() - this.spawnTime;
+    let elapsed = pauseClock.now() - this.spawnTime;
     let timeLeft = this.lifetime - elapsed;
     let bobOffset = Math.sin(this.bobTick) * this.bobAmp;
     let drawY = this.y + bobOffset;
 
-    // Blink fast when < 3s left, slow when < 6s left
     if (timeLeft < 6000) {
       let blinkSpeed = timeLeft < 3000 ? 150 : 350;
-      if (Math.floor(millis() / blinkSpeed) % 2 === 0) return;
+      if (Math.floor(pauseClock.now() / blinkSpeed) % 2 === 0) return;
     }
 
-    // Shadow
     let shadowScale = map(bobOffset, -this.bobAmp, this.bobAmp, 1.1, 0.7);
     noStroke();
     fill(0, 0, 0, 55);
     ellipse(this.x, this.y + 18, 28 * shadowScale, 8 * shadowScale);
 
-    // Box sprite background
     if (this.spriteSheet && this.spriteSheet.img) {
       let s = this.spriteSheet;
-      let dw = s.frameW * 0.85;
-      let dh = s.frameH * 0.85;
+      let dw = s.frameW * 0.85,
+        dh = s.frameH * 0.85;
       push();
       imageMode(CORNER);
       image(
@@ -83,7 +82,6 @@ class WeaponPickup {
       );
     }
 
-    // Gun icon
     let gunKeyMap = {
       shotgun: "gun_shotgun",
       rifle: "gun_rifle",
@@ -103,7 +101,7 @@ class WeaponPickup {
         dh = gunSheet.frameH * sc;
       push();
       translate(this.x, drawY);
-      rotate(-0.4); // slant ~23 degrees
+      rotate(-0.4);
       imageMode(CENTER);
       image(gunSheet.img, 0, 0, dw, dh, 0, 0, gunSheet.frameW, gunSheet.frameH);
       pop();
@@ -121,6 +119,7 @@ class WeaponPickup {
   checkPlayerPickup(player) {
     let dx = this.x - player.x;
     let dy = this.y - player.y;
-    return Math.sqrt(dx * dx + dy * dy) < (this.size + player.size) / 2;
+    let threshold = this.pickupRadius + player.size / 2;
+    return Math.sqrt(dx * dx + dy * dy) < threshold;
   }
 }

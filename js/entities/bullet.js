@@ -8,12 +8,15 @@ class Bullet {
     this.active = true;
     this.damage = damage;
 
+    // Knockback to apply to zombie on hit
+    this.knockback = options.knockback || 0;
+
     // Piercing
     this.piercing = options.piercing || false;
-    this.maxPierce = options.maxPierce || 0; // how many extra zombies it can go through
-    this.pierceCount = 0; // how many it's hit so far
-    this.pierceDamageFalloff = options.pierceDamageFalloff || 0.6; // multiplier per pierce
-    this.hitZombies = new Set(); // track which zombies already hit by this bullet
+    this.maxPierce = options.maxPierce || 0;
+    this.pierceCount = 0;
+    this.pierceDamageFalloff = options.pierceDamageFalloff || 0.6;
+    this.hitZombies = new Set();
 
     let dx = targetX - x;
     let dy = targetY - y;
@@ -41,19 +44,14 @@ class Bullet {
     circle(this.x, this.y, this.size);
   }
 
-  // Called when this bullet hits a zombie. Returns the damage dealt.
-  // Returns null if zombie was already hit by this bullet.
   onHitZombie(zombie) {
     if (this.hitZombies.has(zombie)) return null;
     this.hitZombies.add(zombie);
 
-    // Calculate damage with falloff
     let dmg =
       this.damage * Math.pow(this.pierceDamageFalloff, this.pierceCount);
-
     this.pierceCount++;
 
-    // Deactivate if no more pierces left
     if (!this.piercing || this.pierceCount > this.maxPierce) {
       this.active = false;
     }

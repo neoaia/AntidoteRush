@@ -2,8 +2,7 @@ class GameState {
   constructor() {
     this.playerName = null;
     this.inputMethod = null;
-    this.difficulty = "easy"; // "easy" | "hard" | "hell"
-    this.score = 0;
+    this.difficulty = "easy";
     this.coins = 0;
     this.gameOver = false;
     this.roundTransitioning = false;
@@ -12,6 +11,7 @@ class GameState {
     this.zombies = [];
     this.weaponPickups = [];
     this.scorePopups = [];
+    this.explosions = []; // crawler death explosions
 
     this.player = null;
     this.roundManager = null;
@@ -27,11 +27,12 @@ class GameState {
     this.meleeSlashStartTime = 0;
     this.meleeSlashDuration = 200;
 
-    // Tracks which zombie types have been introduced (for health scaling)
-    // Maps type -> true once that type has spawned at least once
-    this.introductedZombieTypes = {};
+    // EXP / level
+    this.exp = 0;
+    this.level = 1;
+    this.expToNextLevel = 100;
 
-    // Per-type health multiplier, starts at 1.0, grows 0.5% per round AFTER introduction
+    this.introductedZombieTypes = {};
     this.zombieHealthMultipliers = {
       normal: 1.0,
       witch: 1.0,
@@ -48,7 +49,6 @@ class GameState {
   }
 
   reset() {
-    this.score = 0;
     this.coins = 0;
     this.gameOver = false;
     this.roundTransitioning = false;
@@ -56,16 +56,20 @@ class GameState {
     this.zombies = [];
     this.weaponPickups = [];
     this.scorePopups = [];
+    this.explosions = [];
     this.currentAntidote = null;
     this.playerHasAntidote = false;
     this.antidoteCanSpawn = true;
+    this.exp = 0;
+    this.level = 1;
+    this.expToNextLevel = 100;
     this.introductedZombieTypes = {};
     this.zombieHealthMultipliers = {
-      normal: 1.0,
-      witch: 1.0,
-      crawler: 1.0,
-      slasher: 1.0,
-      tank: 1.0,
+      normal: 1,
+      witch: 1,
+      crawler: 1,
+      slasher: 1,
+      tank: 1,
     };
   }
 
@@ -84,53 +88,102 @@ class GameState {
   removeZombie(i) {
     this.zombies.splice(i, 1);
   }
-
-  increaseScore(points) {
-    this.score += points;
-  }
-  addCoins(amount) {
-    this.coins += amount;
+  addCoins(n) {
+    this.coins += n;
   }
 
-  // Mark a zombie type as introduced (health scaling begins next round)
-  introduceZombieType(type) {
-    if (!this.introductedZombieTypes[type]) {
-      this.introductedZombieTypes[type] = true;
-    }
-  }
+  addExp(amount) {
+    this.exp += amount;
+    while (this.exp >= this.expToNextLevel) {
+      this.exp -= this.expToNextLevel;
+      this.level++;
+      this.expToNextLevel = Math.floor(this.expToNextLevel * 1.4);
 
-  // Called at the start of each new round — tick health multipliers for introduced types
-  tickHealthMultipliers() {
-    const growthPerRound = 0.005; // 0.5% per round
-    for (let type of Object.keys(this.zombieHealthMultipliers)) {
-      if (this.introductedZombieTypes[type]) {
-        this.zombieHealthMultipliers[type] += growthPerRound;
+      // ── Level up effects ────────────────────────────────────────────────
+      // 1. Spawn "LEVEL UP!" popup above player
+      if (this.player) {
+        this.spawnLevelUpPopup(
+          this.player.x,
+          this.player.y - this.player.size / 2 - 30,
+        );
+      }
+
+      // 2. Fully restore health and stamina
+      if (this.player) {
+        this.player.health = this.player.maxHealth;
+        this.player.stamina = this.player.maxStamina;
+      }
+
+      // 3. Apply 3-second movement speed boost
+      if (this.player) {
+        this.player.applyLevelUpBoost(3000);
       }
     }
   }
 
-  spawnScorePopup(x, y, value) {
-    this.scorePopups.push({ x, y, value, spawnTime: millis(), lifetime: 1200 });
+  // Spawn a visual explosion at world position (x, y) with given radius
+  spawnExplosion(x, y, radius) {
+    this.explosions.push({ x, y, radius, startTime: pauseClock.now() });
+  }
+
+  introduceZombieType(type) {
+    if (!this.introductedZombieTypes[type])
+      this.introductedZombieTypes[type] = true;
+  }
+
+  tickHealthMultipliers() {
+    const g = 0.005;
+    for (let t of Object.keys(this.zombieHealthMultipliers))
+      if (this.introductedZombieTypes[t]) this.zombieHealthMultipliers[t] += g;
+  }
+
+  // ── Popups (spawnTime in real millis, pausedMsAtSpawn for correct progress) ─
+  _makePopup(x, y, value, flags, lifetime) {
+    return {
+      x,
+      y,
+      value,
+      ...flags,
+      spawnTime: millis(),
+      pausedMsAtSpawn: pauseClock.totalPausedMs(),
+      lifetime: lifetime || 1200,
+    };
   }
 
   spawnCoinPopup(x, y, amount) {
-    // Coin popups are gold-coloured; reuse scorePopups with a prefix
-    this.scorePopups.push({
-      x,
-      y,
-      value: "+" + amount + "¢",
-      isCoin: true,
-      spawnTime: millis(),
-      lifetime: 1200,
-    });
+    this.scorePopups.push(this._makePopup(x, y, amount, { isCoin: true }));
+  }
+
+  spawnExpPopup(x, y, amount) {
+    this.scorePopups.push(this._makePopup(x, y, amount, { isExp: true }));
+  }
+
+  spawnDamagePopup(x, y, amount) {
+    this.scorePopups.push(
+      this._makePopup(x, y, Math.round(amount), { isDamage: true }, 800),
+    );
+  }
+
+  spawnPlayerDamagePopup(x, y, amount) {
+    this.scorePopups.push(
+      this._makePopup(x, y, Math.round(amount), { isPlayerDamage: true }, 900),
+    );
+  }
+
+  spawnLevelUpPopup(x, y) {
+    this.scorePopups.push(
+      this._makePopup(x, y, "LEVEL UP!", { isLevelUp: true }, 2000),
+    );
   }
 
   updateScorePopups() {
     let now = millis();
+    let totalPaused = pauseClock.totalPausedMs();
     for (let i = this.scorePopups.length - 1; i >= 0; i--) {
-      if (now - this.scorePopups[i].spawnTime > this.scorePopups[i].lifetime) {
-        this.scorePopups.splice(i, 1);
-      }
+      let p = this.scorePopups[i];
+      let pausedSinceSpawn = totalPaused - p.pausedMsAtSpawn;
+      let elapsed = now - p.spawnTime - pausedSinceSpawn;
+      if (elapsed > p.lifetime) this.scorePopups.splice(i, 1);
     }
   }
 }

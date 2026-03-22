@@ -7,16 +7,14 @@ class RoundManager {
     this.roundActive = false;
     this.roundComplete = false;
 
-    // Between-round intermission
     this.inIntermission = false;
-    this.intermissionDuration = 45000; // 45 seconds
+    this.intermissionDuration = 15000;
     this.intermissionStartTime = 0;
-    this.intermissionTimeLeft = 0; // ms remaining (read by UI)
+    this.intermissionTimeLeft = 0;
 
     this.spawnInterval = 2000;
     this.lastSpawnTime = 0;
 
-    // Difficulty modifiers
     this.extraZombiesPerRound = 0;
     this.speedBonus = 0;
     this.baseHealthBonus = 0;
@@ -44,41 +42,42 @@ class RoundManager {
     this.roundActive = true;
     this.roundComplete = false;
     this.inIntermission = false;
+    this.lastSpawnTime = pauseClock.now();
     if (gameState) gameState.tickHealthMultipliers();
   }
 
-  // Called after roundComplete is set — begins the 45s intermission
   beginIntermission() {
     this.inIntermission = true;
-    this.intermissionStartTime = millis();
+    this.intermissionStartTime = pauseClock.now();
+    this.intermissionTimeLeft = this.intermissionDuration;
   }
 
-  // Returns true when intermission is over (time up or skipped)
   updateIntermission() {
     if (!this.inIntermission) return false;
     this.intermissionTimeLeft = Math.max(
       0,
-      this.intermissionDuration - (millis() - this.intermissionStartTime),
+      this.intermissionDuration -
+        (pauseClock.now() - this.intermissionStartTime),
     );
     return this.intermissionTimeLeft <= 0;
   }
 
-  // Player pressed Enter — skip countdown
   skipIntermission() {
     if (!this.inIntermission) return;
     this.intermissionTimeLeft = 0;
-    this.intermissionStartTime = millis() - this.intermissionDuration;
+    this.intermissionStartTime = pauseClock.now() - this.intermissionDuration;
   }
 
   update(currentTime, zombies, gameState) {
     if (!this.roundActive) return null;
     this.zombiesAlive = zombies.length;
 
+    let now = pauseClock.now();
     if (
       this.zombiesToSpawn > 0 &&
-      currentTime - this.lastSpawnTime > this.spawnInterval
+      now - this.lastSpawnTime > this.spawnInterval
     ) {
-      this.lastSpawnTime = currentTime;
+      this.lastSpawnTime = now;
       let clusterChance = this.getClusterChance();
       if (Math.random() * 100 < clusterChance && this.zombiesToSpawn >= 3) {
         let size = Math.min(
@@ -166,7 +165,11 @@ class RoundManager {
     if (gameState) gameState.introduceZombieType(type);
     let mult = gameState ? gameState.zombieHealthMultipliers[type] : 1.0;
     let z = new Zombie(x, y, type, mult, this.speedBonus, this.baseHealthBonus);
-    z.initSprite();
+    z.initSprite(gameState);
+
+    // Apply round-based damage scaling for special types
+    z.applyRoundScaling(this.currentRound);
+
     return z;
   }
 

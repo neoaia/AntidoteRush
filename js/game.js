@@ -1,11 +1,10 @@
 let gameState;
 let spriteManager;
 
-// ── WORLD / CAMERA CONFIG ─────────────────────────────────────────────────
-const WORLD_WIDTH = 2400; // total world width in pixels
-const WORLD_HEIGHT = 2400; // total world height in pixels
-let camX = 0; // camera top-left x (world coords)
-let camY = 0; // camera top-left y (world coords)
+const WORLD_WIDTH = 2400;
+const WORLD_HEIGHT = 2400;
+let camX = 0;
+let camY = 0;
 let assetManager;
 let antidoteManager;
 let combatManager;
@@ -15,18 +14,25 @@ let shopManager;
 let uiRenderer;
 let gameRenderer;
 let inputHandler;
+let audioManager;
+let bgmManager;
 
 let isPaused = false;
-let isShopOpen = false;
 let pointerLocked = false;
 let vx = 0;
 let vy = 0;
+
+let _intentionalUnlock = false;
+let _lastEscTime = 0;
+const ESC_DEBOUNCE_MS = 400;
 
 function preload() {
   assetManager = new AssetManager();
   assetManager.preload();
   spriteManager = new SpriteManager();
   spriteManager.preload();
+  audioManager = new AudioManager(); // instantiate here so it exists before setup()
+  bgmManager = new BgmManager(); // instantiate BGM manager
 }
 
 function setup() {
@@ -45,9 +51,10 @@ function setup() {
   gameState.roundManager.applyDifficulty(difficulty);
   gameState.base = new Base(WORLD_WIDTH / 2 - 40, WORLD_HEIGHT / 2 - 40);
 
-  // Init sprites AFTER all entities are created
   spriteManager.init();
   gameState.player.spriteSheet = spriteManager.get("player");
+  gameState.player.walkSpriteSheet = spriteManager.get("player_walk");
+
   gameState.base.initSprite();
 
   vx = WORLD_WIDTH / 2;
@@ -58,7 +65,6 @@ function setup() {
   zombieManager = new ZombieManager(gameState);
   weaponPickupManager = new WeaponPickupManager(gameState, width, height);
   shopManager = new ShopManager(gameState);
-
   uiRenderer = new UIRenderer(gameState, assetManager);
   gameRenderer = new GameRenderer(gameState, uiRenderer);
   inputHandler = new InputHandler(gameState, combatManager);
@@ -66,19 +72,33 @@ function setup() {
   gameState.roundManager.startRound(null);
   antidoteManager.scheduleNext();
   weaponPickupManager.applyDebugWeapon(gameState.player);
+  uiRenderer.showRoundStart(1, difficulty);
+
+  audioManager.init(); // init AFTER preload() has already constructed it
+
+  bgmManager.init();
+  bgmManager.playIngame();
 
   setupPointerLock();
-
-  // Move p5 canvas into the canvas wrapper div
-  let cnvEl = document.querySelector("canvas");
-  let wrap = document.getElementById("canvas-wrap");
-  if (wrap && cnvEl) wrap.appendChild(cnvEl);
 }
 
-// Called by HTML shop's close button
-function onShopClosed() {
-  isShopOpen = false;
-  // Re-lock pointer when shop closes
+function _pause() {
+  if (isPaused) return;
+  isPaused = true;
+  pauseClock.pause();
+  if (typeof bgmManager !== "undefined") bgmManager.pause();
+
+  if (typeof audioManager !== "undefined") audioManager.stopAll();
+  _intentionalUnlock = true;
+  document.exitPointerLock();
+}
+
+function _resume() {
+  if (!isPaused) return;
+  isPaused = false;
+  pauseClock.resume();
+  if (typeof bgmManager !== "undefined") bgmManager.resume();
+
   document.querySelector("canvas").requestPointerLock();
 }
 
@@ -94,12 +114,11 @@ function setupPointerLock() {
   document.addEventListener("mousedown", lockOnFirst);
 
   document.addEventListener("mousemove", function (e) {
-    if (!pointerLocked || isPaused || isShopOpen) return;
+    if (!pointerLocked || isPaused || uiRenderer.isShopOpen()) return;
     let player = gameState.player;
     let w = player.weapons[player.currentWeapon];
     let aimRange = w && w.aimRange < 9000 ? w.aimRange : 99999;
 
-    // vx/vy are in WORLD space — add movement to screen cursor then offset by cam
     let screenVX = constrain(vx - camX + e.movementX, 0, width);
     let screenVY = constrain(vy - camY + e.movementY, 0, height);
     vx = screenVX + camX;
@@ -116,15 +135,20 @@ function setupPointerLock() {
 
   document.addEventListener("pointerlockchange", function () {
     pointerLocked = document.pointerLockElement === cnv;
-    if (!pointerLocked && !isPaused && !isShopOpen && !gameState.gameOver) {
-      isPaused = true;
+
+    if (!pointerLocked) {
+      if (_intentionalUnlock) {
+        _intentionalUnlock = false;
+      } else if (!isPaused && !uiRenderer.isShopOpen() && !gameState.gameOver) {
+        isPaused = true;
+        pauseClock.pause();
+      }
     }
   });
 
   cnv.addEventListener("click", function () {
-    if (gameState.gameOver || isShopOpen) return;
+    if (gameState.gameOver || uiRenderer.isShopOpen()) return;
     if (!pointerLocked) cnv.requestPointerLock();
-    if (isPaused) isPaused = false;
   });
 }
 
@@ -133,13 +157,7 @@ function windowResized() {
 }
 
 function draw() {
-  // Update HTML HUD every frame
-  if (typeof updateHUD === "function") updateHUD();
-
-  if (gameState.gameOver) {
-    // Redirecting to gameOver.html — just freeze the frame
-    return;
-  }
+  if (gameState.gameOver) return;
 
   if (isPaused) {
     displayGame();
@@ -147,49 +165,45 @@ function draw() {
     return;
   }
 
-  if (!pointerLocked && !isShopOpen) {
+  if (!pointerLocked && !uiRenderer.isShopOpen()) {
     vx = gameState.player.x;
     vy = gameState.player.y;
   }
 
   updateGame();
   displayGame();
-
-  // Intermission banner on canvas (visible behind shop too)
-  let rm = gameState.roundManager;
-  if (rm.inIntermission) {
-    uiRenderer.drawIntermission(rm);
-    // Keep shop timer live every frame
-    if (typeof tickShopUI === "function") tickShopUI();
-  }
 }
 
 function updateGame() {
   let player = gameState.player;
   let rm = gameState.roundManager;
 
+  if (uiRenderer.isShopOpen()) {
+    if (rm.inIntermission) {
+      rm.updateIntermission();
+      if (rm.intermissionTimeLeft <= 0) startNextRound();
+    }
+    return;
+  }
+
   player.update(WORLD_WIDTH, WORLD_HEIGHT);
 
-  // Update camera — center on player, clamped to world bounds
   camX = constrain(player.x - width / 2, 0, WORLD_WIDTH - width);
   camY = constrain(player.y - height / 2, 0, WORLD_HEIGHT - height);
 
-  // Update aim angle toward virtual cursor
   player.aimAngle = Math.atan2(vy - player.y, vx - player.x);
 
-  // Re-clamp vx/vy as player moves
   let w = player.weapons[player.currentWeapon];
   let aimRange = w && w.aimRange < 9000 ? w.aimRange : 99999;
   let dx = vx - player.x,
-    dy = vy - player.y;
-  let d = Math.sqrt(dx * dx + dy * dy);
+    dy = vy - player.y,
+    d = Math.sqrt(dx * dx + dy * dy);
   if (d > aimRange) {
     vx = player.x + (dx / d) * aimRange;
     vy = player.y + (dy / d) * aimRange;
   }
 
-  // Auto-fire (only when shop is closed)
-  if (player.mouseIsHeld && !isShopOpen) {
+  if (player.mouseIsHeld) {
     let ww = player.weapons[player.currentWeapon];
     if (ww && ww.isAuto) {
       let result = player.tryAutoFire(vx, vy);
@@ -200,7 +214,6 @@ function updateGame() {
 
   combatManager.updateMeleeSlash();
   combatManager.updateBullets();
-
   antidoteManager.update(player, gameState.base);
   weaponPickupManager.update(player, gameState.base);
 
@@ -209,54 +222,67 @@ function updateGame() {
     zombieManager.update(player);
   } else if (rm.roundComplete && !rm.inIntermission) {
     rm.beginIntermission();
-    // Auto-open shop when intermission starts
-    // (player can also press B manually)
+    uiRenderer.startIntermissionUI(rm.currentRound);
+    zombieManager.clearProjectiles(); // ← clear witch projectiles NOW
   } else if (rm.inIntermission) {
-    let done = rm.updateIntermission();
-    if (done) startNextRound();
+    rm.updateIntermission();
+    if (rm.intermissionTimeLeft <= 0) startNextRound();
   }
 
   gameState.updateScorePopups();
+
   if (player.health <= 0 && !gameState.gameOver) {
     gameState.gameOver = true;
-    // Save stats for gameOver.html
     localStorage.setItem("lastRound", gameState.roundManager.currentRound);
-    localStorage.setItem("lastScore", gameState.score);
+    localStorage.setItem("lastScore", gameState.score || 0);
     localStorage.setItem("lastCoins", gameState.coins);
-    // Redirect to game over screen
     setTimeout(() => {
+      _intentionalUnlock = true;
       document.exitPointerLock();
+      if (typeof bgmManager !== "undefined") bgmManager.stop();
       window.location.href = "../pages/game-over.html";
     }, 1200);
   }
 }
 
 function startNextRound() {
-  // Close shop if open
-  if (isShopOpen) {
-    isShopOpen = false;
-    document.getElementById("shop-overlay").classList.remove("open");
-  }
+  zombieManager.clearProjectiles();
+  let difficulty = localStorage.getItem("difficulty") || "easy";
+  uiRenderer.closeShop();
   gameState.roundManager.nextRound();
   gameState.roundManager.startRound(gameState);
-  // Re-lock pointer for gameplay
+  uiRenderer.showRoundStart(gameState.roundManager.currentRound, difficulty);
   document.querySelector("canvas").requestPointerLock();
 }
 
 function displayGame() {
-  // Apply camera offset — everything inside is in world space
   push();
   translate(-camX, -camY);
-  gameRenderer.renderGame(gameState.player, gameState.base, vx, vy);
+  gameRenderer.renderGame(
+    gameState.player,
+    gameState.base,
+    vx,
+    vy,
+    zombieManager,
+  );
   weaponPickupManager.display();
-  uiRenderer.drawScorePopups();
   pop();
-  // HUD drawn AFTER pop() so it stays fixed on screen
-  uiRenderer.renderAll(gameState.player, gameState.roundManager);
+
+  uiRenderer.drawScorePopupsScreenSpace(camX, camY);
+  uiRenderer.renderAll(gameState.player, gameState.roundManager, shopManager);
+
+  let rm = gameState.roundManager;
+  if (rm.inIntermission && !uiRenderer.isShopOpen()) {
+    uiRenderer.drawIntermissionCenter(rm.currentRound, rm.intermissionTimeLeft);
+  }
 }
 
 function mousePressed() {
-  if (isShopOpen || isPaused || !pointerLocked) return;
+  if (uiRenderer.isShopOpen()) {
+    uiRenderer.shopClick(mouseX, mouseY, shopManager, gameState.player);
+    return;
+  }
+  if (isPaused || !pointerLocked) return;
   gameState.player.mouseIsHeld = true;
   let aim = inputHandler.getAimTarget(gameState.player, vx, vy);
   combatManager.shoot(gameState.player, aim.x, aim.y);
@@ -269,62 +295,63 @@ function mouseReleased() {
 
 function mouseWheel(event) {
   if (typeof gameState === "undefined" || !gameState.player) return false;
-  if (isPaused || isShopOpen) return false;
+  if (uiRenderer.isShopOpen()) {
+    uiRenderer.shopScroll(event.delta);
+    return false;
+  }
+  if (isPaused) return false;
   gameState.player.cycleEquippedWeapon(event.delta > 0 ? 1 : -1);
   return false;
 }
 
 function keyPressed() {
-  // ESC
   if (keyCode === ESCAPE) {
     if (gameState.gameOver) return;
-    if (isShopOpen) {
-      // Close shop
-      isShopOpen = false;
-      document.getElementById("shop-overlay").classList.remove("open");
+    let now = millis();
+    if (now - _lastEscTime < ESC_DEBOUNCE_MS) return;
+    _lastEscTime = now;
+
+    if (uiRenderer.isShopOpen()) {
+      uiRenderer.closeShop();
       document.querySelector("canvas").requestPointerLock();
       return;
     }
-    isPaused = !isPaused;
-    if (isPaused) document.exitPointerLock();
-    else document.querySelector("canvas").requestPointerLock();
+
+    if (isPaused) _resume();
+    else _pause();
     return;
   }
 
-  // Space: skill
+  if (isPaused) return;
+
   if (
     key === " " &&
-    !isPaused &&
-    !isShopOpen &&
+    !uiRenderer.isShopOpen() &&
     gameState.roundManager.roundActive
   ) {
     gameState.player.activateSkill();
     return;
   }
 
-  // B: toggle shop — only during intermission
-  if ((key === "b" || key === "B") && !isPaused) {
+  if ((key === "b" || key === "B") && !uiRenderer.isShopOpen()) {
     if (!gameState.roundManager.inIntermission) return;
-    isShopOpen = !isShopOpen;
-    if (isShopOpen) {
-      document.exitPointerLock();
-      if (typeof openShop === "function") openShop();
-    } else {
-      document.getElementById("shop-overlay").classList.remove("open");
-      document.querySelector("canvas").requestPointerLock();
-    }
+    _intentionalUnlock = true;
+    document.exitPointerLock();
+    uiRenderer.openShop();
     return;
   }
 
-  // Enter: skip intermission
-  if (keyCode === ENTER && gameState.roundManager.inIntermission) {
+  if (
+    keyCode === ENTER &&
+    gameState.roundManager.inIntermission &&
+    !uiRenderer.isShopOpen()
+  ) {
     gameState.roundManager.skipIntermission();
+    startNextRound();
     return;
   }
 
-  if (isPaused || isShopOpen) return;
-
-  // Game over navigation is handled by gameOver.html
+  if (uiRenderer.isShopOpen()) return;
 
   if (key === "1" || key === "2" || key === "3")
     gameState.player.switchWeapon(key);
