@@ -4,13 +4,14 @@ class ZombieManager {
     this.witchProjectiles = [];
     this._pendingCrawlers = [];
 
-    // Register self so combatManager can reach witchProjectiles
     this.gameState._zombieManager = this;
   }
 
-  // ── Call this when a round ends to clear lingering projectiles ────────────
+  // Called on round end — clears all in-flight projectiles immediately
   clearProjectiles() {
     this.witchProjectiles = [];
+    // Also clear pending crawlers that haven't exploded yet
+    this._pendingCrawlers = [];
   }
 
   update(player) {
@@ -19,7 +20,7 @@ class ZombieManager {
       let z = this.gameState.zombies[i];
       z.update(player.x, player.y);
 
-      // Witch: spawn projectile + play attack sound
+      // Witch: spawn projectile + attack sound
       if (z.type === "witch" && z.consumePendingShot()) {
         this.witchProjectiles.push(
           new WitchProjectile(z.x, z.y, player.x, player.y, z.projectileDamage),
@@ -36,8 +37,11 @@ class ZombieManager {
           zExp = z.exp,
           zSize = z.size;
 
-        // Crawler: start two-phase explosion sequence
         if (z.type === "crawler" && z.explodes) {
+          // Dead sound fires immediately on death, before indicator phase
+          if (typeof audioManager !== "undefined") {
+            audioManager.playZombieDead("crawler");
+          }
           this._pendingCrawlers.push(z);
         }
 
@@ -50,12 +54,11 @@ class ZombieManager {
         continue;
       }
 
-      // Melee hit: play attack sound on swing, damage only if in range
+      // Melee hit: attack sound on swing, damage only if in range
       if (!z.isRanged && z.consumePendingHit()) {
         if (typeof audioManager !== "undefined") {
           audioManager.playZombieAttack(z.type);
         }
-
         let dx = player.x - z.x,
           dy = player.y - z.y;
         let dist = Math.sqrt(dx * dx + dy * dy);
@@ -108,8 +111,9 @@ class ZombieManager {
       cy = crawler.y,
       r = crawler.explosionRadius;
 
-    // Visual + sound
     this.gameState.spawnExplosion(cx, cy, r);
+
+    // Explosion sound — dedicated playExplosion() using the correct key
     if (typeof audioManager !== "undefined") {
       audioManager.playExplosion();
     }

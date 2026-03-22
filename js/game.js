@@ -212,6 +212,7 @@ function updateGame() {
   } else if (rm.roundComplete && !rm.inIntermission) {
     rm.beginIntermission();
     uiRenderer.startIntermissionUI(rm.currentRound);
+    zombieManager.clearProjectiles(); // ← clear witch projectiles NOW
   } else if (rm.inIntermission) {
     rm.updateIntermission();
     if (rm.intermissionTimeLeft <= 0) startNextRound();
@@ -245,7 +246,13 @@ function startNextRound() {
 function displayGame() {
   push();
   translate(-camX, -camY);
-  gameRenderer.renderGame(gameState.player, gameState.base, vx, vy, zombieManager);
+  gameRenderer.renderGame(
+    gameState.player,
+    gameState.base,
+    vx,
+    vy,
+    zombieManager,
+  );
   weaponPickupManager.display();
   pop();
 
