@@ -196,4 +196,12 @@ class BgmManager {
     if (!this._ctx) return;
     this._ctx.resume();
   }
+
+  // Add this method to BgmManager class:
+  setVolumeMultiplier(mult) {
+    if (!this._masterGain) return;
+    let base =
+      this._mode === "menu" ? this._volumes.menu : this._volumes.ingame;
+    this._masterGain.gain.value = base * Math.max(0, Math.min(1, mult));
+  }
 }

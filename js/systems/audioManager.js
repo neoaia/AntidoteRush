@@ -1,10 +1,3 @@
-/**
- * AudioManager — Web Audio API based sound manager.
- *
- * ── VOLUME SETTINGS ──────────────────────────────────────────────────────────
- * Adjust the numbers in _volumes below. Range: 0.0 (silent) to 1.0 (full).
- * ─────────────────────────────────────────────────────────────────────────────
- */
 class AudioManager {
   constructor() {
     this._ctx = null;
@@ -15,31 +8,16 @@ class AudioManager {
     this._lastPlayed = {};
     this._activeCounts = {};
 
-    // ── ADJUST VOLUMES HERE ─────────────────────────────────────────────────
+    // ── Volume multipliers ──────────────────────────────────────────────────
+    this._masterVolume = 1.0;
+    this._bgmVolume = 1.0;
+    this._sfxVolume = 1.0;
+
     this._volumes = {
-      fire: {
-        handgun: 0.7,
-        rifle: 0.55,
-        shotgun: 0.9,
-        sniper: 0.85,
-      },
-      reload: {
-        handgun: 0.5,
-        rifle: 0.5,
-        shotgun: 0.6,
-        sniper: 0.55,
-      },
-      melee: {
-        knife_swing: 0.6,
-        knife_attack: 0.8,
-      },
-      zombie_attack: {
-        normal: 0.4,
-        crawler: 0.3,
-        slasher: 0.3,
-        witch: 0.3,
-      },
-      // Lowered hurt/dead volumes to reduce audio spike on burst kills
+      fire: { handgun: 0.7, rifle: 0.55, shotgun: 0.9, sniper: 0.85 },
+      reload: { handgun: 0.5, rifle: 0.5, shotgun: 0.6, sniper: 0.55 },
+      melee: { knife_swing: 0.6, knife_attack: 0.8 },
+      zombie_attack: { normal: 0.4, crawler: 0.3, slasher: 0.3, witch: 0.3 },
       zombie_hurt_layer: {
         normal: 0.28,
         crawler: 0.28,
@@ -53,10 +31,7 @@ class AudioManager {
         witch: 0.22,
       },
       zombie_dead_layer: 0.4,
-      player: {
-        hurt: 0.75,
-        dead: 0.85,
-      },
+      player: { hurt: 0.75, dead: 0.85 },
       explosion: 0.9,
       equip: 0.7,
       level_up: 0.85,
@@ -65,41 +40,44 @@ class AudioManager {
       purchase: 0.7,
       round_start: 0.75,
       error: 0.6,
+      hover: 0.45,
+      select: 0.6,
     };
-    // ────────────────────────────────────────────────────────────────────────
 
     this._maxConcurrent = {
       zombie_hurt: 2,
       zombie_dead: 2,
-      zombie_atk_normal: 1,
-      zombie_atk_crawler: 1,
-      zombie_atk_slasher: 1,
-      zombie_atk_witch: 1,
-
       zombie_type_normal: 2,
       zombie_type_crawler: 2,
       zombie_type_slasher: 2,
       zombie_type_witch: 2,
+      zombie_atk_normal: 1,
+      zombie_atk_crawler: 1,
+      zombie_atk_slasher: 1,
+      zombie_atk_witch: 1,
       explosion: 1,
       player_hurt: 1,
       player_dead: 1,
+      hover: 1,
+      select: 2,
     };
 
     this._rateLimit = {
       zombie_hurt: 60,
       zombie_dead: 80,
-      zombie_atk_normal: 300,
-      zombie_atk_crawler: 300,
-      zombie_atk_slasher: 400,
-      zombie_atk_witch: 500,
-
       zombie_type_normal: 60,
       zombie_type_crawler: 60,
       zombie_type_slasher: 60,
       zombie_type_witch: 60,
+      zombie_atk_normal: 300,
+      zombie_atk_crawler: 300,
+      zombie_atk_slasher: 400,
+      zombie_atk_witch: 500,
       player_hurt: 200,
       player_dead: 0,
       explosion: 0,
+      hover: 80,
+      select: 0,
     };
 
     this._files = {
@@ -133,6 +111,8 @@ class AudioManager {
       purchase: "../assets/audios/misc/purchase.mp3",
       round_start: "../assets/audios/misc/round-start.mp3",
       error: "../assets/audios/gui/error.mp3",
+      hover: "../assets/audios/gui/hover.mp3",
+      select: "../assets/audios/gui/select.mp3",
     };
   }
 
@@ -175,7 +155,7 @@ class AudioManager {
   _loadBuffer(key, path) {
     fetch(path)
       .then((r) => {
-        if (!r.ok) throw new Error("HTTP " + r.status + " loading " + path);
+        if (!r.ok) throw new Error("HTTP " + r.status);
         return r.arrayBuffer();
       })
       .then((ab) => this._ctx.decodeAudioData(ab))
@@ -208,7 +188,9 @@ class AudioManager {
       let source = this._ctx.createBufferSource();
       source.buffer = buf;
       let gain = this._ctx.createGain();
-      gain.gain.value = volume != null ? volume : 1.0;
+      // Apply master * sfx multipliers
+      gain.gain.value =
+        (volume != null ? volume : 1.0) * this._masterVolume * this._sfxVolume;
       source.connect(gain);
       gain.connect(this._ctx.destination);
       source.onended = () => {
@@ -224,20 +206,76 @@ class AudioManager {
     else if (this._pending.length < 4) this._pending.push(doPlay);
   }
 
-  // ── Gun sounds ──────────────────────────────────────────────────────────
+  _playGui(bufferKey, volume) {
+    if (!this._ctx) return;
+    const doPlay = () => {
+      let buf = this._buffers[bufferKey];
+      if (!buf) return;
+      let now = performance.now();
+      let minGap = this._rateLimit[bufferKey] || 0;
+      if (minGap > 0 && now - (this._lastPlayed[bufferKey] || 0) < minGap)
+        return;
+      let maxC = this._maxConcurrent[bufferKey];
+      let active = this._activeCounts[bufferKey] || 0;
+      if (maxC !== undefined && active >= maxC) return;
+      this._lastPlayed[bufferKey] = now;
+      this._activeCounts[bufferKey] = active + 1;
+      let source = this._ctx.createBufferSource();
+      source.buffer = buf;
+      let gain = this._ctx.createGain();
+      gain.gain.value =
+        (volume != null ? volume : 1.0) * this._masterVolume * this._sfxVolume;
+      source.connect(gain);
+      gain.connect(this._ctx.destination);
+      source.onended = () => {
+        this._activeCounts[bufferKey] = Math.max(
+          0,
+          (this._activeCounts[bufferKey] || 1) - 1,
+        );
+      };
+      source.start(0);
+    };
+    if (this._unlocked) doPlay();
+    else if (this._pending.length < 4) this._pending.push(doPlay);
+  }
+
+  // ── Volume control ────────────────────────────────────────────────────────
+  setMasterVolume(v) {
+    this._masterVolume = Math.max(0, Math.min(1, v));
+    this._syncBgm();
+  }
+  setBgmVolume(v) {
+    this._bgmVolume = Math.max(0, Math.min(1, v));
+    this._syncBgm();
+  }
+  setSfxVolume(v) {
+    this._sfxVolume = Math.max(0, Math.min(1, v));
+  }
+  getMasterVolume() {
+    return this._masterVolume;
+  }
+  getBgmVolume() {
+    return this._bgmVolume;
+  }
+  getSfxVolume() {
+    return this._sfxVolume;
+  }
+  _syncBgm() {
+    if (typeof bgmManager !== "undefined")
+      bgmManager.setVolumeMultiplier(this._masterVolume * this._bgmVolume);
+  }
+
+  // ── Gun sounds ────────────────────────────────────────────────────────────
   playFire(weaponName) {
-    let key = this._keyFor(weaponName);
-    if (!key) return;
-    this._play("fire_" + key, this._volumes.fire[key] || 0.7);
+    let k = this._keyFor(weaponName);
+    if (k) this._play("fire_" + k, this._volumes.fire[k] || 0.7);
   }
-
   playReload(weaponName) {
-    let key = this._keyFor(weaponName);
-    if (!key) return;
-    this._play("reload_" + key, this._volumes.reload[key] || 0.5);
+    let k = this._keyFor(weaponName);
+    if (k) this._play("reload_" + k, this._volumes.reload[k] || 0.5);
   }
 
-  // ── Melee ───────────────────────────────────────────────────────────────
+  // ── Melee ─────────────────────────────────────────────────────────────────
   playKnifeSwing() {
     this._play("knife_swing", this._volumes.melee.knife_swing);
   }
@@ -245,39 +283,33 @@ class AudioManager {
     this._play("knife_attack", this._volumes.melee.knife_attack);
   }
 
-  // ── Zombie attack ───────────────────────────────────────────────────────
+  // ── Zombie attack ─────────────────────────────────────────────────────────
   playZombieAttack(zombieType) {
     let key = "zombie_atk_" + zombieType;
     if (!this._files[key]) return;
     this._play(key, this._volumes.zombie_attack[zombieType] || 0.65);
   }
 
-  // ── Zombie hurt (skipGeneric = true for knife hits) ─────────────────────
+  // ── Zombie hurt / dead ────────────────────────────────────────────────────
   playZombieHurt(zombieType, skipGeneric) {
-    if (!skipGeneric) {
+    if (!skipGeneric)
       this._play(
         "zombie_hurt",
         this._volumes.zombie_hurt_layer[zombieType] || 0.28,
       );
-    }
     let typeKey = "zombie_type_" + zombieType;
-    if (this._files[typeKey]) {
+    if (this._files[typeKey])
       this._play(typeKey, this._volumes.zombie_type_layer[zombieType] || 0.22);
-    }
   }
-
-  // ── Zombie dead (skipGeneric = true for knife kills) ────────────────────
   playZombieDead(zombieType, skipGeneric) {
-    if (!skipGeneric) {
+    if (!skipGeneric)
       this._play("zombie_dead", this._volumes.zombie_dead_layer || 0.4);
-    }
     let typeKey = "zombie_type_" + zombieType;
-    if (this._files[typeKey]) {
+    if (this._files[typeKey])
       this._play(typeKey, this._volumes.zombie_type_layer[zombieType] || 0.22);
-    }
   }
 
-  // ── Player ──────────────────────────────────────────────────────────────
+  // ── Player ────────────────────────────────────────────────────────────────
   playPlayerHurt() {
     this._play("player_hurt", this._volumes.player.hurt);
   }
@@ -285,11 +317,10 @@ class AudioManager {
     this._play("player_dead", this._volumes.player.dead);
   }
 
-  // ── Explosion ───────────────────────────────────────────────────────────
+  // ── Misc ──────────────────────────────────────────────────────────────────
   playExplosion() {
     this._play("explosion", this._volumes.explosion);
   }
-
   playEquip() {
     this._play("equip", this._volumes.equip);
   }
@@ -310,6 +341,14 @@ class AudioManager {
   }
   playError() {
     this._play("error", this._volumes.error);
+  }
+
+  // ── GUI ───────────────────────────────────────────────────────────────────
+  playHover() {
+    this._playGui("hover", this._volumes.hover);
+  }
+  playSelect() {
+    this._playGui("select", this._volumes.select);
   }
 
   stopAll() {}

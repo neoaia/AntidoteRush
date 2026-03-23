@@ -18,6 +18,14 @@ class UIRenderer {
     this._roundStartHold = 1000;
     this._roundStartNum = 1;
     this._roundStartDiff = "easy";
+
+    // ── Pause system ──────────────────────────────────────────────────────
+    this._pauseView = "main"; // "main" | "volume"
+    this._hoveredBtn = null;
+    this._pauseBtnRects = {};
+    this._pauseVolRects = {};
+    this._sliderRects = {};
+    this._volumeDragging = null;
   }
 
   openShop() {
@@ -30,6 +38,89 @@ class UIRenderer {
   }
   isShopOpen() {
     return this._shopOpen;
+  }
+
+  // ── Called from game.js when pausing ─────────────────────────────────────
+  onPause() {
+    this._pauseView = "main";
+    this._hoveredBtn = null;
+    this._volumeDragging = null;
+  }
+
+  // ── Pause interaction (called from game.js) ───────────────────────────────
+  pauseHandleClick(mx, my) {
+    if (this._pauseView === "main") {
+      for (let [id, r] of Object.entries(this._pauseBtnRects)) {
+        if (mx >= r.x && mx <= r.x + r.w && my >= r.y && my <= r.y + r.h) {
+          if (typeof audioManager !== "undefined") audioManager.playSelect();
+          if (id === "volume") {
+            this._pauseView = "volume";
+            this._hoveredBtn = null;
+            return null;
+          }
+          return id; // "resume" | "exit"
+        }
+      }
+    } else if (this._pauseView === "volume") {
+      // Back button
+      let back = this._pauseVolRects["back"];
+      if (
+        back &&
+        mx >= back.x &&
+        mx <= back.x + back.w &&
+        my >= back.y &&
+        my <= back.y + back.h
+      ) {
+        if (typeof audioManager !== "undefined") audioManager.playSelect();
+        this._pauseView = "main";
+        this._hoveredBtn = null;
+        return null;
+      }
+      // Sliders
+      for (let [key, r] of Object.entries(this._sliderRects)) {
+        if (mx >= r.x && mx <= r.x + r.w && my >= r.y && my <= r.y + r.h) {
+          this._volumeDragging = key;
+          this._applySlider(key, mx);
+          return null;
+        }
+      }
+    }
+    return null;
+  }
+
+  checkPauseHover(mx, my) {
+    let rects =
+      this._pauseView === "main" ? this._pauseBtnRects : this._pauseVolRects;
+    let found = null;
+    for (let [id, r] of Object.entries(rects)) {
+      if (mx >= r.x && mx <= r.x + r.w && my >= r.y && my <= r.y + r.h) {
+        found = id;
+        break;
+      }
+    }
+    if (found && found !== this._hoveredBtn) {
+      if (typeof audioManager !== "undefined") audioManager.playHover();
+    }
+    this._hoveredBtn = found;
+  }
+
+  pauseHandleDrag(mx, my) {
+    if (!this._volumeDragging) return;
+    let r = this._sliderRects[this._volumeDragging];
+    if (r) this._applySlider(this._volumeDragging, mx);
+  }
+
+  pauseHandleRelease() {
+    this._volumeDragging = null;
+  }
+
+  _applySlider(key, mx) {
+    let r = this._sliderRects[key];
+    if (!r || typeof audioManager === "undefined") return;
+    let v = Math.max(0, Math.min(1, (mx - r.trackX) / r.trackW));
+    if (key === "master") audioManager.setMasterVolume(v);
+    else if (key === "bgm") audioManager.setBgmVolume(v);
+    else if (key === "sfx") audioManager.setSfxVolume(v);
   }
 
   startIntermissionUI(roundNum) {
@@ -288,112 +379,55 @@ class UIRenderer {
     text("[B] close shop", panelX + panelW / 2, panelY + panelH - 18);
   }
 
-  // ── Returns computed pixel height for a given numPlanks ──────────────────
+  // ── Returns computed pixel height for numPlanks ───────────────────────────
   _panelH(numPlanks) {
-    return numPlanks * 26 + 4; // fixedPlankH=26, outlineSize*2=4
+    return numPlanks * 26 + 4;
   }
 
-  // ── Pixel wood panel — numPlanks drives height ────────────────────────────
+  // ── Pixel wood panel ──────────────────────────────────────────────────────
   _drawPixelWoodPanel(x, y, w, numPlanks) {
     push();
     noStroke();
-
-    let outlineSize = 2;
-    let fixedPlankH = 26;
-    let h = numPlanks * fixedPlankH + outlineSize * 2;
-
+    let os = 2,
+      fph = 26;
+    let h = numPlanks * fph + os * 2;
     let outlineCol = color("#3E2723");
     let mainCol = color("#AB6A38");
     let highlightCol = color("#D49A59");
     let shadowCol = color("#7D4722");
 
     fill(outlineCol);
-    rect(x + outlineSize, y, w - outlineSize * 2, h);
-    rect(x, y + outlineSize, w, h - outlineSize * 2);
-
+    rect(x + os, y, w - os * 2, h);
+    rect(x, y + os, w, h - os * 2);
     fill(mainCol);
-    rect(
-      x + outlineSize,
-      y + outlineSize,
-      w - outlineSize * 2,
-      h - outlineSize * 2,
-    );
+    rect(x + os, y + os, w - os * 2, h - os * 2);
 
-    let insideX = x + outlineSize;
-    let insideY = y + outlineSize;
-    let insideW = w - outlineSize * 2;
-    let py = insideY;
-
+    let ix = x + os,
+      iy = y + os,
+      iw = w - os * 2;
+    let py = iy;
     for (let i = 0; i < numPlanks; i++) {
-      let px = insideX,
-        pw = insideW;
-
       fill(highlightCol);
-      rect(px, py, pw, outlineSize);
-      rect(px, py + outlineSize, outlineSize, fixedPlankH - outlineSize);
-
+      rect(ix, py, iw, os);
+      rect(ix, py + os, os, fph - os);
       fill(shadowCol);
-      rect(px, py + fixedPlankH - outlineSize, pw, outlineSize);
-      rect(px + pw - outlineSize, py, outlineSize, fixedPlankH - outlineSize);
-
+      rect(ix, py + fph - os, iw, os);
+      rect(ix + iw - os, py, os, fph - os);
       fill(shadowCol);
-      rect(
-        px + outlineSize * 2,
-        py + outlineSize * 2,
-        outlineSize,
-        outlineSize * 2,
-      );
-      rect(
-        px + outlineSize * 3,
-        py + outlineSize * 2,
-        outlineSize,
-        outlineSize,
-      );
-      rect(
-        px + outlineSize * 2,
-        py + fixedPlankH - outlineSize * 4,
-        outlineSize,
-        outlineSize * 2,
-      );
-      rect(
-        px + outlineSize * 3,
-        py + fixedPlankH - outlineSize * 3,
-        outlineSize,
-        outlineSize,
-      );
-      rect(
-        px + pw - outlineSize * 3,
-        py + outlineSize * 2,
-        outlineSize,
-        outlineSize * 2,
-      );
-      rect(
-        px + pw - outlineSize * 4,
-        py + outlineSize * 2,
-        outlineSize,
-        outlineSize,
-      );
-      rect(
-        px + pw - outlineSize * 3,
-        py + fixedPlankH - outlineSize * 4,
-        outlineSize,
-        outlineSize * 2,
-      );
-      rect(
-        px + pw - outlineSize * 4,
-        py + fixedPlankH - outlineSize * 3,
-        outlineSize,
-        outlineSize,
-      );
-
-      py += fixedPlankH;
+      rect(ix + os * 2, py + os * 2, os, os * 2);
+      rect(ix + os * 3, py + os * 2, os, os);
+      rect(ix + os * 2, py + fph - os * 4, os, os * 2);
+      rect(ix + os * 3, py + fph - os * 3, os, os);
+      rect(ix + iw - os * 3, py + os * 2, os, os * 2);
+      rect(ix + iw - os * 4, py + os * 2, os, os);
+      rect(ix + iw - os * 3, py + fph - os * 4, os, os * 2);
+      rect(ix + iw - os * 4, py + fph - os * 3, os, os);
+      py += fph;
     }
-
     pop();
   }
 
   drawWoodPanel(x, y, w, h) {
-    // Legacy: convert pixel height to nearest numPlanks
     let numPlanks = max(1, Math.round((h - 4) / 26));
     this._drawPixelWoodPanel(x, y, w, numPlanks);
   }
@@ -637,7 +671,6 @@ class UIRenderer {
   drawStaminaBar(player) {}
 
   drawStatBars(player) {
-    // 5 planks = 5*26+4 = 134px
     let PLANKS = 5;
     let pH = this._panelH(PLANKS);
     let px = 8,
@@ -649,13 +682,10 @@ class UIRenderer {
     let rightEdge = px + pW - 10;
     let iconSize = 38;
     let stIconSize = 30;
-
-    // Bar x overlaps icon by 10px
     let hBx = innerX + floor(iconSize / 2);
-
     let barW = rightEdge - hBx;
 
-    // ── Health bar (drawn first, icon on top) ─────────────────────────────
+    // ── Health bar then icon on top ───────────────────────────────────────
     let hy = py + 12;
     let hBH = 22;
     let hBy = hy + floor((iconSize - hBH) / 2);
@@ -691,7 +721,6 @@ class UIRenderer {
       2,
     );
 
-    // ── Heart icon (on top of bar) ────────────────────────────────────────
     let heartSheet =
       typeof spriteManager !== "undefined"
         ? spriteManager.get("icon_heart")
@@ -711,15 +740,9 @@ class UIRenderer {
         heartSheet.frameH,
       );
       pop();
-    } else {
-      fill(220, 40, 60);
-      noStroke();
-      textSize(22);
-      textAlign(CENTER, CENTER);
-      text("♥", innerX + iconSize / 2, hy + iconSize / 2);
     }
 
-    // ── Stamina bar (drawn first, icon on top) ────────────────────────────
+    // ── Stamina bar then icon on top ──────────────────────────────────────
     let sy = hy + iconSize + 2;
     let sBH = 18;
     let sBx = hBx;
@@ -767,7 +790,6 @@ class UIRenderer {
         1,
       );
 
-    // ── Stamina icon (on top of bar) ──────────────────────────────────────
     let stSheet =
       typeof spriteManager !== "undefined"
         ? spriteManager.get("icon_stamina")
@@ -787,19 +809,13 @@ class UIRenderer {
         stSheet.frameH,
       );
       pop();
-    } else {
-      fill(255, 220, 50);
-      noStroke();
-      textSize(18);
-      textAlign(CENTER, CENTER);
-      text("⚡", innerX + stIconSize / 2, sy + stIconSize / 2);
     }
 
     // ── EXP bar ───────────────────────────────────────────────────────────
     let ey = sy + stIconSize + 6;
-    let eBx = innerX;
-    let eBH = 22;
-    let eBy = ey;
+    let eBx = innerX,
+      eBH = 22,
+      eBy = ey;
     let eBW = rightEdge - eBx;
     let ePct = this.gameState.exp / this.gameState.expToNextLevel;
 
@@ -832,14 +848,12 @@ class UIRenderer {
   }
 
   drawScore() {
-    // 2 planks = 56px
-    let PLANKS = 2;
-    let pH = this._panelH(PLANKS); // 56
+    let PLANKS = 2,
+      pH = this._panelH(PLANKS);
     let pW = 160,
       px = width - pW - 8,
       py = 8;
     this._drawPixelWoodPanel(px, py, pW, PLANKS);
-
     let coinSheet =
       typeof spriteManager !== "undefined"
         ? spriteManager.get("icon_coin")
@@ -885,10 +899,9 @@ class UIRenderer {
   }
 
   drawWeaponSlot(player) {
-    // 4 planks = 108px tall, 110px wide
-    let PLANKS = 4;
-    let slotH = this._panelH(PLANKS); // 108
-    let slotW = 110;
+    let PLANKS = 4,
+      slotH = this._panelH(PLANKS),
+      slotW = 110;
     let slotY = height - slotH - 20;
     let slots = [
       { key: "melee", x: width - 380 },
@@ -901,7 +914,6 @@ class UIRenderer {
         isActive = player.currentWeapon === s.key,
         w = player.weapons[s.key];
       this._drawPixelWoodPanel(x, y, slotW, PLANKS);
-
       if (isActive) {
         noStroke();
         fill(255, 220, 0, 50);
@@ -912,7 +924,6 @@ class UIRenderer {
         rect(x + 6, y + 6, slotW - 12, slotH - 12);
         noStroke();
       }
-
       if (w === null) {
         textSize(UIRenderer.FS_WEAPON_NAME);
         textAlign(CENTER, CENTER);
@@ -927,7 +938,6 @@ class UIRenderer {
         );
         continue;
       }
-
       let gunKey = w.name ? this._weaponSpriteKey(w.name) : null;
       let gunSheet =
         gunKey && typeof spriteManager !== "undefined"
@@ -935,12 +945,11 @@ class UIRenderer {
           : null;
       if (!gunSheet || !gunSheet.img) gunSheet = null;
       let isKnife = w.name === "Knife";
-
       if (gunSheet && gunSheet.img) {
         if (isKnife) {
           let maxW = slotW - 30,
-            maxH = slotH - 50;
-          let sc = Math.min(maxW / gunSheet.frameW, maxH / gunSheet.frameH);
+            maxH = slotH - 50,
+            sc = Math.min(maxW / gunSheet.frameW, maxH / gunSheet.frameH);
           let dw = gunSheet.frameW * sc,
             dh = gunSheet.frameH * sc;
           push();
@@ -961,8 +970,8 @@ class UIRenderer {
           pop();
         } else {
           let maxW = slotW - 16,
-            maxH = slotH - 42;
-          let sc = Math.min(maxW / gunSheet.frameW, maxH / gunSheet.frameH);
+            maxH = slotH - 42,
+            sc = Math.min(maxW / gunSheet.frameW, maxH / gunSheet.frameH);
           let dw = gunSheet.frameW * sc,
             dh = gunSheet.frameH * sc;
           push();
@@ -993,7 +1002,6 @@ class UIRenderer {
           2,
         );
       }
-
       let ammoY = y + slotH - 18;
       if (w.magSize !== undefined) {
         if (w.isReloading) {
@@ -1023,15 +1031,15 @@ class UIRenderer {
           );
         } else {
           let cx = x + slotW / 2;
-          let curStr = "" + w.currentAmmo;
-          let sepStr = "/";
-          let magStr = "" + w.magSize;
+          let curStr = "" + w.currentAmmo,
+            sepStr = "/",
+            magStr = "" + w.magSize;
           let totalStr = w.unlimited ? "∞" : "" + (w.totalAmmo || 0);
           textSize(UIRenderer.FS_AMMO);
-          let curW = textWidth(curStr);
-          let groupW = curW + textWidth(sepStr) + textWidth(magStr);
-          let fullW = groupW + 10 + textWidth(totalStr);
-          let startX = cx - fullW / 2;
+          let curW = textWidth(curStr),
+            groupW = curW + textWidth(sepStr) + textWidth(magStr);
+          let fullW = groupW + 10 + textWidth(totalStr),
+            startX = cx - fullW / 2;
           textAlign(LEFT, CENTER);
           this.drawTextWithOutline(curStr, startX, ammoY, 255, 220, 50, 1);
           this.drawTextWithOutline(
@@ -1070,16 +1078,14 @@ class UIRenderer {
   }
 
   drawRoundInfo(roundManager) {
-    // Round panel: 2 planks = 56px
-    // Zombie panel: 2 planks = 56px
-    let ROUND_PLANKS = 1;
-    let ZOMBIE_PLANKS = 2;
-    let roundH = this._panelH(ROUND_PLANKS); // 56
-    let zombieH = this._panelH(ZOMBIE_PLANKS); // 56
+    let ROUND_PLANKS = 1,
+      ZOMBIE_PLANKS = 2;
+    let roundH = this._panelH(ROUND_PLANKS);
+    let zombieH = this._panelH(ZOMBIE_PLANKS);
     let panelW = 200,
       gap = 6;
-    let px = width / 2 - panelW / 2;
-    let py1 = 8;
+    let px = width / 2 - panelW / 2,
+      py1 = 8;
 
     this._drawPixelWoodPanel(px, py1, panelW, ROUND_PLANKS);
     textSize(UIRenderer.FS_ROUND);
@@ -1264,7 +1270,6 @@ class UIRenderer {
       typeof spriteManager !== "undefined"
         ? spriteManager.get("icon_coin")
         : null;
-
     for (let p of this.gameState.scorePopups) {
       let pausedSinceSpawn = totalPaused - p.pausedMsAtSpawn;
       let elapsed = now - p.spawnTime - pausedSinceSpawn;
@@ -1273,7 +1278,6 @@ class UIRenderer {
       if (alpha <= 0) continue;
       let sx = p.x - camX,
         sy = p.y - camY - 40 * progress;
-
       if (p.isCoin) {
         let iconSize = 16,
           label = "+" + p.value;
@@ -1359,57 +1363,238 @@ class UIRenderer {
     }
   }
 
+  // ── Pause screen ──────────────────────────────────────────────────────────
   drawPauseScreen() {
     noStroke();
-    fill(0, 0, 0, 160);
+    fill(0, 0, 0, 190);
     rect(0, 0, width, height);
+    if (this._pauseView === "volume") this._drawVolumeSettings();
+    else this._drawPauseMain();
+  }
+
+  _drawPauseMain() {
+    let cx = width / 2;
+    let btnW = 260,
+      PLANKS = 2,
+      pH = this._panelH(PLANKS);
+    let btnX = cx - btnW / 2;
+
+    // Total height of 3 buttons + 2 gaps
+    let totalH = 3 * pH + 2 * 10;
+    let startY = height / 2 - totalH / 2;
+
+    // PAUSED title above buttons
     textSize(64);
     textAlign(CENTER, CENTER);
+    this.drawTextWithOutline("PAUSED", cx, startY - 50, 255, 255, 255, 5);
+
+    let buttons = [
+      { id: "resume", label: "RESUME" },
+      { id: "volume", label: "VOLUME" },
+      { id: "exit", label: "EXIT" },
+    ];
+
+    this._pauseBtnRects = {};
+
+    for (let i = 0; i < buttons.length; i++) {
+      let btn = buttons[i];
+      let btnY = startY + i * (pH + 10);
+      let isHovered =
+        mouseX >= btnX &&
+        mouseX <= btnX + btnW &&
+        mouseY >= btnY &&
+        mouseY <= btnY + pH;
+
+      this._pauseBtnRects[btn.id] = { x: btnX, y: btnY, w: btnW, h: pH };
+      this._drawPixelWoodPanel(btnX, btnY, btnW, PLANKS);
+
+      // Hover highlight
+      if (isHovered) {
+        noStroke();
+        fill(255, 255, 255, 50);
+        rect(btnX + 2, btnY + 2, btnW - 4, pH - 4);
+      }
+
+      textSize(22);
+      textAlign(CENTER, CENTER);
+      this.drawTextWithOutline(btn.label, cx, btnY + pH / 2, 255, 230, 160, 2);
+    }
+
+    // Controls hint at bottom
+    textSize(14);
+    textAlign(CENTER, CENTER);
     this.drawTextWithOutline(
-      "PAUSED",
-      width / 2,
-      height / 2 - 40,
-      255,
-      255,
-      255,
-      5,
+      "WASD  |  Shift sprint  |  R reload  |  1/2/3 scroll weapon",
+      cx,
+      height - 30,
+      140,
+      140,
+      140,
+      1,
     );
+  }
+
+  _drawVolumeSettings() {
+    let cx = width / 2;
+    let panelW = 380,
+      PLANKS = 10,
+      panelH = this._panelH(PLANKS);
+    let panelX = cx - panelW / 2;
+    let panelY = height / 2 - panelH / 2;
+    this._drawPixelWoodPanel(panelX, panelY, panelW, PLANKS);
+
+    // Title
     textSize(26);
+    textAlign(CENTER, CENTER);
     this.drawTextWithOutline(
-      "Press ESC to resume",
-      width / 2,
-      height / 2 + 20,
-      200,
-      200,
-      200,
-      3,
-    );
-    textSize(22);
-    this.drawTextWithOutline(
-      "WASD to move  |  Shift to sprint  |  R to reload  |  1/2/3 or scroll to switch weapon",
-      width / 2,
-      height / 2 + 58,
-      160,
-      160,
+      "VOLUME SETTINGS",
+      cx,
+      panelY + 22,
+      255,
+      230,
       160,
       2,
     );
+
+    // Divider line
+    noStroke();
+    fill(62, 39, 35, 180);
+    rect(panelX + 16, panelY + 38, panelW - 32, 2);
+
+    // Slider definitions
+    let volData = [
+      {
+        id: "master",
+        label: "MASTER",
+        value:
+          typeof audioManager !== "undefined"
+            ? audioManager.getMasterVolume()
+            : 1,
+      },
+      {
+        id: "bgm",
+        label: "BGM",
+        value:
+          typeof audioManager !== "undefined" ? audioManager.getBgmVolume() : 1,
+      },
+      {
+        id: "sfx",
+        label: "SFX",
+        value:
+          typeof audioManager !== "undefined" ? audioManager.getSfxVolume() : 1,
+      },
+    ];
+
+    let labelW = 80;
+    let valW = 46;
+    let trackW = panelW - labelW - valW - 40;
+    let trackX = panelX + 20 + labelW + 6;
+    let trackH = 14;
+    let rowGap = 50;
+    let firstY = panelY + 58;
+
+    this._sliderRects = {};
+
+    for (let i = 0; i < volData.length; i++) {
+      let s = volData[i];
+      let rowCY = firstY + i * rowGap;
+      let trackY = rowCY - floor(trackH / 2);
+      let fillW = trackW * s.value;
+      let isDragging = this._volumeDragging === s.id;
+
+      // Label
+      textSize(15);
+      textAlign(RIGHT, CENTER);
+      this.drawTextWithOutline(
+        s.label,
+        panelX + 20 + labelW,
+        rowCY,
+        255,
+        230,
+        160,
+        1,
+      );
+
+      // Track background
+      noFill();
+      stroke(62, 39, 35);
+      strokeWeight(1);
+      rect(trackX, trackY, trackW, trackH, 2);
+      noStroke();
+      fill(20, 12, 4);
+      rect(trackX + 1, trackY + 1, trackW - 2, trackH - 2, 1);
+
+      // Fill
+      if (fillW > 2) {
+        fill(isDragging ? color(255, 200, 80) : color(200, 150, 60));
+        rect(trackX + 2, trackY + 2, fillW - 2, trackH - 4, 1);
+        fill(255, 220, 130, 120);
+        rect(trackX + 2, trackY + 2, fillW - 2, floor((trackH - 4) * 0.45), 1);
+      }
+
+      // Thumb
+      let thumbX = trackX + fillW - 5;
+      thumbX = constrain(thumbX, trackX, trackX + trackW - 10);
+      fill(isDragging ? color(255, 240, 180) : color(255, 210, 100));
+      rect(thumbX, trackY - 3, 10, trackH + 6, 2);
+
+      // Value %
+      textSize(13);
+      textAlign(LEFT, CENTER);
+      this.drawTextWithOutline(
+        floor(s.value * 100) + "%",
+        trackX + trackW + 8,
+        rowCY,
+        200,
+        180,
+        140,
+        1,
+      );
+
+      // Click area (taller than visual for easier interaction)
+      this._sliderRects[s.id] = {
+        x: trackX,
+        y: trackY - 8,
+        w: trackW,
+        h: trackH + 16,
+        trackX,
+        trackW,
+      };
+    }
+
+    // BACK button
+    let backW = 160,
+      backPlanks = 2,
+      backH = this._panelH(backPlanks);
+    let backX = cx - backW / 2;
+    let backY = panelY + panelH - backH - 12;
+    let backHovered =
+      mouseX >= backX &&
+      mouseX <= backX + backW &&
+      mouseY >= backY &&
+      mouseY <= backY + backH;
+
+    this._pauseVolRects = { back: { x: backX, y: backY, w: backW, h: backH } };
+    this._drawPixelWoodPanel(backX, backY, backW, backPlanks);
+    if (backHovered) {
+      noStroke();
+      fill(255, 255, 255, 50);
+      rect(backX + 2, backY + 2, backW - 4, backH - 4);
+    }
+    textSize(20);
+    textAlign(CENTER, CENTER);
+    this.drawTextWithOutline("< BACK", cx, backY + backH / 2, 255, 230, 160, 2);
   }
 
   drawMinimap(player, roundManager) {
     let W = typeof WORLD_WIDTH !== "undefined" ? WORLD_WIDTH : 2400;
     let H = typeof WORLD_HEIGHT !== "undefined" ? WORLD_HEIGHT : 2400;
-
-    // 4 planks = 108px
-    let PLANKS = 4;
-    let mmW = 160;
-    let mmH = this._panelH(PLANKS); // 108
-    let mmX = width - mmW - 8;
-    // sits below score panel: score is 2 planks = 56px
-    let mmY = 8 + this._panelH(2) + 6; // 8+56+6 = 70
-
+    let PLANKS = 4,
+      mmW = 160,
+      mmH = this._panelH(PLANKS);
+    let mmX = width - mmW - 8,
+      mmY = 8 + this._panelH(2) + 6;
     this._drawPixelWoodPanel(mmX, mmY, mmW, PLANKS);
-
     let mx = mmX + 10,
       my = mmY + 10,
       mw = mmW - 20,
@@ -1417,7 +1602,6 @@ class UIRenderer {
     noStroke();
     fill(40, 90, 35, 200);
     rect(mx, my, mw, mh);
-
     let sx = mw / W,
       sy = mh / H;
     if (this.gameState.base) {
@@ -1453,7 +1637,6 @@ class UIRenderer {
     strokeWeight(1);
     rect(mx, my, mw, mh);
     noStroke();
-
     textSize(12);
     textAlign(CENTER, TOP);
     this.drawTextWithOutline("MAP", mmX + mmW / 2, mmY + 4, 255, 240, 180, 1);
