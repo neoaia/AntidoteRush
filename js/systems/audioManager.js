@@ -71,6 +71,11 @@ class AudioManager {
     this._maxConcurrent = {
       zombie_hurt: 2,
       zombie_dead: 2,
+      zombie_atk_normal: 1,
+      zombie_atk_crawler: 1,
+      zombie_atk_slasher: 1,
+      zombie_atk_witch: 1,
+
       zombie_type_normal: 2,
       zombie_type_crawler: 2,
       zombie_type_slasher: 2,
@@ -83,6 +88,11 @@ class AudioManager {
     this._rateLimit = {
       zombie_hurt: 60,
       zombie_dead: 80,
+      zombie_atk_normal: 300,
+      zombie_atk_crawler: 300,
+      zombie_atk_slasher: 400,
+      zombie_atk_witch: 500,
+
       zombie_type_normal: 60,
       zombie_type_crawler: 60,
       zombie_type_slasher: 60,

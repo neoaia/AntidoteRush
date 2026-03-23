@@ -7,10 +7,8 @@ class ZombieManager {
     this.gameState._zombieManager = this;
   }
 
-  // Called on round end — clears all in-flight projectiles immediately
   clearProjectiles() {
     this.witchProjectiles = [];
-    // Also clear pending crawlers that haven't exploded yet
     this._pendingCrawlers = [];
   }
 
@@ -38,7 +36,6 @@ class ZombieManager {
           zSize = z.size;
 
         if (z.type === "crawler" && z.explodes) {
-          // Dead sound fires immediately on death, before indicator phase
           if (typeof audioManager !== "undefined") {
             audioManager.playZombieDead("crawler");
           }
@@ -74,7 +71,29 @@ class ZombieManager {
       }
     }
 
-    // ── Pending crawler explosion phases ─────────────────────────────────
+    // ── Zombie separation — prevent clumping ──────────────────────────────
+    let zArr = this.gameState.zombies;
+    for (let i = 0; i < zArr.length; i++) {
+      for (let j = i + 1; j < zArr.length; j++) {
+        let a = zArr[i],
+          b = zArr[j];
+        let dx = b.x - a.x;
+        let dy = b.y - a.y;
+        let dist = Math.sqrt(dx * dx + dy * dy);
+        let minDist = (a.size + b.size) * 0.72;
+        if (dist < minDist && dist > 0) {
+          let push = ((minDist - dist) / dist) * 0.5;
+          let px = dx * push;
+          let py = dy * push;
+          a.x -= px;
+          a.y -= py;
+          b.x += px;
+          b.y += py;
+        }
+      }
+    }
+
+    // ── Pending crawler explosion phases ──────────────────────────────────
     for (let i = this._pendingCrawlers.length - 1; i >= 0; i--) {
       let c = this._pendingCrawlers[i];
       let phase = c.updateExplosion();
@@ -113,12 +132,10 @@ class ZombieManager {
 
     this.gameState.spawnExplosion(cx, cy, r);
 
-    // Explosion sound — dedicated playExplosion() using the correct key
     if (typeof audioManager !== "undefined") {
       audioManager.playExplosion();
     }
 
-    // Damage player
     let pdx = player.x - cx,
       pdy = player.y - cy;
     let pd = Math.sqrt(pdx * pdx + pdy * pdy);
@@ -130,7 +147,6 @@ class ZombieManager {
       }
     }
 
-    // Damage nearby zombies
     for (let z of this.gameState.zombies) {
       if (z === crawler || !z.active) continue;
       let zdx = z.x - cx,
