@@ -95,8 +95,8 @@ class Player {
 
     this.mouseIsHeld = false;
     this.aimAngle = 0;
-    this.spriteSheet = null; // idle / bounce sprite
-    this.walkSpriteSheet = null; // walk sprite
+    this.spriteSheet = null;
+    this.walkSpriteSheet = null;
     this.spriteState = new SpriteState(8, 4);
   }
 
@@ -434,10 +434,17 @@ class Player {
   }
 
   switchWeapon(weaponKey) {
+    let prev = this.currentWeapon;
+
     if (weaponKey === "1") this.currentWeapon = "melee";
     else if (weaponKey === "2") this.currentWeapon = "handgun";
     else if (weaponKey === "3" && this.weapons.equipped !== null)
       this.currentWeapon = "equipped";
+
+    // Only play equip sound if the weapon actually changed
+    if (this.currentWeapon !== prev && typeof audioManager !== "undefined") {
+      audioManager.playEquip();
+    }
   }
 
   canShoot() {
@@ -494,10 +501,16 @@ class Player {
 
 Player.prototype.cycleEquippedWeapon = function (direction) {
   const slots = ["melee", "handgun", "equipped"];
+  let prev = this.currentWeapon;
   let idx = slots.indexOf(this.currentWeapon);
   if (idx === -1) idx = 1;
   idx = (idx + direction + slots.length) % slots.length;
   if (slots[idx] === "equipped" && this.weapons.equipped === null)
     idx = (idx + direction + slots.length) % slots.length;
   this.currentWeapon = slots[idx];
+
+  // Only play equip sound if the weapon actually changed
+  if (this.currentWeapon !== prev && typeof audioManager !== "undefined") {
+    audioManager.playEquip();
+  }
 };

@@ -164,10 +164,14 @@ class WeaponPickupManager {
       current.currentAmmo = current.magSize;
       current.isReloading = false;
       current.canShoot = true;
+      // ── new ──
+      if (typeof audioManager !== "undefined") audioManager.playEquip();
       return;
     }
     player.weapons.equipped = def;
     player.currentWeapon = "equipped";
+    // ── new ──
+    if (typeof audioManager !== "undefined") audioManager.playEquip();
   }
 
   applyDebugWeapon(player) {
