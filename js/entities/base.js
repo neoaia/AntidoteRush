@@ -2,8 +2,8 @@ class Base {
   constructor(x, y) {
     this.x = x;
     this.y = y;
-    this.width = 80;
-    this.height = 80;
+    this.width = 230;
+    this.height = 230;
 
     // Sprite — single frame 128x128, drawn centered on base rect center
     this.spriteSheet = null;
@@ -30,7 +30,7 @@ class Base {
       this.spriteState,
       cx,
       cy,
-      1.5, // 128 * 1.5 = 192px on screen
+      1.4, // 128 * 1.5 = 192px on screen
     );
 
     if (!drawn) {

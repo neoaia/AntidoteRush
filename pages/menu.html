@@ -19,7 +19,12 @@
 
         body {
             min-height: 100vh;
-            background: rgb(44, 44, 44);
+            background-color: #3e2723;
+            background-repeat: repeat;
+            background-size: 128px;
+            image-rendering: pixelated;
+            animation: scrollBackground 15s linear infinite;
+
             display: flex;
             justify-content: center;
             align-items: center;
@@ -29,18 +34,14 @@
             color: #fff;
         }
 
-        /* Scanlines */
-        body::before {
-            content: "";
-            position: absolute;
-            inset: 0;
-            background: repeating-linear-gradient(0deg,
-                    rgba(237, 237, 237, 0.05) 0px,
-                    rgba(255, 255, 255, 0.05) 1px,
-                    transparent 1px,
-                    transparent 3px);
-            pointer-events: none;
-            z-index: 9999;
+        @keyframes scrollBackground {
+            from {
+                background-position: 0 0;
+            }
+
+            to {
+                background-position: -256px -256px;
+            }
         }
 
         /* ── Screens ── */
@@ -50,10 +51,11 @@
             align-items: center;
             text-align: center;
             width: 100%;
-            max-width: 900px;
+            height: 100vh;
             padding: 3rem 2rem;
             position: relative;
             z-index: 10;
+            justify-content: center;
         }
 
         .screen.active {
@@ -73,35 +75,30 @@
                 -4px 4px 0 #000, 4px 4px 0 #000,
                 -6px -6px 0 #000, 6px -6px 0 #000,
                 -6px 6px 0 #000, 6px 6px 0 #000;
-            animation: breathe 3s ease-in-out infinite;
             margin-bottom: 5rem;
         }
 
-        @keyframes breathe {
-
-            0%,
-            100% {
-                transform: scale(1);
-            }
-
-            50% {
-                transform: scale(1.05);
-            }
-        }
-
-        /* ── Name input screen ── */
+        /* ── Screen Titles (Mas makapal na outline, mas dikit na spacing) ── */
         .screen-title {
             font-size: 1.8rem;
-            letter-spacing: 4px;
+            letter-spacing: 2px;
+            /* Binawasan from 4px to 2px */
             margin-bottom: 3rem;
-            text-shadow: -2px -2px 0 #000, 2px 2px 0 #000;
+            /* Mas makapal na text-shadow para kamukha nung main title */
+            text-shadow:
+                -3px -3px 0 #000, 3px -3px 0 #000,
+                -3px 3px 0 #000, 3px 3px 0 #000,
+                -3px 0 0 #000, 3px 0 0 #000,
+                0 -3px 0 #000, 0 3px 0 #000;
         }
 
+        /* ── Name Input ── */
         input[type="text"] {
             font-family: "Press Start 2P", cursive;
             font-size: 1.2rem;
             padding: 1rem 1.5rem;
-            border: 4px solid #000;
+            border: 6px solid #000;
+            /* Kinapalan ko na rin border para pixel art feels */
             background: #fff;
             color: #000;
             width: 100%;
@@ -109,13 +106,16 @@
             margin-bottom: 2.5rem;
             outline: none;
             text-align: center;
+            box-shadow: inset 4px 4px 0px rgba(0, 0, 0, 0.1);
+            /* Slight shadow sa loob */
         }
 
+        /* Tinanggal na yung pangit na green shadow sa hover/focus */
         input[type="text"]:focus {
-            box-shadow: 0 0 10px #00ff00;
+            background: #f0f0f0;
         }
 
-        /* ── Difficulty screen ── */
+        /* ── Difficulty Cards ── */
         .cards {
             display: flex;
             gap: 2rem;
@@ -129,18 +129,19 @@
             padding: 1.5rem;
             width: 200px;
             cursor: pointer;
-            transition: all 0.1s;
+            transition: transform 0.1s ease;
             background: #1a1a1a;
         }
 
         .card:hover {
+            transform: scale(1.05);
             border-color: #fff;
-            transform: translateY(-4px);
         }
 
         .card.selected {
             border-color: #ffeb3b;
             background: #2a2a00;
+            transform: scale(1.05);
         }
 
         .card.easy {
@@ -197,7 +198,7 @@
             color: #777;
         }
 
-        /* ── Buttons ── */
+        /* ── Buttons (Wood Panel Style) ── */
         .btn-group {
             display: flex;
             flex-direction: column;
@@ -212,72 +213,76 @@
             padding: 1.5rem 2rem;
             font-family: "Press Start 2P", cursive;
             font-size: 1.5rem;
-            background: #ffffff;
-            color: #000;
-            border: 6px solid #000;
+            color: #fff;
+            background-color: #ab6a38;
             cursor: pointer;
-            transition: all 0.1s ease;
-            box-shadow: 0 8px 0 #000, 0 12px 30px rgba(0, 0, 0, 0.2);
+            transition: transform 0.1s ease;
             position: relative;
             letter-spacing: 2px;
+
+            border: 6px solid #000;
+            box-shadow:
+                inset 0 6px 0 0 #d49a59,
+                inset 0 -6px 0 0 #7d4722,
+                inset 6px 0 0 0 #d49a59,
+                inset -6px 0 0 0 #7d4722,
+                0 10px 0 #000;
         }
 
-        button::before {
-            content: "▶";
+        button::after {
+            content: "";
             position: absolute;
-            left: 20px;
-            opacity: 0;
-            transition: all 0.2s;
+            inset: 6px;
+            background-image: linear-gradient(to bottom, #7d4722 2px, transparent 2px);
+            background-size: 100% calc(100% / 3);
+            background-repeat: repeat-y;
+            opacity: 0.5;
+            z-index: -1;
         }
 
         button:hover {
-            background: #ffeb3b;
-            color: #000;
-            box-shadow: 0 8px 0 #000, 0 12px 40px rgba(255, 235, 59, 0.4);
-            transform: translateY(-3px);
-        }
-
-        button:hover::before {
-            opacity: 1;
-            left: 15px;
+            transform: scale(1.05);
         }
 
         button:active {
-            transform: translateY(4px);
-            box-shadow: 0 2px 0 #000;
+            transform: scale(0.95);
+            box-shadow:
+                inset 0 6px 0 0 #d49a59,
+                inset 0 -6px 0 0 #7d4722,
+                inset 6px 0 0 0 #d49a59,
+                inset -6px 0 0 0 #7d4722,
+                0 4px 0 #000;
         }
 
         button:disabled {
             opacity: 0.4;
             cursor: default;
-            transform: none;
+            transform: none !important;
         }
 
-        button:disabled:hover {
-            background: #fff;
-            transform: none;
-            box-shadow: 0 8px 0 #000;
-        }
-
-        button:disabled::before {
-            opacity: 0;
-        }
-
-        /* Back button — smaller */
+        /* Back button — Top Left Corner Fixed */
         .btn-back {
-            max-width: 180px;
+            position: fixed;
+            top: 25px;
+            left: 25px;
+            max-width: 150px;
             font-size: 0.8rem;
             padding: 0.8rem 1rem;
-            margin-top: 1.5rem;
-            background: #333;
-            color: #aaa;
-            border-color: #555;
-            box-shadow: 0 4px 0 #000;
+            margin: 0;
+            z-index: 100;
+
+            border-width: 4px;
+            box-shadow:
+                inset 0 4px 0 0 #d49a59,
+                inset 0 -4px 0 0 #7d4722,
+                inset 4px 0 0 0 #d49a59,
+                inset -4px 0 0 0 #7d4722,
+                0 6px 0 #000;
         }
 
-        .btn-back:hover {
-            background: #555;
-            color: #fff;
+        .btn-back::after {
+            inset: 4px;
+            background-size: 100% calc(100% / 2);
         }
 
         @media (max-width: 768px) {
@@ -292,36 +297,119 @@
                 max-width: 300px;
             }
 
+            .btn-back {
+                top: 15px;
+                left: 15px;
+                font-size: 0.6rem;
+                padding: 0.6rem;
+                max-width: 100px;
+            }
+
             .cards {
                 flex-direction: column;
                 align-items: center;
             }
+        }
+
+        /* ── MODAL SCREEN ── */
+        .modal-overlay {
+            display: none;
+            position: fixed;
+            inset: 0;
+            background-color: rgba(0, 0, 0, 0.7);
+            z-index: 1000;
+            justify-content: center;
+            align-items: center;
+            padding: 2rem;
+        }
+
+        .modal-overlay.active {
+            display: flex;
+        }
+
+        .modal-content {
+            width: 100%;
+            max-width: 700px;
+            padding: 3rem 2rem;
+            background-color: #ab6a38;
+            border: 8px solid #000;
+            color: #fff;
+            box-shadow:
+                inset 0 8px 0 0 #d49a59,
+                inset 0 -8px 0 0 #7d4722,
+                inset 8px 0 0 0 #d49a59,
+                inset -8px 0 0 0 #7d4722,
+                0 20px 0 #000;
+            position: relative;
+        }
+
+        .modal-content::after {
+            content: "";
+            position: absolute;
+            inset: 8px;
+            background-image: linear-gradient(to bottom, #7d4722 2px, transparent 2px);
+            background-size: 100% calc(100% / 4);
+            background-repeat: repeat-y;
+            opacity: 0.5;
+            z-index: -1;
+        }
+
+        .modal-content-inner {
+            margin-bottom: 2rem;
+            max-height: 350px;
+            overflow-y: auto;
+            color: #000;
+            background-color: rgba(255, 255, 255, 0.7);
+            padding: 1rem;
+            border: 4px solid #000;
+            font-size: 0.8rem;
+            line-height: 1.6;
+        }
+
+        .modal-content-inner::-webkit-scrollbar {
+            width: 12px;
+        }
+
+        .modal-content-inner::-webkit-scrollbar-track {
+            background: #ab6a38;
+            border: 4px solid #000;
+        }
+
+        .modal-content-inner::-webkit-scrollbar-thumb {
+            background: #d49a59;
+            border: 4px solid #000;
+        }
+
+        .btn-modal-close {
+            margin: 0 auto;
+            display: block;
         }
     </style>
 </head>
 
 <body>
 
-    <!-- ── SCREEN 1: Title ─────────────────────────────────── -->
     <div id="screen-title" class="screen active">
         <h1 class="title">ANTIDOTE<br>RUSH</h1>
         <div class="btn-group">
             <button onclick="showScreen('name')">PLAY</button>
+            <button class="btn-info" onclick="openHowToPlay()">HOW TO PLAY?</button>
         </div>
     </div>
 
-    <!-- ── SCREEN 2: Name Input ───────────────────────────── -->
     <div id="screen-name" class="screen">
+        <button class="btn-back" onclick="showScreen('title')">◀ BACK</button>
+
         <p class="screen-title">ENTER YOUR NAME</p>
         <input type="text" id="playerName" maxlength="15" placeholder="Your Name" />
         <div class="btn-group">
-            <button id="nameBtn" onclick="submitName()" disabled>START</button>
-            <button class="btn-back" onclick="showScreen('title')">◀ BACK</button>
+            <button id="nameBtn" onclick="submitName()" disabled>NEXT</button>
         </div>
     </div>
 
-    <!-- ── SCREEN 3: Difficulty ───────────────────────────── -->
     <div id="screen-difficulty" class="screen">
+        <button class="btn-back" onclick="showScreen('name')">◀ BACK</button>
+
         <p class="screen-title">SELECT DIFFICULTY</p>
         <div class="cards">
             <div class="card easy" onclick="selectDifficulty('easy', this)">
@@ -341,28 +429,86 @@
             </div>
         </div>
         <button id="diffBtn" onclick="startGame()" disabled>START</button>
-        <button class="btn-back" onclick="showScreen('name')">◀ BACK</button>
+    </div>
+
+    <div id="modal-howto" class="modal-overlay">
+        <div class="modal-content">
+            <p class="screen-title">HOW TO PLAY</p>
+            <div class="modal-content-inner">
+                <p>Welcome to Antidote Rush!</p>
+                <br>
+                <p>Your objective is to survive waves of zombies until the antidote is ready.</p>
+                <br>
+                <p>1. Select your difficulty.</p>
+                <p>2. Use arrows/WASD to move.</p>
+                <p>3. Point and click to shoot.</p>
+                <p>4. Press 1, 2, 3 to switch weapons.</p>
+            </div>
+            <button class="btn-back btn-modal-close" onclick="closeHowToPlay()"
+                style="position:relative; top:0; left:0;">CLOSE</button>
+        </div>
     </div>
 
     <script>
+        // ── AUDIO EFFECTS LOGIC ───────────────────────────────────────────────
+        const sfxHover = new Audio('/assets/audios/gui/hover.mp3');
+        const sfxSelect = new Audio('/assets/audios/gui/select.mp3');
+
+        function playHoverSound() {
+            sfxHover.currentTime = 0;
+            sfxHover.play().catch(e => { });
+        }
+
+        function playSelectSound() {
+            sfxSelect.currentTime = 0;
+            sfxSelect.play().catch(e => { });
+        }
+
+        document.querySelectorAll('button, .card').forEach(element => {
+            element.addEventListener('mouseenter', () => {
+                if (!element.disabled) {
+                    playHoverSound();
+                }
+            });
+            element.addEventListener('click', () => {
+                if (!element.disabled) {
+                    playSelectSound();
+                }
+            });
+        });
+
+        // ── RANDOM BACKGROUND LOGIC ───────────────────────────────────────────
+        // In-update ko na yung paths based sa sinabi mo
+        const grassVariants = [
+            '/assets/grass/land_1.png',
+            '/assets/grass/land_2.png',
+            '/assets/grass/land_3.png'
+        ];
+        const randomGrass = grassVariants[Math.floor(Math.random() * grassVariants.length)];
+        document.body.style.backgroundImage = `url('${randomGrass}')`;
+
         // ── Screen routing ────────────────────────────────────────────────────
         function showScreen(name) {
             document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
             document.getElementById('screen-' + name).classList.add('active');
+
+            // Auto-focus kapag pumasok sa name screen
             if (name === 'name') {
                 setTimeout(() => document.getElementById('playerName').focus(), 50);
             }
         }
 
-        // ── Name input ────────────────────────────────────────────────────────
+        // ── Name Logic ────────────────────────────────────────────────────────
         var nameInput = document.getElementById('playerName');
         var nameBtn = document.getElementById('nameBtn');
 
         nameInput.addEventListener('input', function () {
+            // Enable button kapag may tinype
             nameBtn.disabled = nameInput.value.trim().length === 0;
         });
+
         nameInput.addEventListener('keypress', function (e) {
-            if (e.key === 'Enter') submitName();
+            if (e.key === 'Enter' && !nameBtn.disabled) submitName();
         });
 
         function submitName() {
@@ -372,7 +518,7 @@
             showScreen('difficulty');
         }
 
-        // ── Difficulty ────────────────────────────────────────────────────────
+        // ── Difficulty Logic ──────────────────────────────────────────────────
         var selectedDifficulty = null;
 
         function selectDifficulty(diff, el) {
@@ -385,17 +531,29 @@
         function startGame() {
             if (!selectedDifficulty) return;
             localStorage.setItem('difficulty', selectedDifficulty);
-            // Stop BGM before entering game
             if (bgm) { bgm.pause(); bgm.src = ''; }
             window.location.href = 'game.html';
         }
 
-        // ── Menu BGM — single audio instance, never restarts ─────────────────
-        var bgm = new Audio('../assets/audios/bgm/menu.mp3');
+        // ── Modal Handling ───────────────────────────────────────────────────
+        const modalHowTo = document.getElementById('modal-howto');
+        function openHowToPlay() {
+            modalHowTo.classList.add('active');
+        }
+        function closeHowToPlay() {
+            modalHowTo.classList.remove('active');
+        }
+        window.onclick = function (event) {
+            if (event.target == modalHowTo) {
+                closeHowToPlay();
+            }
+        }
+
+        // ── Menu BGM ─────────────────────────────────────────────────────────
+        var bgm = new Audio('/assets/audios/bgm/menu.mp3');
         bgm.loop = true;
         bgm.volume = 0.45;
 
-        // Try to play immediately; if blocked, wait for first click
         bgm.play().catch(function () {
             var unlock = function () {
                 bgm.play();

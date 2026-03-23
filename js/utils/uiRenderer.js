@@ -142,12 +142,14 @@ class UIRenderer {
     this._roundStartDiff = difficulty || "easy";
   }
 
+  // ── SHOP LOGIC & RENDERING ────────────────────────────────────────────────
   shopClick(mx, my, shopManager, player) {
     if (!this._shopOpen) return false;
     let layout = this._getShopLayout();
     let cb = layout.closeBtn;
     if (mx >= cb.x && mx <= cb.x + cb.w && my >= cb.y && my <= cb.y + cb.h) {
       this.closeShop();
+      if (typeof audioManager !== "undefined") audioManager.playSelect();
       return true;
     }
     let keys = Object.keys(shopManager.statShop);
@@ -161,8 +163,10 @@ class UIRenderer {
         my <= btn.y + btn.h
       ) {
         const success = shopManager.buyStatUpgrade(keys[i], player);
-        if (!success && typeof audioManager !== "undefined")
-          audioManager.playError();
+        if (typeof audioManager !== "undefined") {
+          if (success) audioManager.playSelect();
+          else audioManager.playError();
+        }
         return true;
       }
     }
@@ -170,65 +174,53 @@ class UIRenderer {
   }
 
   _getShopLayout() {
-    let panelW = min(780, width * 0.9);
-    let panelH = min(560, height * 0.86);
+    // PINALIIT NA SHOP WINDOW (List Style layout)
+    let panelW = 460;
+    let panelH = 460;
     let panelX = width / 2 - panelW / 2;
     let panelY = height / 2 - panelH / 2;
-    let headerH = 72,
-      footerH = 36,
-      cols = 2;
-    let contentX = panelX + 20,
-      contentY = panelY + headerH + 14;
-    let contentW = panelW - 40,
-      contentH = panelH - headerH - footerH - 14;
-    let gapX = 12,
-      gapY = 12;
-    let cardW = (contentW - gapX) / cols;
-    let cardH = (contentH - gapY * 2) / 3;
+    let headerH = 60;
+
+    let contentX = panelX + 20;
+    let contentY = panelY + headerH + 10;
+    let contentW = panelW - 40;
+
     let keys = ["health", "stamina", "speed", "strength", "precision"];
+    let itemH = 60;
+    let gapY = 8;
     let btnRects = [];
+
     for (let i = 0; i < keys.length; i++) {
-      let col = i % cols,
-        row = Math.floor(i / cols);
-      let cardX =
-        i === 4
-          ? contentX + contentW / 2 - cardW / 2
-          : contentX + col * (cardW + gapX);
-      let cardY = contentY + row * (cardH + gapY);
-      let btnW = cardW - 24,
-        btnH = 44;
+      let itemY = contentY + i * (itemH + gapY);
+      let btnW = 120;
+      let btnH = 40;
+      let btnX = contentX + contentW - btnW - 10;
+      let btnY = itemY + itemH / 2 - btnH / 2;
+
       btnRects.push({
-        x: cardX + 12,
-        y: cardY + cardH - btnH - 10,
+        cardX: contentX,
+        cardY: itemY,
+        cardW: contentW,
+        cardH: itemH,
+        x: btnX,
+        y: btnY,
         w: btnW,
         h: btnH,
-        cardX,
-        cardY,
-        cardW,
-        cardH,
       });
     }
+
     return {
       panelX,
       panelY,
       panelW,
       panelH,
       headerH,
-      footerH,
-      contentX,
-      contentY,
-      contentW,
-      contentH,
-      cardW,
-      cardH,
-      gapX,
-      gapY,
       btnRects,
       closeBtn: {
-        x: panelX + panelW - 56,
-        y: panelY + headerH / 2 - 20,
-        w: 42,
-        h: 40,
+        x: panelX + panelW - 44,
+        y: panelY + 12,
+        w: 32,
+        h: 32,
       },
     };
   }
@@ -236,147 +228,204 @@ class UIRenderer {
   drawShop(roundManager, shopManager, player) {
     if (!this._shopOpen) return;
     let layout = this._getShopLayout();
-    let {
-      panelX,
-      panelY,
-      panelW,
-      panelH,
-      headerH,
-      contentX,
-      contentY,
-      contentW,
-      contentH,
-      cardW,
-      cardH,
-      gapX,
-      gapY,
-      btnRects,
-    } = layout;
+    let { panelX, panelY, panelW, panelH, headerH, btnRects } = layout;
     let mx = mouseX,
       my = mouseY;
 
+    // Dark Overlay
     noStroke();
-    fill(0, 0, 0, 200);
+    fill(0, 0, 0, 180);
     rect(0, 0, width, height);
-    fill(0, 0, 0, 120);
-    rect(panelX + 7, panelY + 7, panelW, panelH, 10);
-    this._drawWoodPanelLarge(panelX, panelY, panelW, panelH);
-    fill(30, 18, 6, 220);
-    noStroke();
-    rect(panelX + 4, panelY + 4, panelW - 8, headerH - 4, 6, 6, 0, 0);
-    fill(80, 50, 18);
-    rect(panelX + 4, panelY + headerH - 2, panelW - 8, 3);
 
+    // Main Shop Panel
+    this._drawPixelWoodPanel(panelX, panelY, panelW, panelH);
+
+    // Header Title
     textSize(28);
     textAlign(LEFT, CENTER);
-    noStroke();
-    fill(255, 200, 50);
-    text("SHOP", panelX + 22, panelY + headerH / 2);
+    this.drawTextWithOutline(
+      "SHOP",
+      panelX + 20,
+      panelY + headerH / 2,
+      255,
+      200,
+      50,
+      2,
+    );
 
+    // Timer
     let sec = roundManager
       ? Math.ceil(roundManager.intermissionTimeLeft / 1000)
       : 0;
-    textSize(18);
+    textSize(14);
     textAlign(CENTER, CENTER);
-    fill(sec <= 5 ? color(255, 90, 90) : color(220, 220, 200));
-    text(
-      "NEXT ROUND IN  " + sec + "s",
-      panelX + panelW / 2,
+    let tCol = sec <= 5 ? [255, 90, 90] : [220, 220, 200];
+    this.drawTextWithOutline(
+      "NEXT ROUND IN " + sec + "s",
+      panelX + panelW / 2 - 10,
       panelY + headerH / 2,
+      tCol[0],
+      tCol[1],
+      tCol[2],
+      1,
     );
 
+    // Coins
     let coinSheet =
       typeof spriteManager !== "undefined"
         ? spriteManager.get("icon_coin")
         : null;
-    let coinX = panelX + panelW - 170;
+    let coinX = panelX + panelW - 140;
     if (coinSheet && coinSheet.img) {
       push();
       imageMode(CORNER);
       image(
         coinSheet.img,
         coinX,
-        panelY + headerH / 2 - 15,
-        30,
-        30,
+        panelY + headerH / 2 - 12,
+        24,
+        24,
         0,
         0,
         coinSheet.frameW,
         coinSheet.frameH,
       );
       pop();
-      textSize(22);
+      textSize(20);
       textAlign(LEFT, CENTER);
-      fill(255, 220, 60);
-      text(this.gameState.coins, coinX + 36, panelY + headerH / 2);
+      this.drawTextWithOutline(
+        this.gameState.coins,
+        coinX + 30,
+        panelY + headerH / 2,
+        255,
+        220,
+        60,
+        2,
+      );
     }
 
+    // Close Button (X)
     let cb = layout.closeBtn;
     let cbHover =
       mx >= cb.x && mx <= cb.x + cb.w && my >= cb.y && my <= cb.y + cb.h;
-    fill(cbHover ? color(220, 60, 60) : color(140, 30, 30));
-    noStroke();
-    rect(cb.x, cb.y, cb.w, cb.h, 5);
-    textSize(16);
-    textAlign(CENTER, CENTER);
-    fill(255);
-    text("X", cb.x + cb.w / 2, cb.y + cb.h / 2);
 
+    this._drawPixelWoodPanel(cb.x, cb.y, cb.w, cb.h);
+    if (cbHover) {
+      fill(255, 255, 255, 50);
+      rect(cb.x + 2, cb.y + 2, cb.w - 4, cb.h - 4);
+    }
+    textSize(18);
+    textAlign(CENTER, CENTER);
+    this.drawTextWithOutline(
+      "X",
+      cb.x + cb.w / 2,
+      cb.y + cb.h / 2,
+      255,
+      100,
+      100,
+      2,
+    );
+
+    // Separator Line
+    fill(0, 0, 0, 80);
+    rect(panelX + 16, panelY + headerH, panelW - 32, 4);
+
+    // ── LIST ITEMS RENDERING ──
     let keys = Object.keys(shopManager.statShop);
     for (let i = 0; i < keys.length; i++) {
       let key = keys[i],
         stat = shopManager.statShop[key];
-      let cost = shopManager.getStatCurrentCost(key),
-        canAfford = this.gameState.coins >= cost;
+      let cost = shopManager.getStatCurrentCost(key);
+      let canAfford = this.gameState.coins >= cost;
       let btn = btnRects[i];
-      this._drawWoodPanelMed(btn.cardX, btn.cardY, btn.cardW, btn.cardH);
-      textSize(20);
+
+      // Item Row Background (Subtle inset)
+      fill(0, 0, 0, 40);
+      rect(btn.cardX, btn.cardY, btn.cardW, btn.cardH, 4);
+
+      // Stat Name
+      textSize(18);
       textAlign(LEFT, TOP);
-      noStroke();
-      fill(255, 230, 160);
-      text(stat.label.toUpperCase(), btn.cardX + 14, btn.cardY + 12);
-      textSize(13);
-      fill(180, 160, 120);
-      textAlign(LEFT, TOP);
-      text(stat.description, btn.cardX + 14, btn.cardY + 38);
-      textSize(13);
-      fill(200, 160, 80);
-      textAlign(LEFT, TOP);
-      text("Lv. " + stat.purchased, btn.cardX + 14, btn.cardY + 58);
-      let maxPips = 10,
-        pip = min(stat.purchased, maxPips);
-      for (let p = 0; p < pip; p++) {
-        fill(180, 130, 60);
-        rect(btn.cardX + 14 + p * 11, btn.cardY + 76, 9, 9, 2);
-      }
+      this.drawTextWithOutline(
+        stat.label.toUpperCase(),
+        btn.cardX + 14,
+        btn.cardY + 12,
+        255,
+        230,
+        160,
+        2,
+      );
+
+      // Level Indicator
+      textSize(14);
+      textAlign(LEFT, BOTTOM);
+      this.drawTextWithOutline(
+        "Lv. " + stat.purchased,
+        btn.cardX + 14,
+        btn.cardY + btn.cardH - 12,
+        200,
+        160,
+        80,
+        1,
+      );
+
+      // Upgrade Button (Wood Panel Style)
       let hover =
         mx >= btn.x &&
         mx <= btn.x + btn.w &&
         my >= btn.y &&
         my <= btn.y + btn.h;
-      if (canAfford) fill(hover ? color(60, 160, 40) : color(38, 105, 22));
-      else fill(50, 38, 18);
-      noStroke();
-      rect(btn.x, btn.y, btn.w, btn.h, 6);
-      fill(255, 255, 255, canAfford ? 22 : 8);
-      rect(btn.x + 2, btn.y + 2, btn.w - 4, 10, 4);
-      noFill();
-      stroke(canAfford ? color(80, 160, 50) : color(70, 55, 30));
-      strokeWeight(1.5);
-      rect(btn.x, btn.y, btn.w, btn.h, 6);
-      noStroke();
-      textSize(14);
+      this._drawPixelWoodPanel(btn.x, btn.y, btn.w, btn.h);
+
+      if (!canAfford) {
+        // Disabled overlay
+        fill(0, 0, 0, 150);
+        rect(btn.x + 2, btn.y + 2, btn.w - 4, btn.h - 4);
+      } else if (hover) {
+        // Hover highlight
+        fill(255, 255, 255, 50);
+        rect(btn.x + 2, btn.y + 2, btn.w - 4, btn.h - 4);
+      }
+
+      // Upgrade Button Texts
+      textSize(11);
       textAlign(CENTER, CENTER);
-      fill(canAfford ? color(200, 255, 180) : color(120, 100, 70));
-      text("UPGRADE", btn.x + btn.w / 2, btn.y + btn.h / 2 - 9);
-      textSize(14);
-      fill(canAfford ? color(255, 220, 50) : color(110, 90, 55));
-      text("¢ " + cost, btn.x + btn.w / 2, btn.y + btn.h / 2 + 10);
+      let tColBtn = canAfford ? [200, 255, 180] : [150, 150, 150];
+      this.drawTextWithOutline(
+        "UPGRADE",
+        btn.x + btn.w / 2,
+        btn.y + btn.h / 2 - 8,
+        tColBtn[0],
+        tColBtn[1],
+        tColBtn[2],
+        1,
+      );
+
+      textSize(12);
+      let cColBtn = canAfford ? [255, 220, 50] : [150, 150, 150];
+      this.drawTextWithOutline(
+        "¢ " + cost,
+        btn.x + btn.w / 2,
+        btn.y + btn.h / 2 + 8,
+        cColBtn[0],
+        cColBtn[1],
+        cColBtn[2],
+        1,
+      );
     }
-    textSize(12);
+
+    // Bottom Hint
+    textSize(11);
     textAlign(CENTER, CENTER);
-    fill(120, 90, 50);
-    text("[B] close shop", panelX + panelW / 2, panelY + panelH - 18);
+    this.drawTextWithOutline(
+      "[B] close shop",
+      panelX + panelW / 2,
+      panelY + panelH - 16,
+      160,
+      140,
+      110,
+      1,
+    );
   }
 
   // ── Returns computed pixel height for numPlanks ───────────────────────────
@@ -384,52 +433,73 @@ class UIRenderer {
     return numPlanks * 26 + 4;
   }
 
-  // ── Pixel wood panel ──────────────────────────────────────────────────────
-  _drawPixelWoodPanel(x, y, w, numPlanks) {
+  // ── Pixel wood panel (SOLID + DETAILS) ────────────────────────────────────
+  _drawPixelWoodPanel(x, y, w, h) {
     push();
     noStroke();
-    let os = 2,
-      fph = 26;
-    let h = numPlanks * fph + os * 2;
-    let outlineCol = color("#3E2723");
-    let mainCol = color("#AB6A38");
-    let highlightCol = color("#D49A59");
-    let shadowCol = color("#7D4722");
 
+    let outlineSize = 2; // Pixel border thickness
+
+    // WARM OAK PALETTE
+    let outlineCol = color(0); // Black outer border
+    let mainCol = color("#AB6A38"); // Main wood body
+    let highlightCol = color("#D49A59"); // Light outline
+    let shadowCol = color("#7D4722"); // Dark shadow / Grooves
+
+    // 1. Chunky Outer Shadow (Binawasan ko na: 3px na lang!)
     fill(outlineCol);
-    rect(x + os, y, w - os * 2, h);
-    rect(x, y + os, w, h - os * 2);
-    fill(mainCol);
-    rect(x + os, y + os, w - os * 2, h - os * 2);
+    let chunkY = 3;
+    rect(x, y, w, h + chunkY);
 
-    let ix = x + os,
-      iy = y + os,
-      iw = w - os * 2;
-    let py = iy;
-    for (let i = 0; i < numPlanks; i++) {
+    // 2. Base Wood Layer
+    fill(mainCol);
+    rect(
+      x + outlineSize,
+      y + outlineSize,
+      w - outlineSize * 2,
+      h - outlineSize * 2,
+    );
+
+    let innerX = x + outlineSize;
+    let innerY = y + outlineSize;
+    let innerW = w - outlineSize * 2;
+    let innerH = h - outlineSize * 2;
+
+    // ── DETAILS: Plank Grooves & Rivets ──
+    let plankSpacing = 24;
+    for (
+      let py = innerY + plankSpacing;
+      py < innerY + innerH - 4;
+      py += plankSpacing
+    ) {
+      fill(shadowCol);
+      rect(innerX, py, innerW, outlineSize);
+
       fill(highlightCol);
-      rect(ix, py, iw, os);
-      rect(ix, py + os, os, fph - os);
-      fill(shadowCol);
-      rect(ix, py + fph - os, iw, os);
-      rect(ix + iw - os, py, os, fph - os);
-      fill(shadowCol);
-      rect(ix + os * 2, py + os * 2, os, os * 2);
-      rect(ix + os * 3, py + os * 2, os, os);
-      rect(ix + os * 2, py + fph - os * 4, os, os * 2);
-      rect(ix + os * 3, py + fph - os * 3, os, os);
-      rect(ix + iw - os * 3, py + os * 2, os, os * 2);
-      rect(ix + iw - os * 4, py + os * 2, os, os);
-      rect(ix + iw - os * 3, py + fph - os * 4, os, os * 2);
-      rect(ix + iw - os * 4, py + fph - os * 3, os, os);
-      py += fph;
+      rect(innerX, py + outlineSize, innerW, 1);
     }
+
+    // Corner Rivets
+    fill(outlineCol);
+    rect(innerX + 2, innerY + 2, outlineSize, outlineSize); // Top-Left
+    rect(innerX + innerW - 4, innerY + 2, outlineSize, outlineSize); // Top-Right
+    rect(innerX + 2, innerY + innerH - 4, outlineSize, outlineSize); // Bottom-Left
+    rect(innerX + innerW - 4, innerY + innerH - 4, outlineSize, outlineSize); // Bottom-Right
+
+    // 3. Inner Bevel Highlights and Shadows
+    fill(highlightCol);
+    rect(innerX, innerY, innerW, outlineSize); // Top highlight
+    rect(innerX, innerY, outlineSize, innerH); // Left highlight
+
+    fill(shadowCol);
+    rect(innerX, innerY + innerH - outlineSize, innerW, outlineSize); // Bottom shadow
+    rect(innerX + innerW - outlineSize, innerY, outlineSize, innerH); // Right shadow
+
     pop();
   }
 
   drawWoodPanel(x, y, w, h) {
-    let numPlanks = max(1, Math.round((h - 4) / 26));
-    this._drawPixelWoodPanel(x, y, w, numPlanks);
+    this._drawPixelWoodPanel(x, y, w, h);
   }
 
   _drawWoodPanelLarge(x, y, w, h) {
@@ -527,11 +597,7 @@ class UIRenderer {
     for (let ox = -4; ox <= 4; ox++)
       for (let oy = -4; oy <= 4; oy++)
         if (ox || oy)
-          text(
-            "ROUND " + roundNum + " CLEARED!",
-            width / 2 + ox,
-            height / 2 + oy,
-          );
+          text("ROUND " + roundNum, width / 2 + ox, height / 2 + oy);
     fill(100, 255, 120, alpha);
     text("ROUND " + roundNum + " CLEARED!", width / 2, height / 2);
   }
@@ -640,7 +706,7 @@ class UIRenderer {
     return 22;
   }
   static get FS_ZOMBIE_COUNT() {
-    return 26;
+    return 36;
   }
   static get FS_COINS() {
     return 22;
@@ -671,23 +737,24 @@ class UIRenderer {
   drawStaminaBar(player) {}
 
   drawStatBars(player) {
-    let PLANKS = 5;
-    let pH = this._panelH(PLANKS);
+    let pH = 100;
     let px = 8,
       py = 8,
       pW = 390;
-    this._drawPixelWoodPanel(px, py, pW, PLANKS);
+    this._drawPixelWoodPanel(px, py, pW, pH);
 
     let innerX = px + 10;
     let rightEdge = px + pW - 10;
-    let iconSize = 38;
-    let stIconSize = 30;
+
+    let iconSize = 34;
+    let stIconSize = 28;
+
     let hBx = innerX + floor(iconSize / 2);
     let barW = rightEdge - hBx;
 
-    // ── Health bar then icon on top ───────────────────────────────────────
-    let hy = py + 12;
-    let hBH = 22;
+    // ── Health bar ───────────────────────────────────────
+    let hy = py + 8;
+    let hBH = 20;
     let hBy = hy + floor((iconSize - hBH) / 2);
     let hPct = player.health / player.maxHealth;
 
@@ -742,9 +809,9 @@ class UIRenderer {
       pop();
     }
 
-    // ── Stamina bar then icon on top ──────────────────────────────────────
-    let sy = hy + iconSize + 2;
-    let sBH = 18;
+    // ── Stamina bar ──────────────────────────────────────
+    let sy = hy + 26;
+    let sBH = 16;
     let sBx = hBx;
     let sBy = sy + floor((stIconSize - sBH) / 2) + 2;
     let sPct = player.stamina / player.maxStamina;
@@ -812,10 +879,10 @@ class UIRenderer {
     }
 
     // ── EXP bar ───────────────────────────────────────────────────────────
-    let ey = sy + stIconSize + 6;
+    let ey = sy + 24;
     let eBx = innerX,
-      eBH = 22,
-      eBy = ey;
+      eBH = 18,
+      eBy = ey + 4;
     let eBW = rightEdge - eBx;
     let ePct = this.gameState.exp / this.gameState.expToNextLevel;
 
@@ -853,7 +920,7 @@ class UIRenderer {
     let pW = 160,
       px = width - pW - 8,
       py = 8;
-    this._drawPixelWoodPanel(px, py, pW, PLANKS);
+    this._drawPixelWoodPanel(px, py, pW, pH);
     let coinSheet =
       typeof spriteManager !== "undefined"
         ? spriteManager.get("icon_coin")
@@ -913,7 +980,9 @@ class UIRenderer {
         y = slotY,
         isActive = player.currentWeapon === s.key,
         w = player.weapons[s.key];
-      this._drawPixelWoodPanel(x, y, slotW, PLANKS);
+
+      this._drawPixelWoodPanel(x, y, slotW, slotH);
+
       if (isActive) {
         noStroke();
         fill(255, 220, 0, 50);
@@ -1087,7 +1156,7 @@ class UIRenderer {
     let px = width / 2 - panelW / 2,
       py1 = 8;
 
-    this._drawPixelWoodPanel(px, py1, panelW, ROUND_PLANKS);
+    this._drawPixelWoodPanel(px, py1, panelW, roundH);
     textSize(UIRenderer.FS_ROUND);
     textAlign(CENTER, CENTER);
     this.drawTextWithOutline(
@@ -1101,20 +1170,22 @@ class UIRenderer {
     );
 
     let py2 = py1 + roundH + gap;
-    this._drawPixelWoodPanel(px, py2, panelW, ZOMBIE_PLANKS);
+    this._drawPixelWoodPanel(px, py2, panelW, zombieH);
     let zombiesRemaining =
       (roundManager.zombiesToSpawn || 0) + this.gameState.zombies.length;
     let skull = this.assetManager ? this.assetManager.getSkullIcon() : null;
     let rowY = py2 + zombieH / 2;
+
     if (skull && skull.width) {
       imageMode(CENTER);
-      image(skull, width / 2 - 22, rowY, 22, 22);
+      image(skull, width / 2 - 30, rowY, 32, 32);
       imageMode(CORNER);
     } else {
-      textSize(20);
+      textSize(30);
       textAlign(CENTER, CENTER);
-      text("💀", width / 2 - 18, rowY);
+      text("💀", width / 2 - 26, rowY);
     }
+
     textSize(UIRenderer.FS_ZOMBIE_COUNT);
     textAlign(CENTER, CENTER);
     this.drawTextWithOutline(
@@ -1379,11 +1450,9 @@ class UIRenderer {
       pH = this._panelH(PLANKS);
     let btnX = cx - btnW / 2;
 
-    // Total height of 3 buttons + 2 gaps
     let totalH = 3 * pH + 2 * 10;
     let startY = height / 2 - totalH / 2;
 
-    // PAUSED title above buttons
     textSize(64);
     textAlign(CENTER, CENTER);
     this.drawTextWithOutline("PAUSED", cx, startY - 50, 255, 255, 255, 5);
@@ -1406,9 +1475,8 @@ class UIRenderer {
         mouseY <= btnY + pH;
 
       this._pauseBtnRects[btn.id] = { x: btnX, y: btnY, w: btnW, h: pH };
-      this._drawPixelWoodPanel(btnX, btnY, btnW, PLANKS);
+      this._drawPixelWoodPanel(btnX, btnY, btnW, pH);
 
-      // Hover highlight
       if (isHovered) {
         noStroke();
         fill(255, 255, 255, 50);
@@ -1420,7 +1488,6 @@ class UIRenderer {
       this.drawTextWithOutline(btn.label, cx, btnY + pH / 2, 255, 230, 160, 2);
     }
 
-    // Controls hint at bottom
     textSize(14);
     textAlign(CENTER, CENTER);
     this.drawTextWithOutline(
@@ -1441,9 +1508,8 @@ class UIRenderer {
       panelH = this._panelH(PLANKS);
     let panelX = cx - panelW / 2;
     let panelY = height / 2 - panelH / 2;
-    this._drawPixelWoodPanel(panelX, panelY, panelW, PLANKS);
+    this._drawPixelWoodPanel(panelX, panelY, panelW, panelH);
 
-    // Title
     textSize(26);
     textAlign(CENTER, CENTER);
     this.drawTextWithOutline(
@@ -1456,12 +1522,10 @@ class UIRenderer {
       2,
     );
 
-    // Divider line
     noStroke();
     fill(62, 39, 35, 180);
     rect(panelX + 16, panelY + 38, panelW - 32, 2);
 
-    // Slider definitions
     let volData = [
       {
         id: "master",
@@ -1502,7 +1566,6 @@ class UIRenderer {
       let fillW = trackW * s.value;
       let isDragging = this._volumeDragging === s.id;
 
-      // Label
       textSize(15);
       textAlign(RIGHT, CENTER);
       this.drawTextWithOutline(
@@ -1515,7 +1578,6 @@ class UIRenderer {
         1,
       );
 
-      // Track background
       noFill();
       stroke(62, 39, 35);
       strokeWeight(1);
@@ -1524,7 +1586,6 @@ class UIRenderer {
       fill(20, 12, 4);
       rect(trackX + 1, trackY + 1, trackW - 2, trackH - 2, 1);
 
-      // Fill
       if (fillW > 2) {
         fill(isDragging ? color(255, 200, 80) : color(200, 150, 60));
         rect(trackX + 2, trackY + 2, fillW - 2, trackH - 4, 1);
@@ -1532,13 +1593,11 @@ class UIRenderer {
         rect(trackX + 2, trackY + 2, fillW - 2, floor((trackH - 4) * 0.45), 1);
       }
 
-      // Thumb
       let thumbX = trackX + fillW - 5;
       thumbX = constrain(thumbX, trackX, trackX + trackW - 10);
       fill(isDragging ? color(255, 240, 180) : color(255, 210, 100));
       rect(thumbX, trackY - 3, 10, trackH + 6, 2);
 
-      // Value %
       textSize(13);
       textAlign(LEFT, CENTER);
       this.drawTextWithOutline(
@@ -1551,7 +1610,6 @@ class UIRenderer {
         1,
       );
 
-      // Click area (taller than visual for easier interaction)
       this._sliderRects[s.id] = {
         x: trackX,
         y: trackY - 8,
@@ -1562,7 +1620,6 @@ class UIRenderer {
       };
     }
 
-    // BACK button
     let backW = 160,
       backPlanks = 2,
       backH = this._panelH(backPlanks);
@@ -1575,7 +1632,7 @@ class UIRenderer {
       mouseY <= backY + backH;
 
     this._pauseVolRects = { back: { x: backX, y: backY, w: backW, h: backH } };
-    this._drawPixelWoodPanel(backX, backY, backW, backPlanks);
+    this._drawPixelWoodPanel(backX, backY, backW, backH);
     if (backHovered) {
       noStroke();
       fill(255, 255, 255, 50);
@@ -1594,7 +1651,7 @@ class UIRenderer {
       mmH = this._panelH(PLANKS);
     let mmX = width - mmW - 8,
       mmY = 8 + this._panelH(2) + 6;
-    this._drawPixelWoodPanel(mmX, mmY, mmW, PLANKS);
+    this._drawPixelWoodPanel(mmX, mmY, mmW, mmH);
     let mx = mmX + 10,
       my = mmY + 10,
       mw = mmW - 20,
@@ -1637,9 +1694,10 @@ class UIRenderer {
     strokeWeight(1);
     rect(mx, my, mw, mh);
     noStroke();
-    textSize(12);
+
+    textSize(20);
     textAlign(CENTER, TOP);
-    this.drawTextWithOutline("MAP", mmX + mmW / 2, mmY + 4, 255, 240, 180, 1);
+    this.drawTextWithOutline("MAP", mmX + mmW / 2, mmY + 6, 255, 240, 180, 2);
     noStroke();
   }
 
