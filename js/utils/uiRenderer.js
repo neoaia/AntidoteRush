@@ -679,14 +679,12 @@ class UIRenderer {
     }
 
     textSize(20);
-    textAlign(CENTER, CENTER);
-    this.drawTextWithOutline(
-      "[B] CLOSE SHOP",
+    this._drawHintText(
+      "PRESS ",
+      "B",
+      " TO CLOSE SHOP",
       panelX + panelW / 2,
       panelY + panelH - 24,
-      255,
-      255,
-      255,
       2,
     );
   }
@@ -916,29 +914,26 @@ class UIRenderer {
     fill(c);
     text(sec, width / 2, height / 2 - 50);
 
-    textSize(28); // Pinalaki mula 24
-    textAlign(CENTER, CENTER);
-    fill(0, 0, 0, 200);
-    for (let ox = -3; ox <= 3; ox++)
-      for (let oy = -3; oy <= 3; oy++)
-        if (ox || oy)
-          text("[B]  OPEN SHOP", width / 2 + ox, height / 2 + 105 + oy);
+    // Dito ginamit yung bagong multi-color text renderer natin
+    textSize(28);
+    this._drawHintText(
+      "PRESS ",
+      "B",
+      " TO OPEN SHOP",
+      width / 2,
+      height / 2 + 105,
+      3,
+    );
 
-    // Binalik ang kulay
-    fill(255, 255, 255);
-    text("[B]  OPEN SHOP", width / 2, height / 2 + 105);
-
-    textSize(28); // Pinalaki mula 24
-    textAlign(CENTER, CENTER);
-    fill(0, 0, 0, 180);
-    for (let ox = -3; ox <= 3; ox++)
-      for (let oy = -3; oy <= 3; oy++)
-        if (ox || oy)
-          text("[ENTER]  START NOW", width / 2 + ox, height / 2 + 145 + oy);
-
-    // Binalik ang kulay
-    fill(255, 255, 255);
-    text("[ENTER]  START NOW", width / 2, height / 2 + 145);
+    textSize(28);
+    this._drawHintText(
+      "PRESS ",
+      "ENTER",
+      " TO START NOW",
+      width / 2,
+      height / 2 + 145,
+      3,
+    );
   }
 
   updateAndDrawRoundStart() {
@@ -1042,6 +1037,36 @@ class UIRenderer {
         if (ox !== 0 || oy !== 0) text(txt, x + ox, y + oy);
     fill(r, g, b);
     text(txt, x, y);
+  }
+
+  // Bagong helper function para mag-render ng may highlight na kulay
+  _drawHintText(prefix, btnText, suffix, cx, cy, outlineSize) {
+    textAlign(LEFT, CENTER);
+    let w1 = textWidth(prefix);
+    let w2 = textWidth(btnText);
+    let w3 = textWidth(suffix);
+    let totalW = w1 + w2 + w3;
+    let startX = cx - totalW / 2;
+
+    this.drawTextWithOutline(prefix, startX, cy, 255, 255, 255, outlineSize);
+    this.drawTextWithOutline(
+      btnText,
+      startX + w1,
+      cy,
+      255,
+      230,
+      50,
+      outlineSize,
+    ); // Yellow Highlight
+    this.drawTextWithOutline(
+      suffix,
+      startX + w1 + w2,
+      cy,
+      255,
+      255,
+      255,
+      outlineSize,
+    );
   }
 
   drawHealthBar(player) {}
