@@ -1399,6 +1399,36 @@ class UIRenderer {
     text("+", player.x, player.y - player.size / 2 - 20);
   }
 
+  _drawAntidoteReturnHint() {
+    const now = pauseClock.now();
+    // Gentle pulse: oscillates between 0.6 and 1.0 opacity over ~1.2 s
+    const pulse = 0.6 + 0.4 * Math.abs(Math.sin(now * 0.003));
+
+    const msg = "RETURN TO BASE";
+    const ts = 22;
+    const padX = 28,
+      padY = 14;
+
+    textSize(ts);
+    textAlign(CENTER, TOP);
+
+    const tw = textWidth(msg);
+    const bw = tw + padX * 2;
+    const bh = ts + padY * 2;
+    const bx = width / 2 - bw / 2;
+    const by = 14; // just below the top edge
+
+    // Background panel (same plain wood style as the rest of the HUD)
+    this._drawPlainPixelWoodPanel(bx, by, bw, bh);
+
+    // Pulsing tint: interpolate between white (255,255,255) and green (80,230,80)
+    const r = Math.round(80 + 175 * pulse);
+    const g = Math.round(230 - 40 * pulse);
+    const b = Math.round(80 + 175 * pulse);
+
+    this.drawTextWithOutline(msg, width / 2, by + padY, r, g, b, 2);
+  }
+
   drawMeleeSlash(player) {
     const elapsed = pauseClock.now() - this.gameState.meleeSlashStartTime;
     const alpha = 255 * (1 - elapsed / this.gameState.meleeSlashDuration);
@@ -2156,6 +2186,7 @@ class UIRenderer {
     this.drawRoundInfo(roundManager);
     this.drawMinimap(player, roundManager);
     this.updateAndDrawRoundStart();
+    if (this.gameState.playerHasAntidote) this._drawAntidoteReturnHint();
     if (this._shopOpen) this.drawShop(roundManager, shopManager, player);
   }
 }

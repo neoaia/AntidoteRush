@@ -30,7 +30,7 @@ class ShopManager {
         baseCost: 1,
         purchased: 0,
         apply: (player) => {
-          player.baseSpeed += 0.3;
+          player.baseSpeed += 0.1;
           player.sprintSpeed = player.baseSpeed * 2;
         },
       },

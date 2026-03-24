@@ -224,7 +224,18 @@ class GameState {
 
       if (typeof audioManager !== "undefined") audioManager.playLevelUp();
 
+      // ── Coin reward on level-up ────────────────────────────────────────
+      // Every 5 levels the reward increases by 25 coins (50 → 75 → 100 → …)
+      const coinReward = Math.floor((this.level - 1) / 5) * 25 + 50;
+      this.addCoins(coinReward);
+
       if (this.player) {
+        // Coin popup floats a bit higher than the level-up text so they don't overlap
+        this.spawnCoinPopup(
+          this.player.x,
+          this.player.y - this.player.size / 2 - 55,
+          coinReward,
+        );
         this.spawnLevelUpPopup(
           this.player.x,
           this.player.y - this.player.size / 2 - 30,
