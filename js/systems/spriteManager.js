@@ -184,6 +184,7 @@ class SpriteSheet {
       this.frameH = img.height / frames;
     }
   }
+
   sourceFor(frameIdx) {
     if (this.layout === "horizontal")
       return { sx: frameIdx * this.frameW, sy: 0 };
@@ -191,28 +192,48 @@ class SpriteSheet {
   }
 }
 
+/**
+ * SpriteState — UPDATED to use delta-time animation.
+ *
+ * animFps  = target animation frames-per-second (was "animSpeed" raw frame counter).
+ * tick(dt) = call with deltaTime in ms; frame advances independently of display FPS.
+ */
 class SpriteState {
-  constructor(animSpeed = 8, totalFrames = 4) {
+  constructor(animFps = 8, totalFrames = 4) {
     this.frameIdx = 0;
-    this.frameTick = 0;
-    this.animSpeed = animSpeed;
+    this._accumMs = 0;
+    this.animFps = animFps; // frames per second, NOT p5 frames
     this.totalFrames = totalFrames;
     this.flipX = false;
+
     this.hitFlashing = false;
     this.hitFlashStart = 0;
     this.hitFlashDur = 500;
   }
-  tick() {
-    this.frameTick++;
-    if (this.frameTick % this.animSpeed === 0)
+
+  /**
+   * Advance animation by dtMs milliseconds.
+   * @param {number} dtMs - elapsed ms this frame (use p5's deltaTime)
+   */
+  tick(dtMs) {
+    // Guard against huge dt spikes (tab was hidden, etc.)
+    const safeDt = Math.min(dtMs, 100);
+    const msPerFrame = 1000 / this.animFps;
+
+    this._accumMs += safeDt;
+    while (this._accumMs >= msPerFrame) {
+      this._accumMs -= msPerFrame;
       this.frameIdx = (this.frameIdx + 1) % this.totalFrames;
-    // Use pauseClock.now() so flash doesn't advance while paused
+    }
+
     if (
       this.hitFlashing &&
       pauseClock.now() - this.hitFlashStart > this.hitFlashDur
-    )
+    ) {
       this.hitFlashing = false;
+    }
   }
+
   flash() {
     this.hitFlashing = true;
     this.hitFlashStart = pauseClock.now();
@@ -220,31 +241,70 @@ class SpriteState {
 }
 
 class SpriteRenderer {
-  static draw(sheet, state, x, y, drawScale = 1.5) {
+  /**
+   * Draw a sprite onto the canvas (or a p5.Graphics if pg is provided).
+   *
+   * @param {SpriteSheet}  sheet
+   * @param {SpriteState}  state
+   * @param {number}       x, y
+   * @param {number}       drawScale
+   * @param {number}       [dtMs]   - override deltaTime; if omitted uses p5 deltaTime
+   * @param {p5.Graphics}  [pg]     - target graphics buffer; null = main canvas
+   */
+  static draw(sheet, state, x, y, drawScale = 1.5, dtMs, pg) {
     if (!sheet || !sheet.img) return false;
-    state.tick();
-    let { sx, sy } = sheet.sourceFor(state.frameIdx);
-    let dw = sheet.frameW * drawScale,
-      dh = sheet.frameH * drawScale;
-    push();
-    translate(x, y);
-    if (state.flipX) applyMatrix(-1, 0, 0, 1, 0, 0);
-    if (state.hitFlashing) tint(255, 0, 0, 255);
-    else noTint();
-    imageMode(CORNER);
-    image(
-      sheet.img,
-      -dw / 2,
-      -dh / 2,
-      dw,
-      dh,
-      sx,
-      sy,
-      sheet.frameW,
-      sheet.frameH,
-    );
-    noTint();
-    pop();
+
+    // Advance animation with delta-time
+    state.tick(dtMs !== undefined ? dtMs : deltaTime);
+
+    const { sx, sy } = sheet.sourceFor(state.frameIdx);
+    const dw = sheet.frameW * drawScale;
+    const dh = sheet.frameH * drawScale;
+
+    const target = pg || window; // p5 globals are on window in global mode
+
+    if (pg) {
+      pg.push();
+      pg.translate(x, y);
+      if (state.flipX) pg.applyMatrix(-1, 0, 0, 1, 0, 0);
+      if (state.hitFlashing) pg.tint(255, 0, 0, 255);
+      else pg.noTint();
+      pg.imageMode(CORNER);
+      pg.image(
+        sheet.img,
+        -dw / 2,
+        -dh / 2,
+        dw,
+        dh,
+        sx,
+        sy,
+        sheet.frameW,
+        sheet.frameH,
+      );
+      pg.noTint();
+      pg.pop();
+    } else {
+      push();
+      translate(x, y);
+      if (state.flipX) applyMatrix(-1, 0, 0, 1, 0, 0);
+      if (state.hitFlashing) tint(255, 0, 0, 255);
+      else noTint();
+      imageMode(CORNER);
+      image(
+        sheet.img,
+        -dw / 2,
+        -dh / 2,
+        dw,
+        dh,
+        sx,
+        sy,
+        sheet.frameW,
+        sheet.frameH,
+      );
+      noTint();
+      pop();
+    }
+
     return true;
   }
 }

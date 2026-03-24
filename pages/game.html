@@ -29,7 +29,6 @@
             image-rendering: pixelated;
         }
 
-        /* ── Fade transition overlay ── */
         #fade-overlay {
             position: fixed;
             inset: 0;
@@ -48,21 +47,28 @@
 
 <body>
 
-    <!-- Fade transition overlay — starts opaque black, fades out on load -->
     <div id="fade-overlay"></div>
 
     <script src="../libraries/p5.min.js"></script>
 
-    <!-- Pause clock must load first — all timers depend on it -->
+    <!-- ── Load order matters: utilities first, then systems, then game ── -->
+
+    <!-- 1. Pause clock — everything depends on this -->
     <script src="../js/utils/pauseClock.js"></script>
 
-    <!-- Utility files -->
+    <!-- 2. NEW: Object pool (must be before gameState) -->
+    <script src="../js/utils/objectPool.js"></script>
+
+    <!-- 3. NEW: HUD cache (must be before uiRenderer) -->
+    <script src="../js/utils/hudCache.js"></script>
+
+    <!-- 4. Utility files -->
     <script src="../js/utils/collisionHelper.js"></script>
     <script src="../js/utils/inputHandler.js"></script>
     <script src="../js/utils/uiRenderer.js"></script>
     <script src="../js/utils/gameRenderer.js"></script>
 
-    <!-- Entity files -->
+    <!-- 5. Entity files -->
     <script src="../js/entities/antidote.js"></script>
     <script src="../js/entities/base.js"></script>
     <script src="../js/entities/bullet.js"></script>
@@ -72,7 +78,7 @@
     <script src="../js/entities/zombie.js"></script>
     <script src="../js/entities/weapon.js"></script>
 
-    <!-- System files -->
+    <!-- 6. System files -->
     <script src="../js/systems/assetManager.js"></script>
     <script src="../js/systems/antidoteManager.js"></script>
     <script src="../js/systems/combatManager.js"></script>
@@ -86,22 +92,21 @@
     <script src="../js/systems/audioManager.js"></script>
     <script src="../js/systems/bgmManager.js"></script>
 
-    <!-- Main game file -->
+    <script src="../js/systems/supabaseClient.js"></script>
+
+    <!-- 8. Main game — must be last -->
     <script src="../js/game.js"></script>
 
     <script>
-        // Fade the overlay out once the page is ready, revealing the game
         window.addEventListener('load', function () {
-            var fadeOverlay = document.getElementById('fade-overlay');
-            // Small delay so p5 canvas has a frame to render before revealing
+            const fadeOverlay = document.getElementById('fade-overlay');
             setTimeout(function () {
                 fadeOverlay.classList.add('transparent');
             }, 100);
         });
 
-        // Expose a global so game.js / uiRenderer.js can fade out before navigating
         window.fadeNavigateTo = function (url) {
-            var fadeOverlay = document.getElementById('fade-overlay');
+            const fadeOverlay = document.getElementById('fade-overlay');
             fadeOverlay.classList.remove('transparent');
             fadeOverlay.addEventListener('transitionend', function handler() {
                 fadeOverlay.removeEventListener('transitionend', handler);
