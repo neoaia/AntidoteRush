@@ -19,6 +19,42 @@ let _intentionalUnlock = false;
 let _lastEscTime = 0;
 const ESC_DEBOUNCE_MS = 400;
 
+// ── Frame-budget performance monitor ────────────────────────────────────────
+//
+// Tracks rolling average frame time. When avgDt > 20 ms (< 50 fps) the
+// PERF.isLagging flag is set true, and non-essential work (e.g. zombie
+// separation) can be skipped on alternate frames to recover headroom.
+const PERF = {
+  _samples: new Float32Array(60),
+  _idx: 0,
+  _filled: false,
+  avgDt: 16.67,
+
+  record(dt) {
+    // Clamp: ignore stalls > 500 ms (tab hidden, debugger paused, etc.)
+    this._samples[this._idx % 60] = Math.min(dt, 500);
+    this._idx++;
+    if (!this._filled && this._idx >= 60) this._filled = true;
+
+    // Recompute every 60 samples
+    if (this._idx % 60 === 0) {
+      let sum = 0;
+      const len = this._filled ? 60 : this._idx;
+      for (let i = 0; i < len; i++) sum += this._samples[i];
+      this.avgDt = sum / len;
+    }
+  },
+
+  get fps() {
+    return 1000 / this.avgDt;
+  },
+  get isLagging() {
+    return this.avgDt > 20;
+  }, // below 50 fps
+};
+
+// ── p5 lifecycle ─────────────────────────────────────────────────────────────
+
 function preload() {
   assetManager = new AssetManager();
   assetManager.preload();
@@ -34,9 +70,9 @@ function setup() {
   textFont(assetManager.getFont());
 
   gameState = new GameState();
-  let playerName = localStorage.getItem("playerName");
-  let inputMethod = localStorage.getItem("inputMethod");
-  let difficulty = localStorage.getItem("difficulty") || "easy";
+  const playerName = localStorage.getItem("playerName");
+  const inputMethod = localStorage.getItem("inputMethod");
+  const difficulty = localStorage.getItem("difficulty") || "easy";
   gameState.initialize(playerName, inputMethod, difficulty);
 
   gameState.player = new Player(WORLD_WIDTH / 2, WORLD_HEIGHT / 2);
@@ -73,6 +109,8 @@ function setup() {
   setupPointerLock();
 }
 
+// ── Pause / resume ───────────────────────────────────────────────────────────
+
 function _pause() {
   if (isPaused) return;
   isPaused = true;
@@ -94,10 +132,12 @@ function _resume() {
   document.querySelector("canvas").requestPointerLock();
 }
 
-function setupPointerLock() {
-  let cnv = document.querySelector("canvas");
+// ── Pointer lock ─────────────────────────────────────────────────────────────
 
-  let lockOnFirst = function () {
+function setupPointerLock() {
+  const cnv = document.querySelector("canvas");
+
+  const lockOnFirst = function () {
     cnv.requestPointerLock();
     document.removeEventListener("keydown", lockOnFirst);
     document.removeEventListener("mousedown", lockOnFirst);
@@ -107,16 +147,18 @@ function setupPointerLock() {
 
   document.addEventListener("mousemove", function (e) {
     if (!pointerLocked || isPaused || uiRenderer.isShopOpen()) return;
-    let player = gameState.player;
-    let w = player.weapons[player.currentWeapon];
-    let aimRange = w && w.aimRange < 9000 ? w.aimRange : 99999;
-    let screenVX = constrain(vx - camX + e.movementX, 0, width);
-    let screenVY = constrain(vy - camY + e.movementY, 0, height);
+    const player = gameState.player;
+    const w = player.weapons[player.currentWeapon];
+    const aimRange = w && w.aimRange < 9000 ? w.aimRange : 99999;
+
+    const screenVX = constrain(vx - camX + e.movementX, 0, width);
+    const screenVY = constrain(vy - camY + e.movementY, 0, height);
     vx = screenVX + camX;
     vy = screenVY + camY;
-    let dx = vx - player.x,
-      dy = vy - player.y,
-      d = Math.sqrt(dx * dx + dy * dy);
+
+    const dx = vx - player.x,
+      dy = vy - player.y;
+    const d = Math.sqrt(dx * dx + dy * dy);
     if (d > aimRange) {
       vx = player.x + (dx / d) * aimRange;
       vy = player.y + (dy / d) * aimRange;
@@ -140,13 +182,28 @@ function setupPointerLock() {
   });
 }
 
+// ── Window resize ────────────────────────────────────────────────────────────
+
 function windowResized() {
   resizeCanvas(windowWidth, windowHeight);
+
+  // Invalidate all cached HUD buffers so they redraw at the new size
+  if (uiRenderer && uiRenderer._hudCache) {
+    uiRenderer._hudCache.invalidateAll();
+  }
+  // Minimap buffer is size-dependent — destroy and recreate on next draw
+  if (uiRenderer && uiRenderer._minimapBuffer) {
+    uiRenderer._minimapBuffer.remove();
+    uiRenderer._minimapBuffer = null;
+  }
 }
 
+// ── Draw loop ─────────────────────────────────────────────────────────────────
+
 function draw() {
+  PERF.record(deltaTime);
+
   if (gameState.gameOver) {
-    // Still render the world frozen in the background while dead
     displayGame();
     uiRenderer.drawGameOverScreen(
       gameState.player,
@@ -169,8 +226,8 @@ function draw() {
 }
 
 function updateGame() {
-  let player = gameState.player;
-  let rm = gameState.roundManager;
+  const player = gameState.player;
+  const rm = gameState.roundManager;
 
   if (uiRenderer.isShopOpen()) {
     if (rm.inIntermission) {
@@ -185,20 +242,20 @@ function updateGame() {
   camY = constrain(player.y - height / 2, 0, WORLD_HEIGHT - height);
   player.aimAngle = Math.atan2(vy - player.y, vx - player.x);
 
-  let w = player.weapons[player.currentWeapon];
-  let aimRange = w && w.aimRange < 9000 ? w.aimRange : 99999;
-  let dx = vx - player.x,
-    dy = vy - player.y,
-    d = Math.sqrt(dx * dx + dy * dy);
+  const w = player.weapons[player.currentWeapon];
+  const aimRange = w && w.aimRange < 9000 ? w.aimRange : 99999;
+  const dx = vx - player.x,
+    dy = vy - player.y;
+  const d = Math.sqrt(dx * dx + dy * dy);
   if (d > aimRange) {
     vx = player.x + (dx / d) * aimRange;
     vy = player.y + (dy / d) * aimRange;
   }
 
   if (player.mouseIsHeld) {
-    let ww = player.weapons[player.currentWeapon];
+    const ww = player.weapons[player.currentWeapon];
     if (ww && ww.isAuto) {
-      let result = player.tryAutoFire(vx, vy);
+      const result = player.tryAutoFire(vx, vy);
       if (result !== null)
         combatManager.handleShootResult(result, player, vx, vy);
     }
@@ -223,23 +280,20 @@ function updateGame() {
 
   gameState.updateScorePopups();
 
-  if (player.health <= 0 && !gameState.gameOver) {
-    _triggerDeath();
-  }
+  if (player.health <= 0 && !gameState.gameOver) _triggerDeath();
 }
+
+// ── Death sequence ────────────────────────────────────────────────────────────
 
 function _triggerDeath() {
   gameState.gameOver = true;
 
-  // Save run stats for the in-game panel and for game-over.html if needed
   localStorage.setItem("lastRound", gameState.roundManager.currentRound);
   localStorage.setItem("lastScore", gameState.score || 0);
   localStorage.setItem("lastCoins", gameState.coins);
 
-  // --- LEADERBOARD LOGIC ---
-  let lb = JSON.parse(localStorage.getItem("leaderboard") || "[]");
-
-  let currentRun = {
+  // ── Leaderboard ────────────────────────────────────────────────────────
+  const currentRun = {
     name: gameState.playerName || "???",
     difficulty: localStorage.getItem("difficulty") || "easy",
     round: gameState.roundManager.currentRound,
@@ -248,38 +302,21 @@ function _triggerDeath() {
     score: gameState.score || 0,
   };
 
-  // Hanapin kung may record na yung same player sa SAME DIFFICULTY
-  let existingIndex = lb.findIndex(
-    (entry) =>
-      entry.name.toUpperCase() === currentRun.name.toUpperCase() &&
-      entry.difficulty === currentRun.difficulty,
-  );
-
-  if (existingIndex !== -1) {
-    // I-update lang kung mas mataas yung score o round
-    let existingRun = lb[existingIndex];
-    if (
-      currentRun.score > existingRun.score ||
-      (currentRun.score === existingRun.score &&
-        currentRun.round > existingRun.round)
-    ) {
-      lb[existingIndex] = currentRun;
-    }
+  // Save to Supabase if available, otherwise fall back to localStorage
+  if (typeof supabaseClient !== "undefined") {
+    supabaseClient.upsertScore(currentRun).catch((err) => {
+      console.warn("Could not save score to Supabase:", err);
+      _saveLeaderboardLocally(currentRun);
+    });
   } else {
-    // Bagong pasok sa difficulty na 'to
-    lb.push(currentRun);
+    _saveLeaderboardLocally(currentRun);
   }
 
-  localStorage.setItem("leaderboard", JSON.stringify(lb));
-  // ------------------------------------------
-
-  // Release pointer lock and stop BGM
   _intentionalUnlock = true;
   document.exitPointerLock();
   if (typeof bgmManager !== "undefined") bgmManager.stop();
   cursor(ARROW);
 
-  // Tell uiRenderer to start the 2s delay → panel slide-down sequence
   uiRenderer.startGameOverSequence(
     gameState.player,
     gameState.roundManager,
@@ -287,18 +324,39 @@ function _triggerDeath() {
   );
 }
 
+function _saveLeaderboardLocally(currentRun) {
+  const lb = JSON.parse(localStorage.getItem("leaderboard") || "[]");
+  const existingIndex = lb.findIndex(
+    (e) =>
+      e.name.toUpperCase() === currentRun.name.toUpperCase() &&
+      e.difficulty === currentRun.difficulty,
+  );
+  if (existingIndex !== -1) {
+    const existing = lb[existingIndex];
+    if (
+      currentRun.score > existing.score ||
+      (currentRun.score === existing.score && currentRun.round > existing.round)
+    ) {
+      lb[existingIndex] = currentRun;
+    }
+  } else {
+    lb.push(currentRun);
+  }
+  localStorage.setItem("leaderboard", JSON.stringify(lb));
+}
+
+// ── Intermission / round transitions ─────────────────────────────────────────
+
 function _endIntermission() {
   if (_preGame) {
     _preGame = false;
     startFirstRound();
-  } else {
-    startNextRound();
-  }
+  } else startNextRound();
 }
 
 function startFirstRound() {
   zombieManager.clearProjectiles();
-  let difficulty = localStorage.getItem("difficulty") || "easy";
+  const difficulty = localStorage.getItem("difficulty") || "easy";
   uiRenderer.closeShop();
   gameState.roundManager.startRound(gameState);
   uiRenderer.showRoundStart(1, difficulty);
@@ -308,7 +366,7 @@ function startFirstRound() {
 
 function startNextRound() {
   zombieManager.clearProjectiles();
-  let difficulty = localStorage.getItem("difficulty") || "easy";
+  const difficulty = localStorage.getItem("difficulty") || "easy";
   uiRenderer.closeShop();
   gameState.roundManager.nextRound();
   gameState.roundManager.startRound(gameState);
@@ -316,6 +374,8 @@ function startNextRound() {
   if (typeof audioManager !== "undefined") audioManager.playRoundStart();
   document.querySelector("canvas").requestPointerLock();
 }
+
+// ── Render ────────────────────────────────────────────────────────────────────
 
 function displayGame() {
   push();
@@ -330,11 +390,10 @@ function displayGame() {
   weaponPickupManager.display();
   pop();
 
-  // Don't draw normal HUD when game is over — panel handles everything
   if (!gameState.gameOver) {
     uiRenderer.drawScorePopupsScreenSpace(camX, camY);
     uiRenderer.renderAll(gameState.player, gameState.roundManager, shopManager);
-    let rm = gameState.roundManager;
+    const rm = gameState.roundManager;
     if (rm.inIntermission && !uiRenderer.isShopOpen())
       uiRenderer.drawIntermissionCenter(
         rm.currentRound,
@@ -343,36 +402,33 @@ function displayGame() {
   }
 }
 
+// ── Input handlers ────────────────────────────────────────────────────────────
+
 function mousePressed() {
-  // Game over panel button clicks
   if (gameState.gameOver) {
     uiRenderer.handleGameOverClick(mouseX, mouseY);
     return;
   }
-
   if (uiRenderer.isShopOpen()) {
     uiRenderer.shopClick(mouseX, mouseY, shopManager, gameState.player);
     return;
   }
   if (isPaused) {
-    let action = uiRenderer.pauseHandleClick(mouseX, mouseY);
-    if (action === "resume") {
-      _resume();
-    } else if (action === "exit") {
+    const action = uiRenderer.pauseHandleClick(mouseX, mouseY);
+    if (action === "resume") _resume();
+    else if (action === "exit") {
       _intentionalUnlock = true;
       document.exitPointerLock();
       if (typeof bgmManager !== "undefined") bgmManager.stop();
-      if (typeof window.fadeNavigateTo === "function") {
+      if (typeof window.fadeNavigateTo === "function")
         window.fadeNavigateTo("../pages/menu.html");
-      } else {
-        window.location.href = "../pages/menu.html";
-      }
+      else window.location.href = "../pages/menu.html";
     }
     return;
   }
   if (!pointerLocked) return;
   gameState.player.mouseIsHeld = true;
-  let aim = inputHandler.getAimTarget(gameState.player, vx, vy);
+  const aim = inputHandler.getAimTarget(gameState.player, vx, vy);
   combatManager.shoot(gameState.player, aim.x, aim.y);
 }
 
@@ -405,7 +461,7 @@ function mouseWheel(event) {
 function keyPressed() {
   if (keyCode === ESCAPE) {
     if (gameState.gameOver) return;
-    let now = millis();
+    const now = millis();
     if (now - _lastEscTime < ESC_DEBOUNCE_MS) return;
     _lastEscTime = now;
     if (uiRenderer.isShopOpen()) {
