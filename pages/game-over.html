@@ -26,6 +26,36 @@
             justify-content: center;
             gap: 32px;
             padding: 20px;
+            overflow: hidden;
+        }
+
+        /* ── Fade transition overlay ── */
+        #fade-overlay {
+            position: fixed;
+            inset: 0;
+            background: #000;
+            pointer-events: none;
+            z-index: 9999;
+            opacity: 1;
+            transition: opacity 0.45s ease;
+        }
+
+        #fade-overlay.transparent {
+            opacity: 0;
+        }
+
+        /* ── Content ── */
+        #content {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 32px;
+            opacity: 0;
+            transition: opacity 0.4s ease;
+        }
+
+        #content.visible {
+            opacity: 1;
         }
 
         h1 {
@@ -143,53 +173,86 @@
 
 <body>
 
-    <h1>GAME OVER</h1>
+    <!-- Fade transition overlay -->
+    <div id="fade-overlay"></div>
 
-    <div class="stats-box">
-        <div class="stat-row player-name">
-            <span class="stat-label">PLAYER</span>
-            <span class="stat-value" id="display-name">—</span>
-        </div>
-        <div class="stat-row round">
-            <span class="stat-label">ROUND REACHED</span>
-            <span class="stat-value" id="display-round">—</span>
-        </div>
-        <div class="stat-row">
-            <span class="stat-label">FINAL SCORE</span>
-            <span class="stat-value" id="display-score">—</span>
-        </div>
-        <div class="stat-row">
-            <span class="stat-label">COINS EARNED</span>
-            <span class="stat-value" id="display-coins">—</span>
-        </div>
-    </div>
+    <div id="content">
+        <h1>GAME OVER</h1>
 
-    <div class="buttons">
-        <button id="btn-play-again" onclick="playAgain()">PLAY AGAIN</button>
-        <button id="btn-title" onclick="goTitle()">TITLE SCREEN</button>
+        <div class="stats-box">
+            <div class="stat-row player-name">
+                <span class="stat-label">PLAYER</span>
+                <span class="stat-value" id="display-name">—</span>
+            </div>
+            <div class="stat-row round">
+                <span class="stat-label">ROUND REACHED</span>
+                <span class="stat-value" id="display-round">—</span>
+            </div>
+            <div class="stat-row">
+                <span class="stat-label">FINAL SCORE</span>
+                <span class="stat-value" id="display-score">—</span>
+            </div>
+            <div class="stat-row">
+                <span class="stat-label">COINS EARNED</span>
+                <span class="stat-value" id="display-coins">—</span>
+            </div>
+        </div>
+
+        <div class="buttons">
+            <button id="btn-play-again" onclick="playAgain()">PLAY AGAIN</button>
+            <button id="btn-title" onclick="goTitle()">TITLE SCREEN</button>
+        </div>
     </div>
 
     <script>
-        // Read stats saved by game.js on death
-        let name = localStorage.getItem("playerName") || "???";
-        let round = localStorage.getItem("lastRound") || "1";
-        let score = localStorage.getItem("lastScore") || "0";
-        let coins = localStorage.getItem("lastCoins") || "0";
+        // ── Populate stats ─────────────────────────────────────────────────
+        document.getElementById('display-name').textContent = localStorage.getItem('playerName') || '???';
+        document.getElementById('display-round').textContent = localStorage.getItem('lastRound') || '1';
+        document.getElementById('display-score').textContent = localStorage.getItem('lastScore') || '0';
+        document.getElementById('display-coins').textContent = localStorage.getItem('lastCoins') || '0';
 
-        document.getElementById("display-name").textContent = name;
-        document.getElementById("display-round").textContent = round;
-        document.getElementById("display-score").textContent = score;
-        document.getElementById("display-coins").textContent = coins;
+        // ── Reveal content with fade in on load ───────────────────────────
+        window.addEventListener('load', function () {
+            var fadeOverlay = document.getElementById('fade-overlay');
+            var content = document.getElementById('content');
 
-        function playAgain() {
-            // Keep player name, just pick difficulty again
-            window.location.href = "menu.html";
+            requestAnimationFrame(function () {
+                fadeOverlay.classList.add('transparent');
+            });
+
+            setTimeout(function () {
+                content.classList.add('visible');
+            }, 150);
+        });
+
+        // ── Navigate with fade out ────────────────────────────────────────
+        function navigateTo(url) {
+            var fadeOverlay = document.getElementById('fade-overlay');
+            fadeOverlay.classList.remove('transparent');
+            fadeOverlay.addEventListener('transitionend', function handler() {
+                fadeOverlay.removeEventListener('transitionend', handler);
+                window.location.href = url;
+            });
         }
 
+        // ── Play Again: keep player name, go to difficulty select ──────────
+        function playAgain() {
+            // Only clear run-specific data — keep playerName
+            localStorage.removeItem('lastRound');
+            localStorage.removeItem('lastScore');
+            localStorage.removeItem('lastCoins');
+            localStorage.removeItem('difficulty');
+            navigateTo('menu.html?screen=difficulty');
+        }
+
+        // ── Title Screen: clear everything and go to title ─────────────────
         function goTitle() {
-            // Clear name so they'll be asked again
-            localStorage.removeItem("playerName");
-            window.location.href = "menu.html";
+            localStorage.removeItem('playerName');
+            localStorage.removeItem('lastRound');
+            localStorage.removeItem('lastScore');
+            localStorage.removeItem('lastCoins');
+            localStorage.removeItem('difficulty');
+            navigateTo('menu.html');
         }
     </script>
 

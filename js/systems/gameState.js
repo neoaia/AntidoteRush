@@ -4,6 +4,8 @@ class GameState {
     this.inputMethod = null;
     this.difficulty = "easy";
     this.coins = 0;
+    this.score = 0;
+    this.zombiesKilled = 0;
     this.gameOver = false;
     this.roundTransitioning = false;
 
@@ -11,7 +13,7 @@ class GameState {
     this.zombies = [];
     this.weaponPickups = [];
     this.scorePopups = [];
-    this.explosions = []; // crawler death explosions
+    this.explosions = [];
 
     this.player = null;
     this.roundManager = null;
@@ -50,6 +52,8 @@ class GameState {
 
   reset() {
     this.coins = 0;
+    this.score = 0;
+    this.zombiesKilled = 0;
     this.gameOver = false;
     this.roundTransitioning = false;
     this.bullets = [];
@@ -85,9 +89,25 @@ class GameState {
   removeBullet(i) {
     this.bullets.splice(i, 1);
   }
+
   removeZombie(i) {
+    // Count kill and add to score when a zombie is removed (died)
+    let z = this.zombies[i];
+    if (z && !z.active) {
+      this.zombiesKilled++;
+      // Score based on zombie type
+      const scoreMap = {
+        normal: 100,
+        witch: 200,
+        crawler: 250,
+        slasher: 500,
+        tank: 1000,
+      };
+      this.score += scoreMap[z.type] || 100;
+    }
     this.zombies.splice(i, 1);
   }
+
   addCoins(n) {
     this.coins += n;
   }
@@ -101,8 +121,6 @@ class GameState {
 
       if (typeof audioManager !== "undefined") audioManager.playLevelUp();
 
-      // ── Level up effects ────────────────────────────────────────────────
-      // 1. Spawn "LEVEL UP!" popup above player
       if (this.player) {
         this.spawnLevelUpPopup(
           this.player.x,
@@ -110,20 +128,17 @@ class GameState {
         );
       }
 
-      // 2. Fully restore health and stamina
       if (this.player) {
         this.player.health = this.player.maxHealth;
         this.player.stamina = this.player.maxStamina;
       }
 
-      // 3. Apply 3-second movement speed boost
       if (this.player) {
         this.player.applyLevelUpBoost(3000);
       }
     }
   }
 
-  // Spawn a visual explosion at world position (x, y) with given radius
   spawnExplosion(x, y, radius) {
     this.explosions.push({ x, y, radius, startTime: pauseClock.now() });
   }
@@ -139,7 +154,6 @@ class GameState {
       if (this.introductedZombieTypes[t]) this.zombieHealthMultipliers[t] += g;
   }
 
-  // ── Popups (spawnTime in real millis, pausedMsAtSpawn for correct progress) ─
   _makePopup(x, y, value, flags, lifetime) {
     return {
       x,

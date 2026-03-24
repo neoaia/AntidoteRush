@@ -44,6 +44,21 @@
             }
         }
 
+        /* ── Fade transition overlay ── */
+        #fade-overlay {
+            position: fixed;
+            inset: 0;
+            background: #000;
+            pointer-events: none;
+            z-index: 9999;
+            opacity: 1;
+            transition: opacity 0.45s ease;
+        }
+
+        #fade-overlay.transparent {
+            opacity: 0;
+        }
+
         /* ── Screens ── */
         .screen {
             display: none;
@@ -78,13 +93,10 @@
             margin-bottom: 5rem;
         }
 
-        /* ── Screen Titles (Mas makapal na outline, mas dikit na spacing) ── */
         .screen-title {
             font-size: 1.8rem;
             letter-spacing: 2px;
-            /* Binawasan from 4px to 2px */
             margin-bottom: 3rem;
-            /* Mas makapal na text-shadow para kamukha nung main title */
             text-shadow:
                 -3px -3px 0 #000, 3px -3px 0 #000,
                 -3px 3px 0 #000, 3px 3px 0 #000,
@@ -92,13 +104,12 @@
                 0 -3px 0 #000, 0 3px 0 #000;
         }
 
-        /* ── Name Input ── */
+        /* ── Name input ── */
         input[type="text"] {
             font-family: "Press Start 2P", cursive;
             font-size: 1.2rem;
             padding: 1rem 1.5rem;
             border: 6px solid #000;
-            /* Kinapalan ko na rin border para pixel art feels */
             background: #fff;
             color: #000;
             width: 100%;
@@ -107,15 +118,13 @@
             outline: none;
             text-align: center;
             box-shadow: inset 4px 4px 0px rgba(0, 0, 0, 0.1);
-            /* Slight shadow sa loob */
         }
 
-        /* Tinanggal na yung pangit na green shadow sa hover/focus */
         input[type="text"]:focus {
             background: #f0f0f0;
         }
 
-        /* ── Difficulty Cards ── */
+        /* ── Difficulty cards ── */
         .cards {
             display: flex;
             gap: 2rem;
@@ -198,7 +207,7 @@
             color: #777;
         }
 
-        /* ── Buttons (Wood Panel Style) ── */
+        /* ── Buttons ── */
         .btn-group {
             display: flex;
             flex-direction: column;
@@ -219,7 +228,6 @@
             transition: transform 0.1s ease;
             position: relative;
             letter-spacing: 2px;
-
             border: 6px solid #000;
             box-shadow:
                 inset 0 6px 0 0 #d49a59,
@@ -260,7 +268,6 @@
             transform: none !important;
         }
 
-        /* Back button — Top Left Corner Fixed */
         .btn-back {
             position: fixed;
             top: 25px;
@@ -270,7 +277,6 @@
             padding: 0.8rem 1rem;
             margin: 0;
             z-index: 100;
-
             border-width: 4px;
             box-shadow:
                 inset 0 4px 0 0 #d49a59,
@@ -311,7 +317,7 @@
             }
         }
 
-        /* ── MODAL SCREEN ── */
+        /* ── Modal ── */
         .modal-overlay {
             display: none;
             position: fixed;
@@ -389,6 +395,10 @@
 
 <body>
 
+    <!-- Fade transition overlay -->
+    <div id="fade-overlay"></div>
+
+    <!-- ── TITLE SCREEN ── -->
     <div id="screen-title" class="screen active">
         <h1 class="title">ANTIDOTE<br>RUSH</h1>
         <div class="btn-group">
@@ -397,9 +407,9 @@
         </div>
     </div>
 
+    <!-- ── NAME SCREEN ── -->
     <div id="screen-name" class="screen">
         <button class="btn-back" onclick="showScreen('title')">◀ BACK</button>
-
         <p class="screen-title">ENTER YOUR NAME</p>
         <input type="text" id="playerName" maxlength="15" placeholder="Your Name" />
         <div class="btn-group">
@@ -407,9 +417,9 @@
         </div>
     </div>
 
+    <!-- ── DIFFICULTY SCREEN ── -->
     <div id="screen-difficulty" class="screen">
-        <button class="btn-back" onclick="showScreen('name')">◀ BACK</button>
-
+        <button class="btn-back" onclick="goBackFromDifficulty()">◀ BACK</button>
         <p class="screen-title">SELECT DIFFICULTY</p>
         <div class="cards">
             <div class="card easy" onclick="selectDifficulty('easy', this)">
@@ -431,6 +441,7 @@
         <button id="diffBtn" onclick="startGame()" disabled>START</button>
     </div>
 
+    <!-- ── HOW TO PLAY MODAL ── -->
     <div id="modal-howto" class="modal-overlay">
         <div class="modal-content">
             <p class="screen-title">HOW TO PLAY</p>
@@ -440,7 +451,7 @@
                 <p>Your objective is to survive waves of zombies until the antidote is ready.</p>
                 <br>
                 <p>1. Select your difficulty.</p>
-                <p>2. Use arrows/WASD to move.</p>
+                <p>2. Use WASD to move.</p>
                 <p>3. Point and click to shoot.</p>
                 <p>4. Press 1, 2, 3 to switch weapons.</p>
             </div>
@@ -450,60 +461,84 @@
     </div>
 
     <script>
-        // ── AUDIO EFFECTS LOGIC ───────────────────────────────────────────────
-        const sfxHover = new Audio('/assets/audios/gui/hover.mp3');
-        const sfxSelect = new Audio('/assets/audios/gui/select.mp3');
+        // ── Audio ─────────────────────────────────────────────────────────
+        var sfxHover = new Audio('/assets/audios/gui/hover.mp3');
+        var sfxSelect = new Audio('/assets/audios/gui/select.mp3');
 
-        function playHoverSound() {
-            sfxHover.currentTime = 0;
-            sfxHover.play().catch(e => { });
-        }
+        function playHoverSound() { sfxHover.currentTime = 0; sfxHover.play().catch(function () { }); }
+        function playSelectSound() { sfxSelect.currentTime = 0; sfxSelect.play().catch(function () { }); }
 
-        function playSelectSound() {
-            sfxSelect.currentTime = 0;
-            sfxSelect.play().catch(e => { });
-        }
-
-        document.querySelectorAll('button, .card').forEach(element => {
-            element.addEventListener('mouseenter', () => {
-                if (!element.disabled) {
-                    playHoverSound();
-                }
-            });
-            element.addEventListener('click', () => {
-                if (!element.disabled) {
-                    playSelectSound();
-                }
-            });
+        document.querySelectorAll('button, .card').forEach(function (el) {
+            el.addEventListener('mouseenter', function () { if (!el.disabled) playHoverSound(); });
+            el.addEventListener('click', function () { if (!el.disabled) playSelectSound(); });
         });
 
-        // ── RANDOM BACKGROUND LOGIC ───────────────────────────────────────────
-        // In-update ko na yung paths based sa sinabi mo
-        const grassVariants = [
-            '/assets/grass/land_1.png',
-            '/assets/grass/land_2.png',
-            '/assets/grass/land_3.png'
-        ];
-        const randomGrass = grassVariants[Math.floor(Math.random() * grassVariants.length)];
-        document.body.style.backgroundImage = `url('${randomGrass}')`;
+        // ── Random background ─────────────────────────────────────────────
+        var grassVariants = ['/assets/grass/land_1.png', '/assets/grass/land_2.png', '/assets/grass/land_3.png'];
+        document.body.style.backgroundImage = "url('" + grassVariants[Math.floor(Math.random() * grassVariants.length)] + "')";
 
-        // ── Screen routing ────────────────────────────────────────────────────
+        // ── Fade transition helpers ───────────────────────────────────────
+        var fadeOverlay = document.getElementById('fade-overlay');
+
+        function revealPage() {
+            // Start opaque (black), fade out to reveal the page
+            requestAnimationFrame(function () {
+                fadeOverlay.classList.add('transparent');
+            });
+        }
+
+        function navigateTo(url) {
+            // Fade to black, then navigate
+            fadeOverlay.classList.remove('transparent');
+            fadeOverlay.addEventListener('transitionend', function handler() {
+                fadeOverlay.removeEventListener('transitionend', handler);
+                window.location.href = url;
+            });
+        }
+
+        // ── Screen routing ────────────────────────────────────────────────
         function showScreen(name) {
-            document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+            document.querySelectorAll('.screen').forEach(function (s) { s.classList.remove('active'); });
             document.getElementById('screen-' + name).classList.add('active');
-
-            // Auto-focus kapag pumasok sa name screen
             if (name === 'name') {
-                setTimeout(() => document.getElementById('playerName').focus(), 50);
+                setTimeout(function () { document.getElementById('playerName').focus(); }, 50);
             }
         }
 
-        // ── Name Logic ────────────────────────────────────────────────────────
+        // If coming from Play Again, jump straight to difficulty screen
+        var params = new URLSearchParams(window.location.search);
+        if (params.get('screen') === 'difficulty') {
+            // Pre-fill the name display if we have it, skip name screen
+            showScreen('difficulty');
+            revealPage();
+        } else {
+            // Normal load — just reveal
+            revealPage();
+        }
+
+        // ── Back button on difficulty screen ──────────────────────────────
+        // Coming from Play Again we skip name, so back goes to name only if name wasn't pre-set
+        function goBackFromDifficulty() {
+            if (params.get('screen') === 'difficulty') {
+                // Came from game-over; back goes to name screen so they can change it
+                showScreen('name');
+            } else {
+                showScreen('name');
+            }
+        }
+
+        // ── Name logic ────────────────────────────────────────────────────
         var nameInput = document.getElementById('playerName');
         var nameBtn = document.getElementById('nameBtn');
 
+        // Pre-fill name if returning from a run
+        var savedName = localStorage.getItem('playerName');
+        if (savedName) {
+            nameInput.value = savedName;
+            nameBtn.disabled = false;
+        }
+
         nameInput.addEventListener('input', function () {
-            // Enable button kapag may tinype
             nameBtn.disabled = nameInput.value.trim().length === 0;
         });
 
@@ -518,12 +553,12 @@
             showScreen('difficulty');
         }
 
-        // ── Difficulty Logic ──────────────────────────────────────────────────
+        // ── Difficulty logic ──────────────────────────────────────────────
         var selectedDifficulty = null;
 
         function selectDifficulty(diff, el) {
             selectedDifficulty = diff;
-            document.querySelectorAll('.card').forEach(c => c.classList.remove('selected'));
+            document.querySelectorAll('.card').forEach(function (c) { c.classList.remove('selected'); });
             el.classList.add('selected');
             document.getElementById('diffBtn').disabled = false;
         }
@@ -532,28 +567,19 @@
             if (!selectedDifficulty) return;
             localStorage.setItem('difficulty', selectedDifficulty);
             if (bgm) { bgm.pause(); bgm.src = ''; }
-            window.location.href = 'game.html';
+            navigateTo('game.html');
         }
 
-        // ── Modal Handling ───────────────────────────────────────────────────
-        const modalHowTo = document.getElementById('modal-howto');
-        function openHowToPlay() {
-            modalHowTo.classList.add('active');
-        }
-        function closeHowToPlay() {
-            modalHowTo.classList.remove('active');
-        }
-        window.onclick = function (event) {
-            if (event.target == modalHowTo) {
-                closeHowToPlay();
-            }
-        }
+        // ── Modal ─────────────────────────────────────────────────────────
+        var modalHowTo = document.getElementById('modal-howto');
+        function openHowToPlay() { modalHowTo.classList.add('active'); }
+        function closeHowToPlay() { modalHowTo.classList.remove('active'); }
+        window.onclick = function (e) { if (e.target === modalHowTo) closeHowToPlay(); };
 
-        // ── Menu BGM ─────────────────────────────────────────────────────────
+        // ── Menu BGM ─────────────────────────────────────────────────────
         var bgm = new Audio('/assets/audios/bgm/menu.mp3');
         bgm.loop = true;
         bgm.volume = 0.45;
-
         bgm.play().catch(function () {
             var unlock = function () {
                 bgm.play();

@@ -28,10 +28,29 @@
             height: 100vh !important;
             image-rendering: pixelated;
         }
+
+        /* ── Fade transition overlay ── */
+        #fade-overlay {
+            position: fixed;
+            inset: 0;
+            background: #000;
+            pointer-events: none;
+            z-index: 9999;
+            opacity: 1;
+            transition: opacity 0.5s ease;
+        }
+
+        #fade-overlay.transparent {
+            opacity: 0;
+        }
     </style>
 </head>
 
 <body>
+
+    <!-- Fade transition overlay — starts opaque black, fades out on load -->
+    <div id="fade-overlay"></div>
+
     <script src="../libraries/p5.min.js"></script>
 
     <!-- Pause clock must load first — all timers depend on it -->
@@ -69,6 +88,28 @@
 
     <!-- Main game file -->
     <script src="../js/game.js"></script>
+
+    <script>
+        // Fade the overlay out once the page is ready, revealing the game
+        window.addEventListener('load', function () {
+            var fadeOverlay = document.getElementById('fade-overlay');
+            // Small delay so p5 canvas has a frame to render before revealing
+            setTimeout(function () {
+                fadeOverlay.classList.add('transparent');
+            }, 100);
+        });
+
+        // Expose a global so game.js / uiRenderer.js can fade out before navigating
+        window.fadeNavigateTo = function (url) {
+            var fadeOverlay = document.getElementById('fade-overlay');
+            fadeOverlay.classList.remove('transparent');
+            fadeOverlay.addEventListener('transitionend', function handler() {
+                fadeOverlay.removeEventListener('transitionend', handler);
+                window.location.href = url;
+            });
+        };
+    </script>
+
 </body>
 
 </html>
