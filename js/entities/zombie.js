@@ -88,8 +88,8 @@ class Zombie {
       this.size = 32;
       this.hitW = 34;
       this.hitH = 52;
-      this.speed = 3 + speedBonus;
-      this.baseHealth = 800 + baseHealthBonus;
+      this.speed = 2.7 + speedBonus;
+      this.baseHealth = 200 + baseHealthBonus;
       this.damage = 25;
       this.color = "#FF0000";
       this.coins = 10;

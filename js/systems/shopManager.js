@@ -10,8 +10,8 @@ class ShopManager {
         baseCost: 1,
         purchased: 0,
         apply: (player) => {
-          player.maxHealth += 2;
-          player.health = Math.min(player.health + 5, player.maxHealth);
+          player.maxHealth += 10;
+          player.health = Math.min(player.health + 10, player.maxHealth);
         },
       },
       stamina: {
@@ -20,8 +20,8 @@ class ShopManager {
         baseCost: 1,
         purchased: 0,
         apply: (player) => {
-          player.maxStamina += 2;
-          player.stamina = Math.min(player.stamina + 5, player.maxStamina);
+          player.maxStamina += 10;
+          player.stamina = Math.min(player.stamina + 10, player.maxStamina);
         },
       },
       speed: {
@@ -30,7 +30,7 @@ class ShopManager {
         baseCost: 1,
         purchased: 0,
         apply: (player) => {
-          player.baseSpeed += 0.01;
+          player.baseSpeed += 0.3;
           player.sprintSpeed = player.baseSpeed * 2;
         },
       },
@@ -40,7 +40,7 @@ class ShopManager {
         baseCost: 1,
         purchased: 0,
         apply: (player) => {
-          if (player.weapons.melee) player.weapons.melee.damage += 0.5;
+          if (player.weapons.melee) player.weapons.melee.damage += 2;
         },
       },
       precision: {
@@ -49,9 +49,9 @@ class ShopManager {
         baseCost: 1,
         purchased: 0,
         apply: (player) => {
-          player.precisionBonus += 2;
-          if (player.weapons.handgun) player.weapons.handgun.damage += 0.5;
-          if (player.weapons.equipped) player.weapons.equipped.damage += 0.5;
+          player.precisionBonus += 4;
+          if (player.weapons.handgun) player.weapons.handgun.damage += 2;
+          if (player.weapons.equipped) player.weapons.equipped.damage += 2;
         },
       },
     };
