@@ -7,19 +7,13 @@ class UIRenderer {
 
     this._interPhase = "off";
     this._interPhaseStart = 0;
-    this._clearedFadeDur = 1400;
-    this._clearedFadeOut = 700;
     this._interRoundNum = 1;
 
     this._roundStartPhase = "off";
     this._roundStartStart = 0;
-    this._roundStartFadeIn = 600;
-    this._roundStartFadeOut = 800;
-    this._roundStartHold = 1000;
     this._roundStartNum = 1;
     this._roundStartDiff = "easy";
 
-    // ── Pause system ────────────────────────────────────────────────────
     this._pauseView = "main";
     this._hoveredBtn = null;
     this._pauseBtnRects = {};
@@ -27,7 +21,6 @@ class UIRenderer {
     this._sliderRects = {};
     this._volumeDragging = null;
 
-    // ── Game Over panel ─────────────────────────────────────────────────
     this._goPhase = "off";
     this._goDeathTime = 0;
     this._goDelay = 2000;
@@ -37,17 +30,13 @@ class UIRenderer {
     this._goBtnRects = {};
     this._goStats = null;
 
-    // ── HUD caching ─────────────────────────────────────────────────────
-    // HudCache is instantiated after p5 is ready (first renderAll call)
     this._hudCache = null;
 
-    // ── Throttled minimap ───────────────────────────────────────────────
     this._minimapBuffer = null;
     this._minimapLastDraw = 0;
-    this._minimapFps = 12; // redraws per second — human eye can't tell at higher fps
+    this._minimapFps = 12;
   }
 
-  // ── HUD cache lazy-init ─────────────────────────────────────────────────
   _ensureHudCache() {
     if (!this._hudCache) this._hudCache = new HudCache();
   }
@@ -69,6 +58,27 @@ class UIRenderer {
     this._pauseView = "main";
     this._hoveredBtn = null;
     this._volumeDragging = null;
+  }
+
+  // ── Crisp outlined text helpers ─────────────────────────────────────────
+  // Uses p5's built-in stroke so the font renderer draws a proper hard outline.
+  // No shadow API, no loops — just two p5 draw calls.
+
+  _txt(txt, x, y, r, g, b, outlineW = 3) {
+    strokeWeight(outlineW);
+    stroke(0);
+    fill(r, g, b);
+    text(txt, x, y);
+    noStroke();
+  }
+
+  // Same but into a p5.Graphics buffer
+  _txtPG(pg, txt, x, y, r, g, b, outlineW = 3) {
+    pg.strokeWeight(outlineW);
+    pg.stroke(0);
+    pg.fill(r, g, b);
+    pg.text(txt, x, y);
+    pg.noStroke();
   }
 
   // ── Game Over ───────────────────────────────────────────────────────────
@@ -126,11 +136,11 @@ class UIRenderer {
       rect(0, 0, width, height);
       this._drawPlainPixelWoodPanel(panelX, panelY, panelW, panelH);
 
-      const titleY = panelY + 50;
       textSize(46);
       textAlign(CENTER, CENTER);
-      this.drawTextWithOutline("GAME OVER", width / 2, titleY, 255, 70, 70, 3);
+      this._txt("GAME OVER", width / 2, panelY + 50, 255, 70, 70, 4);
 
+      noStroke();
       fill(62, 39, 35, 180);
       rect(panelX + 30, panelY + 85, panelW - 60, 4);
 
@@ -148,6 +158,7 @@ class UIRenderer {
       const contentW = panelW - 60;
       const rowH = 44;
 
+      noStroke();
       fill(0, 0, 0, 40);
       rect(contentX, contentY, contentW, statRows.length * rowH + 10, 6);
 
@@ -156,27 +167,12 @@ class UIRenderer {
         const rowY = contentY + 5 + i * rowH + rowH / 2;
         textSize(22);
         textAlign(LEFT, CENTER);
-        this.drawTextWithOutline(
-          row.label,
-          contentX + 20,
-          rowY,
-          255,
-          255,
-          255,
-          2,
-        );
+        this._txt(row.label, contentX + 20, rowY, 255, 255, 255, 2);
         textSize(24);
         textAlign(RIGHT, CENTER);
-        this.drawTextWithOutline(
-          row.value,
-          contentX + contentW - 20,
-          rowY,
-          255,
-          220,
-          100,
-          2,
-        );
+        this._txt(row.value, contentX + contentW - 20, rowY, 255, 220, 100, 2);
         if (i < statRows.length - 1) {
+          noStroke();
           fill(62, 39, 35, 120);
           rect(contentX + 15, contentY + 5 + (i + 1) * rowH, contentW - 30, 2);
         }
@@ -196,19 +192,19 @@ class UIRenderer {
 
       if (this._goPhase === "visible") {
         this._drawPixelWoodPanel(btn1X, btnY, btnW, btnH);
-        const h1 =
+        if (
           mouseX >= btn1X &&
           mouseX <= btn1X + btnW &&
           mouseY >= btnY &&
-          mouseY <= btnY + btnH;
-        if (h1) {
+          mouseY <= btnY + btnH
+        ) {
           noStroke();
           fill(255, 255, 255, 50);
           rect(btn1X + 2, btnY + 2, btnW - 4, btnH - 4);
         }
         textSize(22);
         textAlign(CENTER, CENTER);
-        this.drawTextWithOutline(
+        this._txt(
           "PLAY AGAIN",
           btn1X + btnW / 2,
           btnY + btnH / 2 - 2,
@@ -219,19 +215,19 @@ class UIRenderer {
         );
 
         this._drawPixelWoodPanel(btn2X, btnY, btnW, btnH);
-        const h2 =
+        if (
           mouseX >= btn2X &&
           mouseX <= btn2X + btnW &&
           mouseY >= btnY &&
-          mouseY <= btnY + btnH;
-        if (h2) {
+          mouseY <= btnY + btnH
+        ) {
           noStroke();
           fill(255, 255, 255, 50);
           rect(btn2X + 2, btnY + 2, btnW - 4, btnH - 4);
         }
         textSize(22);
         textAlign(CENTER, CENTER);
-        this.drawTextWithOutline(
+        this._txt(
           "TITLE SCREEN",
           btn2X + btnW / 2,
           btnY + btnH / 2 - 2,
@@ -347,8 +343,8 @@ class UIRenderer {
 
   pauseHandleDrag(mx, my) {
     if (!this._volumeDragging) return;
-    const r = this._sliderRects[this._volumeDragging];
-    if (r) this._applySlider(this._volumeDragging, mx);
+    if (this._sliderRects[this._volumeDragging])
+      this._applySlider(this._volumeDragging, mx);
   }
 
   pauseHandleRelease() {
@@ -379,13 +375,13 @@ class UIRenderer {
   }
 
   showRoundStart(roundNum, difficulty) {
-    this._roundStartPhase = "fadein";
+    this._roundStartPhase = "visible";
     this._roundStartStart = pauseClock.now();
     this._roundStartNum = roundNum;
     this._roundStartDiff = difficulty || "easy";
   }
 
-  // ── Shop ────────────────────────────────────────────────────────────────
+  // ── Shop click / scroll ─────────────────────────────────────────────────
 
   shopClick(mx, my, shopManager, player) {
     if (!this._shopOpen) return false;
@@ -418,7 +414,7 @@ class UIRenderer {
   }
 
   shopScroll(delta) {
-    /* scroll handled by CSS overflow on the panel */
+    /* handled by CSS overflow */
   }
 
   _getShopLayout() {
@@ -430,12 +426,10 @@ class UIRenderer {
     const contentX = panelX + 25,
       contentY = panelY + headerH + 10,
       contentW = panelW - 50;
-    const keys = ["health", "stamina", "speed", "strength", "precision"];
     const itemH = 82,
       gapY = 14;
     const btnRects = [];
-
-    for (let i = 0; i < keys.length; i++) {
+    for (let i = 0; i < 5; i++) {
       const itemY = contentY + i * (itemH + gapY);
       const btnW = 160,
         btnH = 52;
@@ -463,54 +457,6 @@ class UIRenderer {
     };
   }
 
-  // ── Text outline — OPTIMISED ────────────────────────────────────────────
-  //
-  //  Old: (2w+1)² draw calls per string (e.g. w=4 → 81 calls).
-  //  New: 3 draw calls using the Canvas 2D shadow API.
-  //
-  //  The shadow is rendered by the GPU compositing stage — zero extra JS loops.
-
-  drawTextWithOutline(txt, x, y, r, g, b, w) {
-    const dc = drawingContext; // native Canvas2D context
-
-    // Two diagonal shadows give a convincing full outline cheaply
-    dc.save();
-    dc.shadowColor = "rgba(0,0,0,0.95)";
-    dc.shadowBlur = 0;
-    dc.shadowOffsetX = w;
-    dc.shadowOffsetY = w;
-    fill(r, g, b);
-    text(txt, x, y);
-
-    dc.shadowOffsetX = -w;
-    dc.shadowOffsetY = -w;
-    text(txt, x, y);
-
-    dc.restore();
-
-    // Crisp top pass — no shadow, just the coloured text
-    fill(r, g, b);
-    text(txt, x, y);
-  }
-
-  // Variant that draws into a p5.Graphics buffer
-  drawTextWithOutlinePG(pg, txt, x, y, r, g, b, w) {
-    const dc = pg.drawingContext;
-    dc.save();
-    dc.shadowColor = "rgba(0,0,0,0.95)";
-    dc.shadowBlur = 0;
-    dc.shadowOffsetX = w;
-    dc.shadowOffsetY = w;
-    pg.fill(r, g, b);
-    pg.text(txt, x, y);
-    dc.shadowOffsetX = -w;
-    dc.shadowOffsetY = -w;
-    pg.text(txt, x, y);
-    dc.restore();
-    pg.fill(r, g, b);
-    pg.text(txt, x, y);
-  }
-
   // ── HUD panels ──────────────────────────────────────────────────────────
 
   drawStatBars(player) {
@@ -519,8 +465,6 @@ class UIRenderer {
       px = 8,
       py = 8,
       pW = 390;
-
-    // Cache key — only redraws when any of these values change
     const val = {
       hp: player.health,
       maxHp: player.maxHealth,
@@ -532,17 +476,14 @@ class UIRenderer {
       expNext: this.gameState.expToNextLevel,
       level: this.gameState.level,
     };
-
     const buf = this._hudCache.get("statBars", pW, pH, val, (pg) => {
       pg.textFont(this.assetManager.getFont());
       this._drawStatBarsInto(pg, player, 0, 0, pW, pH);
     });
-
     image(buf, px, py);
   }
 
   _drawStatBarsInto(pg, player, px, py, pW, pH) {
-    // Wood panel background
     this._drawPixelWoodPanelPG(pg, px, py, pW, pH);
 
     const innerX = px + 10;
@@ -581,10 +522,9 @@ class UIRenderer {
         1,
       );
     }
-    pg.noStroke();
     pg.textSize(UIRenderer.FS_HP_TEXT);
     pg.textAlign(LEFT, CENTER);
-    this.drawTextWithOutlinePG(
+    this._txtPG(
       pg,
       player.health + "/" + player.maxHealth,
       hBx + 14,
@@ -595,7 +535,6 @@ class UIRenderer {
       2,
     );
 
-    // Heart icon
     const heartSheet =
       typeof spriteManager !== "undefined"
         ? spriteManager.get("icon_heart")
@@ -647,11 +586,10 @@ class UIRenderer {
         1,
       );
     }
-    pg.noStroke();
     pg.textSize(UIRenderer.FS_STATUS);
     pg.textAlign(LEFT, CENTER);
     if (player.isSprinting && Math.floor(pauseClock.now() / 250) % 2 === 0)
-      this.drawTextWithOutlinePG(
+      this._txtPG(
         pg,
         "SPRINTING",
         sBx + barW + 4,
@@ -662,7 +600,7 @@ class UIRenderer {
         1,
       );
     else if (player.isInBase && !player.isSprinting && sPct < 1)
-      this.drawTextWithOutlinePG(
+      this._txtPG(
         pg,
         "RECHARGING",
         sBx + barW + 4,
@@ -717,10 +655,9 @@ class UIRenderer {
       pg.fill(180, 140, 255, 100);
       pg.rect(eBx + 2, eBy + 2, eFillW, Math.floor((eBH - 4) * 0.4), 1);
     }
-    pg.noStroke();
     pg.textSize(UIRenderer.FS_HP_TEXT);
     pg.textAlign(CENTER, CENTER);
-    this.drawTextWithOutlinePG(
+    this._txtPG(
       pg,
       "LEVEL " + this.gameState.level,
       eBx + eBW / 2,
@@ -739,12 +676,10 @@ class UIRenderer {
     const pW = 160,
       px = width - pW - 8,
       py = 8;
-
     const val = { coins: this.gameState.coins };
     const buf = this._hudCache.get("score", pW, pH, val, (pg) => {
       pg.textFont(this.assetManager.getFont());
       this._drawPixelWoodPanelPG(pg, 0, 0, pW, pH);
-
       const coinSheet =
         typeof spriteManager !== "undefined"
           ? spriteManager.get("icon_coin")
@@ -767,44 +702,29 @@ class UIRenderer {
       }
       pg.textSize(UIRenderer.FS_COINS);
       pg.textAlign(LEFT, CENTER);
-      this.drawTextWithOutlinePG(
-        pg,
-        "" + this.gameState.coins,
-        46,
-        pH / 2,
-        255,
-        255,
-        255,
-        2,
-      );
+      this._txtPG(pg, "" + this.gameState.coins, 46, pH / 2, 255, 255, 255, 2);
     });
-
     image(buf, px, py);
   }
 
   drawRoundInfo(roundManager) {
     this._ensureHudCache();
-    const ROUND_PLANKS = 1,
-      ZOMBIE_PLANKS = 2;
-    const roundH = this._panelH(ROUND_PLANKS);
-    const zombieH = this._panelH(ZOMBIE_PLANKS);
+    const roundH = this._panelH(1);
+    const zombieH = this._panelH(2);
     const panelW = 200,
       gap = 6;
     const px = width / 2 - panelW / 2,
       py1 = 8;
-
     const zombiesRemaining =
       (roundManager.zombiesToSpawn || 0) + this.gameState.zombies.length;
     const val = { round: roundManager.currentRound, zombies: zombiesRemaining };
-
     const totalH = roundH + gap + zombieH;
     const buf = this._hudCache.get("roundInfo", panelW, totalH, val, (pg) => {
       pg.textFont(this.assetManager.getFont());
-
       this._drawPixelWoodPanelPG(pg, 0, 0, panelW, roundH);
       pg.textSize(UIRenderer.FS_ROUND);
       pg.textAlign(CENTER, CENTER);
-      this.drawTextWithOutlinePG(
+      this._txtPG(
         pg,
         "ROUND " + roundManager.currentRound,
         panelW / 2,
@@ -825,7 +745,7 @@ class UIRenderer {
       }
       pg.textSize(UIRenderer.FS_ZOMBIE_COUNT);
       pg.textAlign(CENTER, CENTER);
-      this.drawTextWithOutlinePG(
+      this._txtPG(
         pg,
         zombiesRemaining,
         panelW / 2 + 18,
@@ -836,11 +756,10 @@ class UIRenderer {
         2,
       );
     });
-
     image(buf, px, py1);
   }
 
-  // ── Minimap — throttled to _minimapFps ─────────────────────────────────
+  // ── Minimap ─────────────────────────────────────────────────────────────
 
   drawMinimap(player, roundManager) {
     const now = millis();
@@ -849,17 +768,14 @@ class UIRenderer {
     const mmX = width - mmW - 8,
       mmY = 8 + this._panelH(2) + 6;
 
-    // Create (or recreate after resize)
     if (!this._minimapBuffer || this._minimapBuffer.width !== mmW) {
       if (this._minimapBuffer) this._minimapBuffer.remove();
       this._minimapBuffer = createGraphics(mmW, mmH);
       if (this.assetManager)
         this._minimapBuffer.textFont(this.assetManager.getFont());
-      this._minimapLastDraw = 0; // force immediate redraw
+      this._minimapLastDraw = 0;
     }
-
-    const interval = 1000 / this._minimapFps;
-    if (now - this._minimapLastDraw > interval) {
+    if (now - this._minimapLastDraw > 1000 / this._minimapFps) {
       this._minimapLastDraw = now;
       this._renderMinimapInto(
         this._minimapBuffer,
@@ -869,7 +785,6 @@ class UIRenderer {
         mmH,
       );
     }
-
     image(this._minimapBuffer, mmX, mmY);
   }
 
@@ -914,9 +829,8 @@ class UIRenderer {
 
     pg.fill(220, 40, 40, 180);
     pg.noStroke();
-    for (const z of this.gameState.zombies) {
+    for (const z of this.gameState.zombies)
       pg.circle(mx + z.x * sx, my + z.y * sy, 3);
-    }
 
     if (this.gameState.currentAntidote) {
       pg.fill(80, 220, 80, 220);
@@ -942,7 +856,7 @@ class UIRenderer {
     pg.noStroke();
     pg.textSize(20);
     pg.textAlign(CENTER, TOP);
-    this.drawTextWithOutlinePG(pg, "MAP", mmW / 2, 6, 255, 255, 255, 2);
+    this._txtPG(pg, "MAP", mmW / 2, 6, 255, 255, 255, 2);
   }
 
   // ── Weapon slots ─────────────────────────────────────────────────────────
@@ -959,7 +873,6 @@ class UIRenderer {
       { key: "equipped", x: width - 124 },
     ];
 
-    // Build a compact cache key from weapon states
     const eq = player.weapons.equipped;
     const val = {
       current: player.currentWeapon,
@@ -992,15 +905,20 @@ class UIRenderer {
 
     const totalW = slots[slots.length - 1].x + slotW - slots[0].x;
     const startX = slots[0].x;
-
     const buf = this._hudCache.get("weaponSlots", totalW, slotH, val, (pg) => {
       pg.textFont(this.assetManager.getFont());
       for (const s of slots) {
-        const localX = s.x - startX;
-        this._drawWeaponSlotInto(pg, player, s.key, localX, 0, slotW, slotH);
+        this._drawWeaponSlotInto(
+          pg,
+          player,
+          s.key,
+          s.x - startX,
+          0,
+          slotW,
+          slotH,
+        );
       }
     });
-
     image(buf, startX, slotY);
   }
 
@@ -1024,16 +942,7 @@ class UIRenderer {
     if (w === null) {
       pg.textSize(UIRenderer.FS_WEAPON_NAME);
       pg.textAlign(CENTER, CENTER);
-      this.drawTextWithOutlinePG(
-        pg,
-        "EMPTY",
-        x + slotW / 2,
-        y + slotH / 2,
-        255,
-        255,
-        255,
-        2,
-      );
+      this._txtPG(pg, "EMPTY", x + slotW / 2, y + slotH / 2, 255, 255, 255, 2);
       return;
     }
 
@@ -1046,9 +955,10 @@ class UIRenderer {
 
     if (gunSheet && gunSheet.img) {
       if (isKnife) {
-        const maxW = slotW - 30,
-          maxH = slotH - 50;
-        const sc = Math.min(maxW / gunSheet.frameW, maxH / gunSheet.frameH);
+        const sc = Math.min(
+          (slotW - 30) / gunSheet.frameW,
+          (slotH - 50) / gunSheet.frameH,
+        );
         const dw = gunSheet.frameW * sc,
           dh = gunSheet.frameH * sc;
         pg.push();
@@ -1068,9 +978,10 @@ class UIRenderer {
         );
         pg.pop();
       } else {
-        const maxW = slotW - 16,
-          maxH = slotH - 42;
-        const sc = Math.min(maxW / gunSheet.frameW, maxH / gunSheet.frameH);
+        const sc = Math.min(
+          (slotW - 16) / gunSheet.frameW,
+          (slotH - 42) / gunSheet.frameH,
+        );
         const dw = gunSheet.frameW * sc,
           dh = gunSheet.frameH * sc;
         pg.push();
@@ -1091,7 +1002,7 @@ class UIRenderer {
     } else {
       pg.textSize(UIRenderer.FS_WEAPON_NAME);
       pg.textAlign(CENTER, CENTER);
-      this.drawTextWithOutlinePG(
+      this._txtPG(
         pg,
         w.name.toUpperCase(),
         x + slotW / 2,
@@ -1121,7 +1032,7 @@ class UIRenderer {
         pg.rect(bX, bY, bW * progress, bH);
         pg.textSize(9);
         pg.textAlign(CENTER, BOTTOM);
-        this.drawTextWithOutlinePG(
+        this._txtPG(
           pg,
           "RELOADING...",
           x + slotW / 2,
@@ -1142,35 +1053,17 @@ class UIRenderer {
         const curW = pg.textWidth(curStr);
         const groupW = curW + pg.textWidth(sepStr) + pg.textWidth(magStr);
         const fullW = groupW + gap + pg.textWidth(totalStr);
-        const startX = cx - fullW / 2;
+        const sX = cx - fullW / 2;
         pg.textAlign(LEFT, CENTER);
-        this.drawTextWithOutlinePG(pg, curStr, startX, ammoY, 255, 220, 50, 1);
-        this.drawTextWithOutlinePG(
-          pg,
-          sepStr + magStr,
-          startX + curW,
-          ammoY,
-          255,
-          255,
-          255,
-          1,
-        );
+        this._txtPG(pg, curStr, sX, ammoY, 255, 220, 50, 1);
+        this._txtPG(pg, sepStr + magStr, sX + curW, ammoY, 255, 255, 255, 1);
         if (!w.unlimited)
-          this.drawTextWithOutlinePG(
-            pg,
-            totalStr,
-            startX + groupW + gap,
-            ammoY,
-            200,
-            200,
-            200,
-            1,
-          );
+          this._txtPG(pg, totalStr, sX + groupW + gap, ammoY, 200, 200, 200, 1);
       }
     } else if (slotKey === "melee") {
       pg.textSize(18);
       pg.textAlign(CENTER, CENTER);
-      this.drawTextWithOutlinePG(
+      this._txtPG(
         pg,
         w.name.toUpperCase(),
         x + slotW / 2,
@@ -1183,7 +1076,7 @@ class UIRenderer {
     }
   }
 
-  // ── Wood panel helpers (main canvas versions) ───────────────────────────
+  // ── Wood panel helpers ──────────────────────────────────────────────────
 
   _panelH(numPlanks) {
     return numPlanks * 26 + 4;
@@ -1192,64 +1085,48 @@ class UIRenderer {
   _drawPixelWoodPanel(x, y, w, h) {
     push();
     noStroke();
-    const outlineSize = 2;
+    const os = 2;
     fill(0);
     rect(x, y, w, h + 3);
     fill("#AB6A38");
-    rect(
-      x + outlineSize,
-      y + outlineSize,
-      w - outlineSize * 2,
-      h - outlineSize * 2,
-    );
-
-    const innerX = x + outlineSize,
-      innerY = y + outlineSize;
-    const innerW = w - outlineSize * 2,
-      innerH = h - outlineSize * 2;
-    const plankSpacing = 24;
-    for (
-      let py = innerY + plankSpacing;
-      py < innerY + innerH - 4;
-      py += plankSpacing
-    ) {
+    rect(x + os, y + os, w - os * 2, h - os * 2);
+    const ix = x + os,
+      iy = y + os,
+      iw = w - os * 2,
+      ih = h - os * 2;
+    for (let py = iy + 24; py < iy + ih - 4; py += 24) {
       fill("#7D4722");
-      rect(innerX, py, innerW, outlineSize);
+      rect(ix, py, iw, os);
       fill("#D49A59");
-      rect(innerX, py + outlineSize, innerW, 1);
+      rect(ix, py + os, iw, 1);
     }
     fill("#D49A59");
-    rect(innerX, innerY, innerW, outlineSize);
-    rect(innerX, innerY, outlineSize, innerH);
+    rect(ix, iy, iw, os);
+    rect(ix, iy, os, ih);
     fill("#7D4722");
-    rect(innerX, innerY + innerH - outlineSize, innerW, outlineSize);
-    rect(innerX + innerW - outlineSize, innerY, outlineSize, innerH);
+    rect(ix, iy + ih - os, iw, os);
+    rect(ix + iw - os, iy, os, ih);
     pop();
   }
 
   _drawPlainPixelWoodPanel(x, y, w, h) {
     push();
     noStroke();
-    const outlineSize = 4;
+    const os = 4;
     fill(0);
     rect(x, y, w, h + 6);
     fill("#AB6A38");
-    rect(
-      x + outlineSize,
-      y + outlineSize,
-      w - outlineSize * 2,
-      h - outlineSize * 2,
-    );
-    const innerX = x + outlineSize,
-      innerY = y + outlineSize;
-    const innerW = w - outlineSize * 2,
-      innerH = h - outlineSize * 2;
+    rect(x + os, y + os, w - os * 2, h - os * 2);
+    const ix = x + os,
+      iy = y + os,
+      iw = w - os * 2,
+      ih = h - os * 2;
     fill("#D49A59");
-    rect(innerX, innerY, innerW, outlineSize);
-    rect(innerX, innerY, outlineSize, innerH);
+    rect(ix, iy, iw, os);
+    rect(ix, iy, os, ih);
     fill("#7D4722");
-    rect(innerX, innerY + innerH - outlineSize, innerW, outlineSize);
-    rect(innerX + innerW - outlineSize, innerY, outlineSize, innerH);
+    rect(ix, iy + ih - os, iw, os);
+    rect(ix + iw - os, iy, os, ih);
     pop();
   }
 
@@ -1257,7 +1134,6 @@ class UIRenderer {
     this._drawPixelWoodPanel(x, y, w, h);
   }
 
-  // p5.Graphics variants of wood panels (used when drawing into offscreen buffers)
   _drawPixelWoodPanelPG(pg, x, y, w, h) {
     pg.push();
     pg.noStroke();
@@ -1270,8 +1146,7 @@ class UIRenderer {
       iy = y + os,
       iw = w - os * 2,
       ih = h - os * 2;
-    const ps = 24;
-    for (let py = iy + ps; py < iy + ih - 4; py += ps) {
+    for (let py = iy + 24; py < iy + ih - 4; py += 24) {
       pg.fill(0x7d, 0x47, 0x22);
       pg.rect(ix, py, iw, os);
       pg.fill(0xd4, 0x9a, 0x59);
@@ -1333,38 +1208,9 @@ class UIRenderer {
     return 12;
   }
 
-  // ── Hint text helper ────────────────────────────────────────────────────
-  _drawHintText(prefix, btnText, suffix, cx, cy, outlineSize) {
-    textAlign(LEFT, CENTER);
-    const w1 = textWidth(prefix),
-      w2 = textWidth(btnText),
-      w3 = textWidth(suffix);
-    const startX = cx - (w1 + w2 + w3) / 2;
-    this.drawTextWithOutline(prefix, startX, cy, 255, 255, 255, outlineSize);
-    this.drawTextWithOutline(
-      btnText,
-      startX + w1,
-      cy,
-      255,
-      230,
-      50,
-      outlineSize,
-    );
-    this.drawTextWithOutline(
-      suffix,
-      startX + w1 + w2,
-      cy,
-      255,
-      255,
-      255,
-      outlineSize,
-    );
-  }
-
-  // ── World-space overlays (drawn in world coords) ────────────────────────
+  // ── World-space overlays ────────────────────────────────────────────────
 
   drawAntidoteIndicator(player) {
-    // Bobbing antidote icon above the player's head
     const bob = Math.sin(pauseClock.now() * 0.004) * 4;
     const iconY = player.y - player.size / 2 - 30 + bob;
 
@@ -1387,46 +1233,28 @@ class UIRenderer {
           sheet.frameH,
         );
         pop();
-      } else {
-        // Fallback circle
-        fill(0, 255, 0);
-        stroke(0);
-        strokeWeight(2);
-        circle(player.x, player.y - player.size / 2 - 20, 20);
-        fill(255);
-        noStroke();
-        textSize(18);
-        textAlign(CENTER, CENTER);
-        text("+", player.x, player.y - player.size / 2 - 20);
       }
     }
 
-    // Blinking "RETURN TO BASE" drawn in world-space directly below the player.
-    // 600 ms on / 400 ms off — noticeable without being distracting.
-    const blinkPeriod = 1000;
-    const blinkOn = pauseClock.now() % blinkPeriod < 600;
-    if (!blinkOn) return;
-
-    const msg = "RETURN TO BASE";
-    const ts = 14;
-    const belowY = player.y + player.size / 2 + 26;
-
+    // Blinking label below player
+    if (pauseClock.now() % 1000 >= 600) return;
     push();
-    textSize(ts);
+    textSize(14);
     textAlign(CENTER, CENTER);
-
-    // Drop-shadow / outline for readability over the grass
-    fill(0, 0, 0, 200);
-    for (let ox = -2; ox <= 2; ox++) {
-      for (let oy = -2; oy <= 2; oy++) {
-        if (ox === 0 && oy === 0) continue;
-        text(msg, player.x + ox, belowY + oy);
-      }
-    }
-    // Bright green main text
-    fill(80, 235, 80);
-    text(msg, player.x, belowY);
+    this._txt(
+      "RETURN TO BASE",
+      player.x,
+      player.y + player.size / 2 + 26,
+      80,
+      235,
+      80,
+      3,
+    );
     pop();
+  }
+
+  _drawAntidoteReturnHint() {
+    // Intentionally empty — hint is shown in world-space by drawAntidoteIndicator()
   }
 
   drawMeleeSlash(player) {
@@ -1462,9 +1290,9 @@ class UIRenderer {
     let aimX = vx,
       aimY = vy;
     if (!isSniper && dMouse > w.aimRange) {
-      const r = w.aimRange / dMouse;
-      aimX = player.x + dx * r;
-      aimY = player.y + dy * r;
+      const rat = w.aimRange / dMouse;
+      aimX = player.x + dx * rat;
+      aimY = player.y + dy * rat;
     }
     push();
     if (
@@ -1547,7 +1375,6 @@ class UIRenderer {
 
       const sx = p.x - camX;
       const sy = p.y - camY - 40 * progress;
-      fill(255, 255, 255, alpha);
 
       if (p.isCoin) {
         const iconSize = 16,
@@ -1556,14 +1383,14 @@ class UIRenderer {
         textAlign(LEFT, CENTER);
         const tw = textWidth(label),
           total = iconSize + 4 + tw,
-          startX = sx - total / 2;
+          sX = sx - total / 2;
         if (coinSheet && coinSheet.img) {
           push();
           imageMode(CORNER);
           tint(255, alpha);
           image(
             coinSheet.img,
-            startX,
+            sX,
             sy - iconSize / 2,
             iconSize,
             iconSize,
@@ -1575,43 +1402,51 @@ class UIRenderer {
           noTint();
           pop();
         }
-        this.drawTextWithOutline(
-          label,
-          startX + iconSize + 4,
-          sy,
-          255,
-          255,
-          255,
-          1,
-        );
+        strokeWeight(2);
+        stroke(0, 0, 0, alpha);
+        fill(255, 255, 255, alpha);
+        text(label, sX + iconSize + 4, sy);
+        noStroke();
       } else if (p.isExp) {
         textSize(16);
         textAlign(CENTER, CENTER);
-        this.drawTextWithOutline(
-          "+" + p.value + " EXP",
-          sx,
-          sy,
-          255,
-          255,
-          255,
-          1,
-        );
+        strokeWeight(2);
+        stroke(0, 0, 0, alpha);
+        fill(255, 255, 255, alpha);
+        text("+" + p.value + " EXP", sx, sy);
+        noStroke();
       } else if (p.isDamage) {
         textSize(16);
         textAlign(CENTER, CENTER);
-        this.drawTextWithOutline("-" + p.value, sx, sy, 255, 255, 255, 1);
+        strokeWeight(2);
+        stroke(0, 0, 0, alpha);
+        fill(255, 255, 255, alpha);
+        text("-" + p.value, sx, sy);
+        noStroke();
       } else if (p.isPlayerDamage) {
         textSize(20);
         textAlign(CENTER, CENTER);
-        this.drawTextWithOutline("-" + p.value, sx, sy, 255, 255, 255, 2);
+        strokeWeight(3);
+        stroke(0, 0, 0, alpha);
+        fill(255, 80, 80, alpha);
+        text("-" + p.value, sx, sy);
+        noStroke();
       } else if (p.isLevelUp) {
         textSize(28);
         textAlign(CENTER, CENTER);
-        this.drawTextWithOutline(p.value, sx, sy, 255, 255, 255, 3);
+        strokeWeight(3);
+        stroke(0, 0, 0, alpha);
+        fill(255, 230, 50, alpha);
+        text(p.value, sx, sy);
+        noStroke();
       } else {
         textSize(20);
         textAlign(CENTER, CENTER);
-        this.drawTextWithOutline(p.value, sx, sy, 255, 255, 255, 2);
+        strokeWeight(2);
+        stroke(0, 0, 0, alpha);
+        fill(255, 255, 255, alpha);
+        text(p.value, sx, sy);
+        noStroke();
       }
     }
   }
@@ -1623,138 +1458,106 @@ class UIRenderer {
     const elapsed = now - this._interPhaseStart;
 
     if (this._interPhase === "cleared") {
-      let alpha;
-      if (elapsed < this._clearedFadeDur) {
-        alpha = 255;
+      if (elapsed >= 1200) {
+        this._interPhase = "countdown";
+        this._interPhaseStart = now;
       } else {
-        const fe = elapsed - this._clearedFadeDur;
-        alpha = constrain(map(fe, 0, this._clearedFadeOut, 255, 0), 0, 255);
-        if (fe >= this._clearedFadeOut) {
-          this._interPhase = "countdown";
-          this._interPhaseStart = now;
-        }
+        textSize(86);
+        textAlign(CENTER, CENTER);
+        this._txt(
+          "ROUND " + roundNum + " CLEARED!",
+          width / 2,
+          height / 2,
+          100,
+          255,
+          120,
+          5,
+        );
       }
-      this._drawClearedText(roundNum, alpha);
-    } else if (this._interPhase === "countdown") {
-      const sec = Math.ceil(intermissionTimeLeft / 1000);
+      return false;
+    }
+
+    if (this._interPhase === "countdown") {
       if (intermissionTimeLeft <= 0) {
         this._interPhase = "off";
         return true;
       }
-      this._drawCountdownCenter(sec);
+      this._drawCountdownCenter(Math.ceil(intermissionTimeLeft / 1000));
     }
     return false;
   }
 
-  _drawClearedText(roundNum, alpha) {
-    const displayText = "ROUND " + roundNum + " CLEARED!";
-    textSize(86);
-    textAlign(CENTER, CENTER);
-    fill(0, 0, 0, alpha);
-    for (let ox = -5; ox <= 5; ox++)
-      for (let oy = -5; oy <= 5; oy++)
-        if (ox || oy) text(displayText, width / 2 + ox, height / 2 + oy);
-    fill(100, 255, 120, alpha);
-    text(displayText, width / 2, height / 2);
-  }
-
   _drawCountdownCenter(sec) {
+    // Big number
     textSize(160);
     textAlign(CENTER, CENTER);
-    fill(0, 0, 0, 220);
-    for (let ox = -6; ox <= 6; ox++)
-      for (let oy = -6; oy <= 6; oy++)
-        if (ox || oy) text(sec, width / 2 + ox, height / 2 - 50 + oy);
     const c =
       sec > 8
         ? color(100, 255, 120)
         : sec > 4
           ? color(255, 220, 60)
           : color(255, 80, 80);
+    strokeWeight(10);
+    stroke(0);
     fill(c);
     text(sec, width / 2, height / 2 - 50);
-    textSize(28);
-    this._drawHintText(
-      "PRESS ",
-      "B",
-      " TO OPEN SHOP",
-      width / 2,
-      height / 2 + 105,
-      3,
-    );
-    this._drawHintText(
-      "PRESS ",
-      "ENTER",
-      " TO START NOW",
-      width / 2,
-      height / 2 + 145,
-      3,
-    );
+    noStroke();
+
+    // Hint lines
+    const hints = [
+      { prefix: "PRESS ", key: "B", suffix: " TO OPEN SHOP" },
+      { prefix: "PRESS ", key: "ENTER", suffix: " TO START NOW" },
+    ];
+    textSize(30);
+    textAlign(LEFT, CENTER);
+
+    hints.forEach((h, i) => {
+      const cy = height / 2 + 105 + i * 46;
+      const w1 = textWidth(h.prefix),
+        w2 = textWidth(h.key),
+        w3 = textWidth(h.suffix);
+      const sX = width / 2 - (w1 + w2 + w3) / 2;
+
+      strokeWeight(4);
+      stroke(0);
+      fill(255, 255, 255);
+      text(h.prefix, sX, cy);
+      fill(255, 230, 50);
+      text(h.key, sX + w1, cy);
+      fill(255, 255, 255);
+      text(h.suffix, sX + w1 + w2, cy);
+      noStroke();
+    });
   }
+
+  // ── Round start banner ───────────────────────────────────────────────────
 
   updateAndDrawRoundStart() {
     if (this._roundStartPhase === "off") return;
-    const now = pauseClock.now();
-    const elapsed = now - this._roundStartStart;
-    let alpha = 0;
-
-    if (this._roundStartPhase === "fadein") {
-      alpha = constrain(
-        map(elapsed, 0, this._roundStartFadeIn, 0, 255),
-        0,
-        255,
-      );
-      if (elapsed >= this._roundStartFadeIn) {
-        this._roundStartPhase = "hold";
-        this._roundStartStart = now;
-      }
-    } else if (this._roundStartPhase === "hold") {
-      alpha = 255;
-      if (elapsed >= this._roundStartHold) {
-        this._roundStartPhase = "fadeout";
-        this._roundStartStart = now;
-      }
-    } else if (this._roundStartPhase === "fadeout") {
-      alpha = constrain(
-        map(elapsed, 0, this._roundStartFadeOut, 255, 0),
-        0,
-        255,
-      );
-      if (elapsed >= this._roundStartFadeOut) {
-        this._roundStartPhase = "off";
-        return;
-      }
+    const elapsed = pauseClock.now() - this._roundStartStart;
+    if (elapsed >= 1800) {
+      this._roundStartPhase = "off";
+      return;
     }
 
     textSize(86);
     textAlign(CENTER, CENTER);
-    fill(0, 0, 0, alpha);
-    for (let ox = -5; ox <= 5; ox++)
-      for (let oy = -5; oy <= 5; oy++)
-        if (ox || oy)
-          text(
-            "ROUND " + this._roundStartNum,
-            width / 2 + ox,
-            height / 2 - 30 + oy,
-          );
-    fill(255, 255, 255, alpha);
+    strokeWeight(8);
+    stroke(0);
+    fill(255, 255, 255);
     text("ROUND " + this._roundStartNum, width / 2, height / 2 - 30);
 
     const diffLabel = this._roundStartDiff.toUpperCase();
-    const diffColor =
+    const dc =
       this._roundStartDiff === "hell"
-        ? color(255, 60, 60, alpha)
+        ? [255, 60, 60]
         : this._roundStartDiff === "hard"
-          ? color(255, 180, 40, alpha)
-          : color(100, 220, 100, alpha);
+          ? [255, 180, 40]
+          : [100, 220, 100];
     textSize(36);
-    textAlign(CENTER, CENTER);
-    fill(0, 0, 0, alpha);
-    for (let ox = -3; ox <= 3; ox++)
-      for (let oy = -3; oy <= 3; oy++)
-        if (ox || oy) text(diffLabel, width / 2 + ox, height / 2 + 45 + oy);
-    fill(diffColor);
+    fill(dc[0], dc[1], dc[2]);
     text(diffLabel, width / 2, height / 2 + 45);
+    noStroke();
   }
 
   // ── Pause screen ─────────────────────────────────────────────────────────
@@ -1777,7 +1580,11 @@ class UIRenderer {
 
     textSize(96);
     textAlign(CENTER, CENTER);
-    this.drawTextWithOutline("PAUSED", cx, startY - 100, 255, 255, 255, 6);
+    strokeWeight(8);
+    stroke(0);
+    fill(255, 255, 255);
+    text("PAUSED", cx, startY - 100);
+    noStroke();
 
     const buttons = [
       { id: "resume", label: "RESUME" },
@@ -1803,15 +1610,7 @@ class UIRenderer {
       }
       textSize(48);
       textAlign(CENTER, CENTER);
-      this.drawTextWithOutline(
-        btn.label.toUpperCase(),
-        cx,
-        btnY + btnH / 2,
-        255,
-        255,
-        255,
-        4,
-      );
+      this._txt(btn.label, cx, btnY + btnH / 2, 255, 255, 255, 5);
     }
   }
 
@@ -1824,15 +1623,7 @@ class UIRenderer {
     this._drawPlainPixelWoodPanel(panelX, panelY, panelW, panelH);
     textSize(46);
     textAlign(CENTER, CENTER);
-    this.drawTextWithOutline(
-      "VOLUME SETTINGS",
-      cx,
-      panelY + 45,
-      255,
-      255,
-      255,
-      4,
-    );
+    this._txt("VOLUME SETTINGS", cx, panelY + 45, 255, 255, 255, 4);
 
     const volData = [
       {
@@ -1878,15 +1669,7 @@ class UIRenderer {
 
       textSize(36);
       textAlign(RIGHT, CENTER);
-      this.drawTextWithOutline(
-        s.label.toUpperCase(),
-        startX + labelW,
-        rowCY,
-        255,
-        255,
-        255,
-        3,
-      );
+      this._txt(s.label, startX + labelW, rowCY, 255, 255, 255, 3);
 
       noFill();
       stroke(62, 39, 35);
@@ -1907,18 +1690,18 @@ class UIRenderer {
           2,
         );
       }
-      const thumbW = 18,
-        thumbX = constrain(
-          trackX + fillW - thumbW / 2,
-          trackX,
-          trackX + trackW - thumbW,
-        );
+      const thumbW = 18;
+      const thumbX = constrain(
+        trackX + fillW - thumbW / 2,
+        trackX,
+        trackX + trackW - thumbW,
+      );
       fill(isDrag ? color(255, 240, 180) : color(255, 210, 100));
       rect(thumbX, trackY - 6, thumbW, trackH + 12, 4);
 
       textSize(32);
       textAlign(LEFT, CENTER);
-      this.drawTextWithOutline(
+      this._txt(
         Math.floor(s.value * 100) + "%",
         trackX + trackW + gap,
         rowCY,
@@ -1927,6 +1710,7 @@ class UIRenderer {
         255,
         3,
       );
+
       this._sliderRects[s.id] = {
         x: trackX,
         y: trackY - 12,
@@ -1941,21 +1725,21 @@ class UIRenderer {
       backH = 80,
       backX = cx - backW / 2,
       backY = panelY + panelH - backH - 25;
-    const backHovered =
+    const backHov =
       mouseX >= backX &&
       mouseX <= backX + backW &&
       mouseY >= backY &&
       mouseY <= backY + backH;
     this._pauseVolRects = { back: { x: backX, y: backY, w: backW, h: backH } };
     this._drawPixelWoodPanel(backX, backY, backW, backH);
-    if (backHovered) {
+    if (backHov) {
       noStroke();
       fill(255, 255, 255, 50);
       rect(backX + 4, backY + 4, backW - 8, backH - 8);
     }
     textSize(42);
     textAlign(CENTER, CENTER);
-    this.drawTextWithOutline("< BACK", cx, backY + backH / 2, 255, 255, 255, 4);
+    this._txt("< BACK", cx, backY + backH / 2, 255, 255, 255, 4);
   }
 
   // ── Shop render ─────────────────────────────────────────────────────────
@@ -1966,6 +1750,10 @@ class UIRenderer {
     const { panelX, panelY, panelW, panelH, headerH, btnRects } = layout;
     const mx = mouseX,
       my = mouseY;
+    const coinSheet =
+      typeof spriteManager !== "undefined"
+        ? spriteManager.get("icon_coin")
+        : null;
 
     noStroke();
     fill(0, 0, 0, 180);
@@ -1974,22 +1762,14 @@ class UIRenderer {
 
     textSize(46);
     textAlign(LEFT, CENTER);
-    this.drawTextWithOutline(
-      "SHOP",
-      panelX + 30,
-      panelY + headerH / 2,
-      255,
-      255,
-      255,
-      3,
-    );
+    this._txt("SHOP", panelX + 30, panelY + headerH / 2, 255, 255, 255, 3);
 
     const sec = roundManager
       ? Math.ceil(roundManager.intermissionTimeLeft / 1000)
       : 0;
     textSize(24);
     textAlign(CENTER, CENTER);
-    this.drawTextWithOutline(
+    this._txt(
       "NEXT ROUND IN " + sec + "S",
       panelX + panelW / 2 - 20,
       panelY + headerH / 2,
@@ -1999,10 +1779,6 @@ class UIRenderer {
       2,
     );
 
-    const coinSheet =
-      typeof spriteManager !== "undefined"
-        ? spriteManager.get("icon_coin")
-        : null;
     const coinX = panelX + panelW - 170,
       headerCoinSize = 32;
     if (coinSheet && coinSheet.img) {
@@ -2022,8 +1798,8 @@ class UIRenderer {
       pop();
       textSize(32);
       textAlign(LEFT, CENTER);
-      this.drawTextWithOutline(
-        this.gameState.coins,
+      this._txt(
+        "" + this.gameState.coins,
         coinX + headerCoinSize + 12,
         panelY + headerH / 2,
         255,
@@ -2034,38 +1810,34 @@ class UIRenderer {
     }
 
     const cb = layout.closeBtn;
-    const cbHover =
+    const cbHov =
       mx >= cb.x && mx <= cb.x + cb.w && my >= cb.y && my <= cb.y + cb.h;
     this._drawPixelWoodPanel(cb.x, cb.y, cb.w, cb.h);
-    if (cbHover) {
+    if (cbHov) {
+      noStroke();
       fill(255, 255, 255, 50);
       rect(cb.x + 2, cb.y + 2, cb.w - 4, cb.h - 4);
     }
     textSize(26);
     textAlign(CENTER, CENTER);
-    this.drawTextWithOutline(
-      "X",
-      cb.x + cb.w / 2,
-      cb.y + cb.h / 2,
-      255,
-      255,
-      255,
-      2,
-    );
+    this._txt("X", cb.x + cb.w / 2, cb.y + cb.h / 2, 255, 255, 255, 2);
 
     const keys = Object.keys(shopManager.statShop);
     for (let i = 0; i < keys.length; i++) {
       const key = keys[i],
         stat = shopManager.statShop[key];
       const cost = shopManager.getStatCurrentCost(key);
-      const canAfford = this.gameState.coins >= cost;
+      const maxed = shopManager.isMaxLevel(key);
+      const canAfford = this.gameState.coins >= cost && !maxed;
       const btn = btnRects[i];
 
+      noStroke();
       fill(0, 0, 0, 40);
       rect(btn.cardX, btn.cardY, btn.cardW, btn.cardH, 6);
+
       textSize(28);
       textAlign(LEFT, TOP);
-      this.drawTextWithOutline(
+      this._txt(
         stat.label.toUpperCase(),
         btn.cardX + 18,
         btn.cardY + 14,
@@ -2074,24 +1846,10 @@ class UIRenderer {
         255,
         2,
       );
-      textSize(18);
-      textAlign(LEFT, BOTTOM);
-      this.drawTextWithOutline(
-        "LV. " +
-          stat.purchased +
-          (shopManager.isMaxLevel(keys[i]) ? " (MAX)" : ""),
-        btn.cardX + 18,
-        btn.cardY + btn.cardH - 12,
-        255,
-        255,
-        255,
-        2,
-      );
 
-      // Description text
       textSize(18);
       textAlign(LEFT, CENTER);
-      this.drawTextWithOutline(
+      this._txt(
         stat.description,
         btn.cardX + 18,
         btn.cardY + 46,
@@ -2101,24 +1859,39 @@ class UIRenderer {
         1,
       );
 
+      textSize(16);
+      textAlign(LEFT, BOTTOM);
+      const lvLabel = "LV. " + stat.purchased + (maxed ? "  (MAX)" : "");
+      this._txt(
+        lvLabel,
+        btn.cardX + 18,
+        btn.cardY + btn.cardH - 10,
+        maxed ? 255 : 200,
+        maxed ? 220 : 200,
+        maxed ? 50 : 200,
+        2,
+      );
+
       const hover =
         mx >= btn.x &&
         mx <= btn.x + btn.w &&
         my >= btn.y &&
         my <= btn.y + btn.h;
       this._drawPixelWoodPanel(btn.x, btn.y, btn.w, btn.h);
-      if (!canAfford) {
+      if (maxed || !canAfford) {
+        noStroke();
         fill(0, 0, 0, 150);
         rect(btn.x + 2, btn.y + 2, btn.w - 4, btn.h - 4);
       } else if (hover) {
+        noStroke();
         fill(255, 255, 255, 50);
         rect(btn.x + 2, btn.y + 2, btn.w - 4, btn.h - 4);
       }
 
       textSize(18);
       textAlign(CENTER, CENTER);
-      this.drawTextWithOutline(
-        "UPGRADE",
+      this._txt(
+        maxed ? "MAXED" : "UPGRADE",
         btn.x + btn.w / 2,
         btn.y + btn.h / 2 - 10,
         255,
@@ -2127,42 +1900,37 @@ class UIRenderer {
         2,
       );
 
-      const costText = "" + cost;
-      textSize(18);
-      const tw = textWidth(costText);
-      const btnCoinSize = 18,
-        g = 6;
-      const totalW = btnCoinSize + g + tw;
-      const sX = btn.x + btn.w / 2 - totalW / 2;
-      const bRowY = btn.y + btn.h / 2 + 10;
-      if (coinSheet && coinSheet.img) {
-        push();
-        imageMode(CORNER);
-        image(
-          coinSheet.img,
-          sX,
-          bRowY - btnCoinSize / 2,
-          btnCoinSize,
-          btnCoinSize,
-          0,
-          0,
-          coinSheet.frameW,
-          coinSheet.frameH,
-        );
-        pop();
+      if (!maxed) {
+        const costText = "" + cost;
+        textSize(18);
+        const tw = textWidth(costText);
+        const btnCoinSize = 18,
+          g = 6;
+        const totalW = btnCoinSize + g + tw;
+        const sX = btn.x + btn.w / 2 - totalW / 2;
+        const bRowY = btn.y + btn.h / 2 + 10;
+        if (coinSheet && coinSheet.img) {
+          push();
+          imageMode(CORNER);
+          image(
+            coinSheet.img,
+            sX,
+            bRowY - btnCoinSize / 2,
+            btnCoinSize,
+            btnCoinSize,
+            0,
+            0,
+            coinSheet.frameW,
+            coinSheet.frameH,
+          );
+          pop();
+        }
+        textAlign(LEFT, CENTER);
+        this._txt(costText, sX + btnCoinSize + g, bRowY, 255, 255, 255, 2);
       }
-      textAlign(LEFT, CENTER);
-      this.drawTextWithOutline(
-        costText,
-        sX + btnCoinSize + g,
-        bRowY,
-        255,
-        255,
-        255,
-        2,
-      );
 
       if (i < keys.length - 1) {
+        noStroke();
         fill(62, 39, 35, 180);
         rect(btn.cardX, btn.cardY + btn.cardH + 6, btn.cardW, 2);
       }
@@ -2181,7 +1949,7 @@ class UIRenderer {
     return null;
   }
 
-  // ── Unused stubs kept for API compatibility ──────────────────────────────
+  // ── Stubs ────────────────────────────────────────────────────────────────
   drawHealthBar(player) {}
   drawStaminaBar(player) {}
   _drawWoodPanelLarge(x, y, w, h) {
@@ -2191,6 +1959,14 @@ class UIRenderer {
     this._drawPixelWoodPanel(x, y, w, h);
   }
   _drawBolts(x, y, w, h) {}
+
+  // Kept for any legacy callers — now delegates to _txt
+  drawTextWithOutline(txt, x, y, r, g, b, w) {
+    this._txt(txt, x, y, r, g, b, w);
+  }
+  drawTextWithOutlinePG(pg, txt, x, y, r, g, b, w) {
+    this._txtPG(pg, txt, x, y, r, g, b, w);
+  }
 
   // ── Main render entry ───────────────────────────────────────────────────
   renderAll(player, roundManager, shopManager) {

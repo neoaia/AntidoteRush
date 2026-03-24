@@ -35,7 +35,7 @@ class AudioManager {
       explosion: 0.9,
       equip: 0.7,
       level_up: 0.85,
-      pickup: 0.75,
+      pickup: 2,
       retrieve: 0.8,
       purchase: 0.7,
       round_start: 0.75,

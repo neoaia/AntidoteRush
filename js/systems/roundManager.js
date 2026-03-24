@@ -15,21 +15,18 @@ class RoundManager {
     this.spawnInterval = 2000;
     this.lastSpawnTime = 0;
 
-    // Difficulty modifiers applied in applyDifficulty()
     this.extraZombiesPerRound = 0;
     this.speedBonus = 0;
     this.baseHealthBonus = 0;
     this.hellMode = false;
 
-    // Per-difficulty config passed to every Zombie constructor so they
-    // can scale damage, attack speed, and coin drops independently.
     this.difficultyConfig = { dmgMult: 1.0, atkSpeedMult: 1.0, coinMult: 1.0 };
   }
 
-  applyDifficulty(difficulty) {
-    if (difficulty === "hard") {
-      this.extraZombiesPerRound = 4; // +4 extra per round on top of base growth
-      this.speedBonus = 0.4;
+  applyDifficulty(difficultyMode) {
+    if (difficultyMode === "hard") {
+      this.extraZombiesPerRound = 4;
+      this.speedBonus = 0.8;
       this.baseHealthBonus = 15;
       this.hellMode = false;
       this.difficultyConfig = {
@@ -37,9 +34,9 @@ class RoundManager {
         atkSpeedMult: 1.25,
         coinMult: 1.2,
       };
-    } else if (difficulty === "hell") {
-      this.extraZombiesPerRound = 10; // +10 extra per round
-      this.speedBonus = 1.0;
+    } else if (difficultyMode === "hell") {
+      this.extraZombiesPerRound = 10;
+      this.speedBonus = 1.8;
       this.baseHealthBonus = 40;
       this.hellMode = true;
       this.difficultyConfig = {
@@ -48,7 +45,8 @@ class RoundManager {
         coinMult: 1.5,
       };
     } else {
-      // easy — no changes to defaults
+      // easy
+      this.speedBonus = 0;
       this.difficultyConfig = {
         dmgMult: 1.0,
         atkSpeedMult: 1.0,
@@ -58,18 +56,16 @@ class RoundManager {
   }
 
   startRound(gameState) {
-    // Each round the base count grows: floor(6 * 1.35^(round-1)) + extraZombiesPerRound
-    let base =
+    let baseZombies =
       Math.floor(this.zombiesPerRound * Math.pow(1.35, this.currentRound - 1)) +
       this.extraZombiesPerRound;
-    this.zombiesToSpawn = base;
+    this.zombiesToSpawn = baseZombies;
     this.zombiesAlive = 0;
     this.roundActive = true;
     this.roundComplete = false;
     this.inIntermission = false;
     this.lastSpawnTime = pauseClock.now();
 
-    // Reduce spawn interval slightly each round (floors at 800 ms)
     this.spawnInterval = Math.max(800, 2000 - (this.currentRound - 1) * 60);
 
     if (gameState) gameState.tickHealthMultipliers();
@@ -97,23 +93,23 @@ class RoundManager {
     this.intermissionStartTime = pauseClock.now() - this.intermissionDuration;
   }
 
-  update(currentTime, zombies, gameState) {
+  update(currentTime, zombiesArray, gameState) {
     if (!this.roundActive) return null;
-    this.zombiesAlive = zombies.length;
+    this.zombiesAlive = zombiesArray.length;
 
-    let now = pauseClock.now();
+    let currentTimeMs = pauseClock.now();
     if (
       this.zombiesToSpawn > 0 &&
-      now - this.lastSpawnTime > this.spawnInterval
+      currentTimeMs - this.lastSpawnTime > this.spawnInterval
     ) {
-      this.lastSpawnTime = now;
+      this.lastSpawnTime = currentTimeMs;
       let clusterChance = this.getClusterChance();
       if (Math.random() * 100 < clusterChance && this.zombiesToSpawn >= 3) {
-        let size = Math.min(
+        let clusterSize = Math.min(
           Math.floor(Math.random() * 3) + 3,
           this.zombiesToSpawn,
         );
-        return this.spawnCluster(size, gameState);
+        return this.spawnCluster(clusterSize, gameState);
       } else {
         this.zombiesToSpawn--;
         return this.spawnZombie(gameState);
@@ -134,105 +130,108 @@ class RoundManager {
   }
 
   spawnCluster(clusterSize, gameState) {
-    let W = typeof WORLD_WIDTH !== "undefined" ? WORLD_WIDTH : width;
-    let H = typeof WORLD_HEIGHT !== "undefined" ? WORLD_HEIGHT : height;
-    let side = Math.floor(Math.random() * 4);
-    let bx = 0,
-      by = 0;
-    if (side === 0) {
-      bx = Math.random() * W;
-      by = -50;
-    } else if (side === 1) {
-      bx = W + 50;
-      by = Math.random() * H;
-    } else if (side === 2) {
-      bx = Math.random() * W;
-      by = H + 50;
+    let worldWidth = typeof WORLD_WIDTH !== "undefined" ? WORLD_WIDTH : width;
+    let worldHeight =
+      typeof WORLD_HEIGHT !== "undefined" ? WORLD_HEIGHT : height;
+    let spawnSide = Math.floor(Math.random() * 4);
+    let spawnX = 0,
+      spawnY = 0;
+    if (spawnSide === 0) {
+      spawnX = Math.random() * worldWidth;
+      spawnY = -50;
+    } else if (spawnSide === 1) {
+      spawnX = worldWidth + 50;
+      spawnY = Math.random() * worldHeight;
+    } else if (spawnSide === 2) {
+      spawnX = Math.random() * worldWidth;
+      spawnY = worldHeight + 50;
     } else {
-      bx = -50;
-      by = Math.random() * H;
+      spawnX = -50;
+      spawnY = Math.random() * worldHeight;
     }
 
-    let zombies = [];
+    let spawnedZombies = [];
     for (let i = 0; i < clusterSize; i++) {
-      let type = this.getZombieType();
-      let z = this.createZombie(
-        bx + (Math.random() - 0.5) * 100,
-        by + (Math.random() - 0.5) * 100,
-        type,
+      let zombieType = this.getZombieType();
+      let newZombie = this.createZombie(
+        spawnX + (Math.random() - 0.5) * 100,
+        spawnY + (Math.random() - 0.5) * 100,
+        zombieType,
         gameState,
       );
-      zombies.push(z);
+      spawnedZombies.push(newZombie);
       this.zombiesToSpawn--;
     }
-    return { type: "cluster", zombies };
+    return { type: "cluster", zombies: spawnedZombies };
   }
 
   spawnZombie(gameState) {
-    let W = typeof WORLD_WIDTH !== "undefined" ? WORLD_WIDTH : width;
-    let H = typeof WORLD_HEIGHT !== "undefined" ? WORLD_HEIGHT : height;
-    let side = Math.floor(Math.random() * 4);
-    let sx = 0,
-      sy = 0;
-    if (side === 0) {
-      sx = Math.random() * W;
-      sy = -50;
-    } else if (side === 1) {
-      sx = W + 50;
-      sy = Math.random() * H;
-    } else if (side === 2) {
-      sx = Math.random() * W;
-      sy = H + 50;
+    let worldWidth = typeof WORLD_WIDTH !== "undefined" ? WORLD_WIDTH : width;
+    let worldHeight =
+      typeof WORLD_HEIGHT !== "undefined" ? WORLD_HEIGHT : height;
+    let spawnSide = Math.floor(Math.random() * 4);
+    let spawnX = 0,
+      spawnY = 0;
+    if (spawnSide === 0) {
+      spawnX = Math.random() * worldWidth;
+      spawnY = -50;
+    } else if (spawnSide === 1) {
+      spawnX = worldWidth + 50;
+      spawnY = Math.random() * worldHeight;
+    } else if (spawnSide === 2) {
+      spawnX = Math.random() * worldWidth;
+      spawnY = worldHeight + 50;
     } else {
-      sx = -50;
-      sy = Math.random() * H;
+      spawnX = -50;
+      spawnY = Math.random() * worldHeight;
     }
-    return this.createZombie(sx, sy, this.getZombieType(), gameState);
+    return this.createZombie(spawnX, spawnY, this.getZombieType(), gameState);
   }
 
-  createZombie(x, y, type, gameState) {
-    if (gameState) gameState.introduceZombieType(type);
-    let mult = gameState ? gameState.zombieHealthMultipliers[type] : 1.0;
-    let z = new Zombie(
-      x,
-      y,
-      type,
-      mult,
+  createZombie(xPosition, yPosition, zombieType, gameState) {
+    if (gameState) gameState.introduceZombieType(zombieType);
+    let healthMultiplier = gameState
+      ? gameState.zombieHealthMultipliers[zombieType]
+      : 1.0;
+    let newZombie = new Zombie(
+      xPosition,
+      yPosition,
+      zombieType,
+      healthMultiplier,
       this.speedBonus,
       this.baseHealthBonus,
-      this.difficultyConfig, // <-- new param
+      this.difficultyConfig,
     );
-    z.initSprite(gameState);
-    z.applyRoundScaling(this.currentRound);
-    return z;
+    newZombie.initSprite(gameState);
+    newZombie.applyRoundScaling(this.currentRound);
+    return newZombie;
   }
 
   getZombieType() {
-    let rand = Math.random() * 100;
+    let randomChance = Math.random() * 100;
     if (this.hellMode) {
-      if (this.currentRound < 2) return rand < 50 ? "normal" : "witch";
+      if (this.currentRound < 2) return randomChance < 50 ? "normal" : "witch";
       if (this.currentRound < 4) {
-        if (rand < 25) return "normal";
-        if (rand < 55) return "witch";
+        if (randomChance < 25) return "normal";
+        if (randomChance < 55) return "witch";
         return "crawler";
       }
-      if (rand < 15) return "normal";
-      if (rand < 35) return "witch";
-      if (rand < 65) return "crawler";
+      if (randomChance < 15) return "normal";
+      if (randomChance < 35) return "witch";
+      if (randomChance < 65) return "crawler";
       return "slasher";
     }
 
-    // Easy / Hard
     if (this.currentRound < 3) return "normal";
-    if (this.currentRound < 5) return rand < 70 ? "normal" : "witch";
+    if (this.currentRound < 5) return randomChance < 70 ? "normal" : "witch";
     if (this.currentRound < 8) {
-      if (rand < 50) return "normal";
-      if (rand < 80) return "witch";
+      if (randomChance < 50) return "normal";
+      if (randomChance < 80) return "witch";
       return "crawler";
     }
-    if (rand < 30) return "normal";
-    if (rand < 55) return "witch";
-    if (rand < 80) return "crawler";
+    if (randomChance < 30) return "normal";
+    if (randomChance < 55) return "witch";
+    if (randomChance < 80) return "crawler";
     return "slasher";
   }
 
@@ -245,6 +244,5 @@ class RoundManager {
     this.currentRound++;
     this.roundComplete = false;
     this.inIntermission = false;
-    // zombiesPerRound stays as the base seed; startRound() handles exponential growth
   }
 }
