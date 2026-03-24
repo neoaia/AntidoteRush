@@ -748,67 +748,59 @@
 
         // ── Leaderboard Logic ────────────────────────────────────────────
         var lbCurrentDiff = 'easy';
+        var lbCache = {}; // Cache fetched data per tab
 
-        function switchLbTab(diff) {
+        async function switchLbTab(diff) {
             lbCurrentDiff = diff;
             document.querySelectorAll('.lb-tab').forEach(function (b) {
                 b.classList.remove('selected');
             });
             document.getElementById('tab-' + diff).classList.add('selected');
-            updateLeaderboardTable();
+            await updateLeaderboardTable();
         }
 
-        function updateLeaderboardTable() {
+        async function updateLeaderboardTable() {
             var tbody = document.getElementById('leaderboard-body');
-            tbody.innerHTML = '';
+            tbody.innerHTML = '<tr><td colspan="6" style="padding:2rem;">LOADING...</td></tr>';
 
-            var lbData = [];
             try {
-                var stored = localStorage.getItem('leaderboard');
-                if (stored) {
-                    lbData = JSON.parse(stored);
+                // Use cache if available
+                if (!lbCache[lbCurrentDiff]) {
+                    lbCache[lbCurrentDiff] = await supabaseClient.fetchLeaderboard(lbCurrentDiff);
                 }
+                var data = lbCache[lbCurrentDiff];
+
+                if (!data || data.length === 0) {
+                    tbody.innerHTML = '<tr><td colspan="6" style="padding:2rem;">NO RECORDS YET</td></tr>';
+                    return;
+                }
+
+                tbody.innerHTML = '';
+                data.forEach(function (entry, index) {
+                    var rankColor = index === 0 ? '#d4af37' : index === 1 ? '#808080' : index === 2 ? '#cd7f32' : '#000';
+                    var tr = document.createElement('tr');
+                    tr.style.color = rankColor;
+                    tr.style.fontWeight = index < 3 ? 'bold' : 'normal';
+                    tr.innerHTML =
+                        '<td>' + (index + 1) + '</td>' +
+                        '<td>' + (entry.name || '???') + '</td>' +
+                        '<td>' + (entry.round || 0) + '</td>' +
+                        '<td>' + (entry.level || 1) + '</td>' +
+                        '<td>' + (entry.zombies_killed || 0) + '</td>' +  // note: snake_case from DB
+                        '<td>' + (entry.score || 0) + '</td>';
+                    tbody.appendChild(tr);
+                });
             } catch (e) {
-                console.error("Error parsing leaderboard data", e);
+                console.error("Leaderboard load error:", e);
+                tbody.innerHTML = '<tr><td colspan="6" style="padding:2rem;">FAILED TO LOAD</td></tr>';
             }
+        }
 
-            var filteredData = lbData.filter(function (entry) {
-                var diff = entry.difficulty || 'easy';
-                return diff === lbCurrentDiff;
-            });
-
-            if (filteredData.length === 0) {
-                tbody.innerHTML = '<tr><td colspan="6" style="padding: 2rem;">NO RECORDS FOUND</td></tr>';
-                return;
-            }
-
-            filteredData.sort(function (a, b) {
-                if (b.score !== a.score) return b.score - a.score;
-                return b.round - a.round;
-            });
-
-            var displayLimit = filteredData.slice(0, 50);
-
-            displayLimit.forEach(function (entry, index) {
-                var rankColor = '#000';
-
-                if (index === 0) rankColor = '#d4af37';      // Gold
-                else if (index === 1) rankColor = '#808080'; // Silver
-                else if (index === 2) rankColor = '#cd7f32'; // Bronze
-
-                var tr = document.createElement('tr');
-                tr.style.color = rankColor;
-                tr.style.fontWeight = (index < 3) ? 'bold' : 'normal';
-
-                tr.innerHTML =
-                    '<td>' + (index + 1) + '</td>' +
-                    '<td>' + (entry.name || '???') + '</td>' +
-                    '<td>' + (entry.round || 0) + '</td>' +
-                    '<td>' + (entry.level || 1) + '</td>' +
-                    '<td>' + (entry.zombiesKilled || 0) + '</td>' +
-                    '<td>' + (entry.score || 0) + '</td>';
-                tbody.appendChild(tr);
-            });
+        // Clear cache when opening so data is fresh
+        function openLeaderboard() {
+            lbCache = {};
+            switchLbTab(lbCurrentDiff);
+            modalLeaderboard.classList.add('active');
         }
 
         // ── Menu BGM ─────────────────────────────────────────────────────
@@ -827,7 +819,7 @@
             document.addEventListener('touchstart', unlock);
         });
     </script>
-
+    <script src="../js/systems/supabaseClient.js"></script>
 </body>
 
 </html>
