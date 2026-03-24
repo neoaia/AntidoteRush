@@ -1,7 +1,7 @@
 class RoundManager {
   constructor() {
     this.currentRound = 1;
-    this.zombiesPerRound = 5;
+    this.zombiesPerRound = 6; // base count for round 1
     this.zombiesToSpawn = this.zombiesPerRound;
     this.zombiesAlive = 0;
     this.roundActive = false;
@@ -15,34 +15,63 @@ class RoundManager {
     this.spawnInterval = 2000;
     this.lastSpawnTime = 0;
 
+    // Difficulty modifiers applied in applyDifficulty()
     this.extraZombiesPerRound = 0;
     this.speedBonus = 0;
     this.baseHealthBonus = 0;
     this.hellMode = false;
+
+    // Per-difficulty config passed to every Zombie constructor so they
+    // can scale damage, attack speed, and coin drops independently.
+    this.difficultyConfig = { dmgMult: 1.0, atkSpeedMult: 1.0, coinMult: 1.0 };
   }
 
   applyDifficulty(difficulty) {
     if (difficulty === "hard") {
-      this.extraZombiesPerRound = 10;
-      this.speedBonus = 0.5;
-      this.baseHealthBonus = 0;
+      this.extraZombiesPerRound = 4; // +4 extra per round on top of base growth
+      this.speedBonus = 0.4;
+      this.baseHealthBonus = 15;
       this.hellMode = false;
+      this.difficultyConfig = {
+        dmgMult: 1.3,
+        atkSpeedMult: 1.25,
+        coinMult: 1.2,
+      };
     } else if (difficulty === "hell") {
-      this.extraZombiesPerRound = 20;
-      this.speedBonus = 1.5;
-      this.baseHealthBonus = 20;
+      this.extraZombiesPerRound = 10; // +10 extra per round
+      this.speedBonus = 1.0;
+      this.baseHealthBonus = 40;
       this.hellMode = true;
+      this.difficultyConfig = {
+        dmgMult: 1.8,
+        atkSpeedMult: 1.6,
+        coinMult: 1.5,
+      };
+    } else {
+      // easy — no changes to defaults
+      this.difficultyConfig = {
+        dmgMult: 1.0,
+        atkSpeedMult: 1.0,
+        coinMult: 1.0,
+      };
     }
   }
 
   startRound(gameState) {
-    let base = this.zombiesPerRound + this.extraZombiesPerRound;
+    // Each round the base count grows: floor(6 * 1.35^(round-1)) + extraZombiesPerRound
+    let base =
+      Math.floor(this.zombiesPerRound * Math.pow(1.35, this.currentRound - 1)) +
+      this.extraZombiesPerRound;
     this.zombiesToSpawn = base;
     this.zombiesAlive = 0;
     this.roundActive = true;
     this.roundComplete = false;
     this.inIntermission = false;
     this.lastSpawnTime = pauseClock.now();
+
+    // Reduce spawn interval slightly each round (floors at 800 ms)
+    this.spawnInterval = Math.max(800, 2000 - (this.currentRound - 1) * 60);
+
     if (gameState) gameState.tickHealthMultipliers();
   }
 
@@ -98,10 +127,10 @@ class RoundManager {
 
   getClusterChance() {
     if (this.currentRound <= 2) return 0;
-    if (this.currentRound <= 5) return 10;
-    if (this.currentRound <= 10) return 25;
-    if (this.currentRound <= 15) return 40;
-    return 60;
+    if (this.currentRound <= 5) return 15;
+    if (this.currentRound <= 10) return 30;
+    if (this.currentRound <= 15) return 45;
+    return 65;
   }
 
   spawnCluster(clusterSize, gameState) {
@@ -164,12 +193,17 @@ class RoundManager {
   createZombie(x, y, type, gameState) {
     if (gameState) gameState.introduceZombieType(type);
     let mult = gameState ? gameState.zombieHealthMultipliers[type] : 1.0;
-    let z = new Zombie(x, y, type, mult, this.speedBonus, this.baseHealthBonus);
+    let z = new Zombie(
+      x,
+      y,
+      type,
+      mult,
+      this.speedBonus,
+      this.baseHealthBonus,
+      this.difficultyConfig, // <-- new param
+    );
     z.initSprite(gameState);
-
-    // Apply round-based damage scaling for special types
     z.applyRoundScaling(this.currentRound);
-
     return z;
   }
 
@@ -178,15 +212,17 @@ class RoundManager {
     if (this.hellMode) {
       if (this.currentRound < 2) return rand < 50 ? "normal" : "witch";
       if (this.currentRound < 4) {
-        if (rand < 30) return "normal";
-        if (rand < 60) return "witch";
+        if (rand < 25) return "normal";
+        if (rand < 55) return "witch";
         return "crawler";
       }
-      if (rand < 20) return "normal";
-      if (rand < 40) return "witch";
+      if (rand < 15) return "normal";
+      if (rand < 35) return "witch";
       if (rand < 65) return "crawler";
       return "slasher";
     }
+
+    // Easy / Hard
     if (this.currentRound < 3) return "normal";
     if (this.currentRound < 5) return rand < 70 ? "normal" : "witch";
     if (this.currentRound < 8) {
@@ -207,8 +243,8 @@ class RoundManager {
 
   nextRound() {
     this.currentRound++;
-    this.zombiesPerRound = Math.floor(this.zombiesPerRound * 1.5);
     this.roundComplete = false;
     this.inIntermission = false;
+    // zombiesPerRound stays as the base seed; startRound() handles exponential growth
   }
 }

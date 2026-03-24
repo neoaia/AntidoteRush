@@ -6,11 +6,19 @@ class Zombie {
     healthMultiplier = 1.0,
     speedBonus = 0,
     baseHealthBonus = 0,
+    difficultyConfig = null,
   ) {
     this.x = x;
     this.y = y;
     this.type = type;
     this.active = true;
+
+    // difficultyConfig carries per-difficulty stat modifiers set by RoundManager
+    const dc = difficultyConfig || {
+      dmgMult: 1.0,
+      atkSpeedMult: 1.0,
+      coinMult: 1.0,
+    };
 
     if (type === "normal") {
       this.size = 20;
@@ -18,19 +26,20 @@ class Zombie {
       this.hitH = 32;
       this.speed = 1 + speedBonus;
       this.baseHealth = 50 + baseHealthBonus;
-      this.damage = 10;
+      this.damage = Math.round(10 * dc.dmgMult);
       this.color = "#00FF00";
-      this.coins = 2;
+      this.coinMin = Math.round(1 * dc.coinMult);
+      this.coinMax = Math.round(3 * dc.coinMult);
       this.exp = 10;
       this.spriteKey = "zombie_normal";
       this.spriteFrames = 3;
       this.stoppingDistance = 18;
       this.attackRange = 52;
       this.knockback = 4;
-      this.attackWindupDuration = 300;
-      this.attackStopDuration = 500;
+      this.attackWindupDuration = Math.round(300 / dc.atkSpeedMult);
+      this.attackStopDuration = Math.round(500 / dc.atkSpeedMult);
       this.attackTiltAmount = 0.35;
-      this.attackCooldown = 1000;
+      this.attackCooldown = Math.round(1000 / dc.atkSpeedMult);
       this.isRanged = false;
     } else if (type === "witch") {
       this.size = 22;
@@ -38,9 +47,10 @@ class Zombie {
       this.hitH = 36;
       this.speed = 1.2 + speedBonus;
       this.baseHealth = 75 + baseHealthBonus;
-      this.damage = 12;
+      this.damage = Math.round(12 * dc.dmgMult);
       this.color = "#FF00FF";
-      this.coins = 4;
+      this.coinMin = Math.round(2 * dc.coinMult);
+      this.coinMax = Math.round(5 * dc.coinMult);
       this.exp = 15;
       this.spriteKey = "zombie_witch";
       this.spriteFrames = 3;
@@ -48,8 +58,8 @@ class Zombie {
       this.isRanged = true;
       this.preferredRange = 200;
       this.preferredRangeSlack = 30;
-      this.projectileDamage = 8;
-      this.attackCooldown = 1800;
+      this.projectileDamage = Math.round(8 * dc.dmgMult);
+      this.attackCooldown = Math.round(1800 / dc.atkSpeedMult);
       this.lastAttackTime = 0;
       this._witchState = "approach";
       this._pendingShot = false;
@@ -59,50 +69,50 @@ class Zombie {
       this.hitH = 28;
       this.speed = 2 + speedBonus;
       this.baseHealth = 60 + baseHealthBonus;
-      this.damage = 20;
+      this.damage = Math.round(20 * dc.dmgMult);
       this.color = "#FFFF00";
-      this.coins = 6;
+      this.coinMin = Math.round(3 * dc.coinMult);
+      this.coinMax = Math.round(7 * dc.coinMult);
       this.exp = 20;
       this.spriteKey = "zombie_crawler";
       this.spriteFrames = 3;
       this.stoppingDistance = 14;
       this.attackRange = 46;
       this.knockback = 6;
-      this.attackWindupDuration = 180;
-      this.attackStopDuration = 350;
+      this.attackWindupDuration = Math.round(180 / dc.atkSpeedMult);
+      this.attackStopDuration = Math.round(350 / dc.atkSpeedMult);
       this.attackTiltAmount = 0.5;
-      this.attackCooldown = 800;
+      this.attackCooldown = Math.round(800 / dc.atkSpeedMult);
       this.isRanged = false;
 
       // ── Crawler explosion config ────────────────────────────────────────
       this.explodes = true;
       this.explosionRadius = 90;
-      this.explosionPlayerDamage = 35;
+      this.explosionPlayerDamage = Math.round(35 * dc.dmgMult);
       this.explosionZombieDamage = 20;
-      // Two-phase: indicator shows for this long before the blast fires
-      this.explosionIndicatorDuration = 1000; // ms
-      this._explodePhase = "none"; // "none" | "indicator" | "done"
+      this.explosionIndicatorDuration = 1000;
+      this._explodePhase = "none";
       this._explodeStart = 0;
-      // ─────────────────────────────────────────────────────────────────
     } else if (type === "slasher") {
       this.size = 32;
       this.hitW = 34;
       this.hitH = 52;
       this.speed = 2.7 + speedBonus;
       this.baseHealth = 200 + baseHealthBonus;
-      this.damage = 25;
+      this.damage = Math.round(25 * dc.dmgMult);
       this.color = "#FF0000";
-      this.coins = 10;
+      this.coinMin = Math.round(5 * dc.coinMult);
+      this.coinMax = Math.round(12 * dc.coinMult);
       this.exp = 25;
       this.spriteKey = "zombie_slasher";
       this.spriteFrames = 3;
       this.stoppingDistance = 28;
       this.attackRange = 72;
       this.knockback = 10;
-      this.attackWindupDuration = 400;
-      this.attackStopDuration = 600;
+      this.attackWindupDuration = Math.round(400 / dc.atkSpeedMult);
+      this.attackStopDuration = Math.round(600 / dc.atkSpeedMult);
       this.attackTiltAmount = 0.55;
-      this.attackCooldown = 1200;
+      this.attackCooldown = Math.round(1200 / dc.atkSpeedMult);
       this.isRanged = false;
     } else if (type === "tank") {
       this.size = 60;
@@ -110,21 +120,27 @@ class Zombie {
       this.hitH = 80;
       this.speed = 4 + speedBonus;
       this.baseHealth = 1500 + baseHealthBonus;
-      this.damage = 50;
+      this.damage = Math.round(50 * dc.dmgMult);
       this.color = "#8B0000";
-      this.coins = 20;
+      this.coinMin = Math.round(10 * dc.coinMult);
+      this.coinMax = Math.round(25 * dc.coinMult);
       this.exp = 50;
       this.spriteKey = null;
       this.spriteFrames = 4;
       this.stoppingDistance = 50;
       this.attackRange = 95;
       this.knockback = 18;
-      this.attackWindupDuration = 500;
-      this.attackStopDuration = 800;
+      this.attackWindupDuration = Math.round(500 / dc.atkSpeedMult);
+      this.attackStopDuration = Math.round(800 / dc.atkSpeedMult);
       this.attackTiltAmount = 0.6;
-      this.attackCooldown = 1500;
+      this.attackCooldown = Math.round(1500 / dc.atkSpeedMult);
       this.isRanged = false;
     }
+
+    // Randomise coin reward once on construction
+    this.coins = Math.floor(
+      this.coinMin + Math.random() * (this.coinMax - this.coinMin + 1),
+    );
 
     this.health = Math.floor(this.baseHealth * healthMultiplier);
     this.maxHealth = this.health;
@@ -151,7 +167,8 @@ class Zombie {
   }
 
   applyRoundScaling(round) {
-    let scale = 1 + Math.floor((round - 1) / 3) * 0.1;
+    // Scale every 2 rounds instead of every 3, and 15% per tier instead of 10%
+    let scale = 1 + Math.floor((round - 1) / 2) * 0.15;
     if (this.type === "witch" && this.projectileDamage !== undefined)
       this.projectileDamage = Math.floor(this.projectileDamage * scale);
     if (this.type === "crawler" && this.explodes) {
@@ -185,7 +202,6 @@ class Zombie {
   update(playerX, playerY) {
     let now = pauseClock.now();
 
-    // Knockback
     this.x += this._zkbX;
     this.y += this._zkbY;
     this._zkbX *= this._zkbDecay;
@@ -300,13 +316,11 @@ class Zombie {
   }
 
   // ── Crawler two-phase explosion ───────────────────────────────────────────
-  // Returns "indicator" while showing warning, "explode" when ready to blast, "none" otherwise
   updateExplosion() {
     if (!this.explodes) return "none";
     let now = pauseClock.now();
 
     if (this._explodePhase === "none" && !this.active) {
-      // Just died — start indicator phase
       this._explodePhase = "indicator";
       this._explodeStart = now;
       return "indicator";
@@ -316,15 +330,13 @@ class Zombie {
       let elapsed = now - this._explodeStart;
       if (elapsed >= this.explosionIndicatorDuration) {
         this._explodePhase = "done";
-        return "explode"; // signal to zombieManager to run the blast
+        return "explode";
       }
       return "indicator";
     }
-
     return "none";
   }
 
-  // Returns 0..1 indicator progress for drawing
   explosionIndicatorProgress() {
     if (this._explodePhase !== "indicator") return 0;
     return Math.min(
@@ -382,32 +394,27 @@ class Zombie {
     this.displayHealthBar();
   }
 
-  // Draw explosion indicator (called by zombieManager while phase === "indicator")
   displayExplosionIndicator() {
     let progress = this.explosionIndicatorProgress();
     let r = this.explosionRadius;
 
-    // Pulsing fill
     let pulse = 0.5 + 0.5 * Math.sin(progress * Math.PI * 6);
     noStroke();
     fill(255, 60, 30, 40 + pulse * 40);
     circle(this.x, this.y, r * 2);
 
-    // Expanding ring
     let ringR = r * (0.5 + progress * 0.5);
     noFill();
     stroke(255, 80, 30, 200 - progress * 120);
     strokeWeight(3);
     circle(this.x, this.y, ringR * 2);
 
-    // Dashed outer boundary
     stroke(255, 60, 30, 160);
     strokeWeight(1.5);
     drawingContext.setLineDash([8, 6]);
     circle(this.x, this.y, r * 2);
     drawingContext.setLineDash([]);
 
-    // Progress bar ring — grows as countdown fills
     noFill();
     stroke(255, 200, 60, 220);
     strokeWeight(4);
@@ -443,18 +450,12 @@ class Zombie {
     if (this.health <= 0) {
       this.health = 0;
       this.active = false;
-
-      // Dead: skip generic dead.wav when killed by knife
-      if (typeof audioManager !== "undefined") {
+      if (typeof audioManager !== "undefined")
         audioManager.playZombieDead(this.type, isMelee);
-      }
     } else {
       this.spriteState.flash();
-
-      // Hurt: skip generic hurt.wav when damaged by knife
-      if (typeof audioManager !== "undefined") {
+      if (typeof audioManager !== "undefined")
         audioManager.playZombieHurt(this.type, isMelee);
-      }
     }
 
     if (gs) {

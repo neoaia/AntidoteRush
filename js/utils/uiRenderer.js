@@ -1364,8 +1364,10 @@ class UIRenderer {
   // ── World-space overlays (drawn in world coords) ────────────────────────
 
   drawAntidoteIndicator(player) {
+    // Bobbing antidote icon above the player's head
     const bob = Math.sin(pauseClock.now() * 0.004) * 4;
     const iconY = player.y - player.size / 2 - 30 + bob;
+
     if (typeof spriteManager !== "undefined") {
       const sheet = spriteManager.get("antidote");
       if (sheet && sheet.img) {
@@ -1385,48 +1387,46 @@ class UIRenderer {
           sheet.frameH,
         );
         pop();
-        return;
+      } else {
+        // Fallback circle
+        fill(0, 255, 0);
+        stroke(0);
+        strokeWeight(2);
+        circle(player.x, player.y - player.size / 2 - 20, 20);
+        fill(255);
+        noStroke();
+        textSize(18);
+        textAlign(CENTER, CENTER);
+        text("+", player.x, player.y - player.size / 2 - 20);
       }
     }
-    fill(0, 255, 0);
-    stroke(0);
-    strokeWeight(2);
-    circle(player.x, player.y - player.size / 2 - 20, 20);
-    fill(255);
-    noStroke();
-    textSize(18);
-    textAlign(CENTER, CENTER);
-    text("+", player.x, player.y - player.size / 2 - 20);
-  }
 
-  _drawAntidoteReturnHint() {
-    const now = pauseClock.now();
-    // Gentle pulse: oscillates between 0.6 and 1.0 opacity over ~1.2 s
-    const pulse = 0.6 + 0.4 * Math.abs(Math.sin(now * 0.003));
+    // Blinking "RETURN TO BASE" drawn in world-space directly below the player.
+    // 600 ms on / 400 ms off — noticeable without being distracting.
+    const blinkPeriod = 1000;
+    const blinkOn = pauseClock.now() % blinkPeriod < 600;
+    if (!blinkOn) return;
 
     const msg = "RETURN TO BASE";
-    const ts = 22;
-    const padX = 28,
-      padY = 14;
+    const ts = 14;
+    const belowY = player.y + player.size / 2 + 26;
 
+    push();
     textSize(ts);
-    textAlign(CENTER, TOP);
+    textAlign(CENTER, CENTER);
 
-    const tw = textWidth(msg);
-    const bw = tw + padX * 2;
-    const bh = ts + padY * 2;
-    const bx = width / 2 - bw / 2;
-    const by = 14; // just below the top edge
-
-    // Background panel (same plain wood style as the rest of the HUD)
-    this._drawPlainPixelWoodPanel(bx, by, bw, bh);
-
-    // Pulsing tint: interpolate between white (255,255,255) and green (80,230,80)
-    const r = Math.round(80 + 175 * pulse);
-    const g = Math.round(230 - 40 * pulse);
-    const b = Math.round(80 + 175 * pulse);
-
-    this.drawTextWithOutline(msg, width / 2, by + padY, r, g, b, 2);
+    // Drop-shadow / outline for readability over the grass
+    fill(0, 0, 0, 200);
+    for (let ox = -2; ox <= 2; ox++) {
+      for (let oy = -2; oy <= 2; oy++) {
+        if (ox === 0 && oy === 0) continue;
+        text(msg, player.x + ox, belowY + oy);
+      }
+    }
+    // Bright green main text
+    fill(80, 235, 80);
+    text(msg, player.x, belowY);
+    pop();
   }
 
   drawMeleeSlash(player) {
@@ -2077,13 +2077,28 @@ class UIRenderer {
       textSize(18);
       textAlign(LEFT, BOTTOM);
       this.drawTextWithOutline(
-        "LV. " + stat.purchased,
+        "LV. " +
+          stat.purchased +
+          (shopManager.isMaxLevel(keys[i]) ? " (MAX)" : ""),
         btn.cardX + 18,
         btn.cardY + btn.cardH - 12,
         255,
         255,
         255,
         2,
+      );
+
+      // Description text
+      textSize(18);
+      textAlign(LEFT, CENTER);
+      this.drawTextWithOutline(
+        stat.description,
+        btn.cardX + 18,
+        btn.cardY + 46,
+        220,
+        200,
+        160,
+        1,
       );
 
       const hover =
@@ -2186,7 +2201,6 @@ class UIRenderer {
     this.drawRoundInfo(roundManager);
     this.drawMinimap(player, roundManager);
     this.updateAndDrawRoundStart();
-    if (this.gameState.playerHasAntidote) this._drawAntidoteReturnHint();
     if (this._shopOpen) this.drawShop(roundManager, shopManager, player);
   }
 }

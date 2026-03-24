@@ -1,3 +1,8 @@
+// ── Speed caps ────────────────────────────────────────────────────────────────
+// These mirror the caps in ShopManager so both sides agree on the ceiling.
+const PLAYER_BASE_SPEED_CAP = 2.6;
+const PLAYER_SPRINT_SPEED_CAP = PLAYER_BASE_SPEED_CAP * 2; // 5.2
+
 class Player {
   constructor(x, y) {
     this.x = x;
@@ -135,6 +140,11 @@ class Player {
     this.isSprinting = shiftHeld && !this._sprintLocked && this.stamina > 0;
 
     let now = pauseClock.now();
+
+    // ── Enforce hard speed caps ───────────────────────────────────────────
+    this.baseSpeed = Math.min(this.baseSpeed, PLAYER_BASE_SPEED_CAP);
+    this.sprintSpeed = Math.min(this.sprintSpeed, PLAYER_SPRINT_SPEED_CAP);
+
     let baseSpd = this.isSprinting ? this.sprintSpeed : this.baseSpeed;
 
     if (now < this._witchSlowUntil) {
@@ -280,12 +290,10 @@ class Player {
   }
 
   display() {
-    // Shadow
     noStroke();
     fill(0, 0, 0, 80);
     ellipse(this.x, this.y + 24, 32, 10);
 
-    // Use walk sprite when moving, idle/bounce sprite when still
     let activeSheet =
       this._isMoving && this.walkSpriteSheet
         ? this.walkSpriteSheet
@@ -435,16 +443,12 @@ class Player {
 
   switchWeapon(weaponKey) {
     let prev = this.currentWeapon;
-
     if (weaponKey === "1") this.currentWeapon = "melee";
     else if (weaponKey === "2") this.currentWeapon = "handgun";
     else if (weaponKey === "3" && this.weapons.equipped !== null)
       this.currentWeapon = "equipped";
-
-    // Only play equip sound if the weapon actually changed
-    if (this.currentWeapon !== prev && typeof audioManager !== "undefined") {
+    if (this.currentWeapon !== prev && typeof audioManager !== "undefined")
       audioManager.playEquip();
-    }
   }
 
   canShoot() {
@@ -508,9 +512,6 @@ Player.prototype.cycleEquippedWeapon = function (direction) {
   if (slots[idx] === "equipped" && this.weapons.equipped === null)
     idx = (idx + direction + slots.length) % slots.length;
   this.currentWeapon = slots[idx];
-
-  // Only play equip sound if the weapon actually changed
-  if (this.currentWeapon !== prev && typeof audioManager !== "undefined") {
+  if (this.currentWeapon !== prev && typeof audioManager !== "undefined")
     audioManager.playEquip();
-  }
 };
