@@ -20,12 +20,23 @@ class UIRenderer {
     this._roundStartDiff = "easy";
 
     // ── Pause system ──────────────────────────────────────────────────────
-    this._pauseView = "main"; // "main" | "volume"
+    this._pauseView = "main";
     this._hoveredBtn = null;
     this._pauseBtnRects = {};
     this._pauseVolRects = {};
     this._sliderRects = {};
     this._volumeDragging = null;
+
+    // ── Game Over panel ───────────────────────────────────────────────────
+    // Phases: "off" | "waiting" | "sliding" | "visible"
+    this._goPhase = "off";
+    this._goDeathTime = 0; // real millis() when player died
+    this._goDelay = 2000; // ms of clean-screen pause before panel appears
+    this._goSlideStart = 0; // millis() when slide began
+    this._goSlideDur = 700; // ms for panel to slide in
+    this._goPanelY = 0; // current rendered top-y of the panel
+    this._goBtnRects = {}; // clickable button regions
+    this._goStats = null; // snapshot of stats at death moment
   }
 
   openShop() {
@@ -40,14 +51,255 @@ class UIRenderer {
     return this._shopOpen;
   }
 
-  // ── Called from game.js when pausing ─────────────────────────────────────
   onPause() {
     this._pauseView = "main";
     this._hoveredBtn = null;
     this._volumeDragging = null;
   }
 
-  // ── Pause interaction (called from game.js) ───────────────────────────────
+  // ── Called by game.js immediately on death ────────────────────────────
+  startGameOverSequence(player, roundManager, gameState) {
+    this._goPhase = "waiting";
+    this._goDeathTime = millis();
+    // Snapshot stats at this exact moment
+    this._goStats = {
+      name: gameState.playerName || "???",
+      round: roundManager.currentRound,
+      score: gameState.score || 0,
+      level: gameState.level || 1,
+      zombiesKilled: gameState.zombiesKilled || 0,
+      coins: gameState.coins || 0,
+    };
+    // Also persist to localStorage for the html game-over page if needed
+    localStorage.setItem("lastRound", this._goStats.round);
+    localStorage.setItem("lastScore", this._goStats.score);
+    localStorage.setItem("lastCoins", this._goStats.coins);
+  }
+
+  // ── Called every draw() frame when gameState.gameOver is true ─────────
+  drawGameOverScreen(player, roundManager, gameState) {
+    let now = millis();
+
+    if (this._goPhase === "waiting") {
+      if (now - this._goDeathTime >= this._goDelay) {
+        this._goPhase = "sliding";
+        this._goSlideStart = now;
+      }
+      return;
+    }
+
+    if (this._goPhase === "sliding" || this._goPhase === "visible") {
+      let panelW = min(520, width - 60);
+      let panelH = 420;
+      let panelX = width / 2 - panelW / 2;
+      let panelFinalY = height / 2 - panelH / 2;
+
+      let panelY;
+      if (this._goPhase === "sliding") {
+        let elapsed = now - this._goSlideStart;
+        let t = min(elapsed / this._goSlideDur, 1);
+        let e = 1 - Math.pow(1 - t, 3);
+        panelY = -panelH + e * (panelFinalY + panelH);
+        if (t >= 1) {
+          this._goPhase = "visible";
+          panelY = panelFinalY;
+        }
+      } else {
+        panelY = panelFinalY;
+      }
+
+      this._goPanelY = panelY;
+
+      noStroke();
+      fill(0, 0, 0, 160);
+      rect(0, 0, width, height);
+
+      this._drawPixelWoodPanel(panelX, panelY, panelW, panelH);
+
+      let titleY = panelY + 38;
+      textSize(28);
+      textAlign(CENTER, CENTER);
+      this.drawTextWithOutline(
+        "GAME OVER",
+        width / 2,
+        titleY,
+        255,
+        255,
+        255,
+        3,
+      );
+
+      noStroke();
+      fill(0, 0, 0, 80);
+      rect(panelX + 16, panelY + 56, panelW - 32, 3);
+
+      let stats = this._goStats || {};
+      let statRows = [
+        { label: "PLAYER", value: stats.name || "???" },
+        { label: "ROUND REACHED", value: "" + (stats.round || 1) },
+        { label: "SCORE", value: "" + (stats.score || 0) },
+        { label: "LEVEL", value: "" + (stats.level || 1) },
+        { label: "ZOMBIES KILLED", value: "" + (stats.zombiesKilled || 0) },
+      ];
+
+      let rowStartY = panelY + 76;
+      let rowH = 38;
+      for (let i = 0; i < statRows.length; i++) {
+        let row = statRows[i];
+        let rowY = rowStartY + i * rowH + rowH / 2;
+
+        textSize(9);
+        textAlign(LEFT, CENTER);
+        this.drawTextWithOutline(
+          row.label,
+          panelX + 28,
+          rowY,
+          255,
+          255,
+          255,
+          1,
+        );
+
+        textSize(12);
+        textAlign(RIGHT, CENTER);
+        this.drawTextWithOutline(
+          row.value,
+          panelX + panelW - 28,
+          rowY,
+          255,
+          255,
+          255,
+          1,
+        );
+
+        if (i < statRows.length - 1) {
+          noStroke();
+          fill(0, 0, 0, 40);
+          rect(panelX + 20, rowY + rowH / 2, panelW - 40, 2);
+        }
+      }
+
+      let btnY = panelY + panelH - 88;
+      let btnH = 52;
+      let btnGap = 16;
+      let btnW = (panelW - 56 - btnGap) / 2;
+      let btn1X = panelX + 28;
+      let btn2X = btn1X + btnW + btnGap;
+
+      this._goBtnRects = {
+        playAgain: { x: btn1X, y: btnY, w: btnW, h: btnH },
+        title: { x: btn2X, y: btnY, w: btnW, h: btnH },
+      };
+
+      if (this._goPhase === "visible") {
+        this._drawPixelWoodPanel(btn1X, btnY, btnW, btnH);
+        let h1 =
+          mouseX >= btn1X &&
+          mouseX <= btn1X + btnW &&
+          mouseY >= btnY &&
+          mouseY <= btnY + btnH;
+        if (h1) {
+          noStroke();
+          fill(255, 255, 255, 40);
+          rect(btn1X + 3, btnY + 3, btnW - 6, btnH - 6);
+        }
+        textSize(10);
+        textAlign(CENTER, CENTER);
+        this.drawTextWithOutline(
+          "PLAY AGAIN",
+          btn1X + btnW / 2,
+          btnY + btnH / 2,
+          255,
+          255,
+          255,
+          2,
+        );
+
+        this._drawPixelWoodPanel(btn2X, btnY, btnW, btnH);
+        let h2 =
+          mouseX >= btn2X &&
+          mouseX <= btn2X + btnW &&
+          mouseY >= btnY &&
+          mouseY <= btnY + btnH;
+        if (h2) {
+          noStroke();
+          fill(255, 255, 255, 40);
+          rect(btn2X + 3, btnY + 3, btnW - 6, btnH - 6);
+        }
+        textSize(10);
+        textAlign(CENTER, CENTER);
+        this.drawTextWithOutline(
+          "TITLE SCREEN",
+          btn2X + btnW / 2,
+          btnY + btnH / 2,
+          255,
+          255,
+          255,
+          2,
+        );
+
+        textSize(8);
+        textAlign(CENTER, CENTER);
+        this.drawTextWithOutline(
+          "PLAY AGAIN KEEPS YOUR NAME",
+          width / 2,
+          btnY + btnH + 20,
+          255,
+          255,
+          255,
+          1,
+        );
+      }
+    }
+  }
+
+  handleGameOverClick(mx, my) {
+    if (this._goPhase !== "visible") return;
+
+    let pa = this._goBtnRects.playAgain;
+    let ti = this._goBtnRects.title;
+
+    if (
+      pa &&
+      mx >= pa.x &&
+      mx <= pa.x + pa.w &&
+      my >= pa.y &&
+      my <= pa.y + pa.h
+    ) {
+      if (typeof audioManager !== "undefined") audioManager.playSelect();
+      localStorage.removeItem("lastRound");
+      localStorage.removeItem("lastScore");
+      localStorage.removeItem("lastCoins");
+      localStorage.removeItem("difficulty");
+      if (typeof window.fadeNavigateTo === "function") {
+        window.fadeNavigateTo("../pages/menu.html?screen=difficulty");
+      } else {
+        window.location.href = "../pages/menu.html?screen=difficulty";
+      }
+      return;
+    }
+
+    if (
+      ti &&
+      mx >= ti.x &&
+      mx <= ti.x + ti.w &&
+      my >= ti.y &&
+      my <= ti.y + ti.h
+    ) {
+      if (typeof audioManager !== "undefined") audioManager.playSelect();
+      localStorage.removeItem("playerName");
+      localStorage.removeItem("lastRound");
+      localStorage.removeItem("lastScore");
+      localStorage.removeItem("lastCoins");
+      localStorage.removeItem("difficulty");
+      if (typeof window.fadeNavigateTo === "function") {
+        window.fadeNavigateTo("../pages/menu.html");
+      } else {
+        window.location.href = "../pages/menu.html";
+      }
+    }
+  }
+
   pauseHandleClick(mx, my) {
     if (this._pauseView === "main") {
       for (let [id, r] of Object.entries(this._pauseBtnRects)) {
@@ -58,11 +310,10 @@ class UIRenderer {
             this._hoveredBtn = null;
             return null;
           }
-          return id; // "resume" | "exit"
+          return id;
         }
       }
     } else if (this._pauseView === "volume") {
-      // Back button
       let back = this._pauseVolRects["back"];
       if (
         back &&
@@ -76,7 +327,6 @@ class UIRenderer {
         this._hoveredBtn = null;
         return null;
       }
-      // Sliders
       for (let [key, r] of Object.entries(this._sliderRects)) {
         if (mx >= r.x && mx <= r.x + r.w && my >= r.y && my <= r.y + r.h) {
           this._volumeDragging = key;
@@ -142,7 +392,6 @@ class UIRenderer {
     this._roundStartDiff = difficulty || "easy";
   }
 
-  // ── SHOP LOGIC & RENDERING ────────────────────────────────────────────────
   shopClick(mx, my, shopManager, player) {
     if (!this._shopOpen) return false;
     let layout = this._getShopLayout();
@@ -174,29 +423,24 @@ class UIRenderer {
   }
 
   _getShopLayout() {
-    // PINALIIT NA SHOP WINDOW (List Style layout)
-    let panelW = 460;
-    let panelH = 460;
+    let panelW = 460,
+      panelH = 460;
     let panelX = width / 2 - panelW / 2;
     let panelY = height / 2 - panelH / 2;
     let headerH = 60;
-
-    let contentX = panelX + 20;
-    let contentY = panelY + headerH + 10;
-    let contentW = panelW - 40;
-
+    let contentX = panelX + 20,
+      contentY = panelY + headerH + 10,
+      contentW = panelW - 40;
     let keys = ["health", "stamina", "speed", "strength", "precision"];
-    let itemH = 60;
-    let gapY = 8;
-    let btnRects = [];
-
+    let itemH = 60,
+      gapY = 8,
+      btnRects = [];
     for (let i = 0; i < keys.length; i++) {
       let itemY = contentY + i * (itemH + gapY);
-      let btnW = 120;
-      let btnH = 40;
+      let btnW = 120,
+        btnH = 40;
       let btnX = contentX + contentW - btnW - 10;
       let btnY = itemY + itemH / 2 - btnH / 2;
-
       btnRects.push({
         cardX: contentX,
         cardY: itemY,
@@ -208,7 +452,6 @@ class UIRenderer {
         h: btnH,
       });
     }
-
     return {
       panelX,
       panelY,
@@ -216,12 +459,7 @@ class UIRenderer {
       panelH,
       headerH,
       btnRects,
-      closeBtn: {
-        x: panelX + panelW - 44,
-        y: panelY + 12,
-        w: 32,
-        h: 32,
-      },
+      closeBtn: { x: panelX + panelW - 44, y: panelY + 12, w: 32, h: 32 },
     };
   }
 
@@ -232,15 +470,12 @@ class UIRenderer {
     let mx = mouseX,
       my = mouseY;
 
-    // Dark Overlay
     noStroke();
     fill(0, 0, 0, 180);
     rect(0, 0, width, height);
 
-    // Main Shop Panel
     this._drawPixelWoodPanel(panelX, panelY, panelW, panelH);
 
-    // Header Title
     textSize(28);
     textAlign(LEFT, CENTER);
     this.drawTextWithOutline(
@@ -248,29 +483,26 @@ class UIRenderer {
       panelX + 20,
       panelY + headerH / 2,
       255,
-      200,
-      50,
+      255,
+      255,
       2,
     );
 
-    // Timer
     let sec = roundManager
       ? Math.ceil(roundManager.intermissionTimeLeft / 1000)
       : 0;
     textSize(14);
     textAlign(CENTER, CENTER);
-    let tCol = sec <= 5 ? [255, 90, 90] : [220, 220, 200];
     this.drawTextWithOutline(
-      "NEXT ROUND IN " + sec + "s",
+      "NEXT ROUND IN " + sec + "S",
       panelX + panelW / 2 - 10,
       panelY + headerH / 2,
-      tCol[0],
-      tCol[1],
-      tCol[2],
+      255,
+      255,
+      255,
       1,
     );
 
-    // Coins
     let coinSheet =
       typeof spriteManager !== "undefined"
         ? spriteManager.get("icon_coin")
@@ -298,17 +530,15 @@ class UIRenderer {
         coinX + 30,
         panelY + headerH / 2,
         255,
-        220,
-        60,
+        255,
+        255,
         2,
       );
     }
 
-    // Close Button (X)
     let cb = layout.closeBtn;
     let cbHover =
       mx >= cb.x && mx <= cb.x + cb.w && my >= cb.y && my <= cb.y + cb.h;
-
     this._drawPixelWoodPanel(cb.x, cb.y, cb.w, cb.h);
     if (cbHover) {
       fill(255, 255, 255, 50);
@@ -321,16 +551,14 @@ class UIRenderer {
       cb.x + cb.w / 2,
       cb.y + cb.h / 2,
       255,
-      100,
-      100,
+      255,
+      255,
       2,
     );
 
-    // Separator Line
     fill(0, 0, 0, 80);
     rect(panelX + 16, panelY + headerH, panelW - 32, 4);
 
-    // ── LIST ITEMS RENDERING ──
     let keys = Object.keys(shopManager.statShop);
     for (let i = 0; i < keys.length; i++) {
       let key = keys[i],
@@ -339,11 +567,9 @@ class UIRenderer {
       let canAfford = this.gameState.coins >= cost;
       let btn = btnRects[i];
 
-      // Item Row Background (Subtle inset)
       fill(0, 0, 0, 40);
       rect(btn.cardX, btn.cardY, btn.cardW, btn.cardH, 4);
 
-      // Stat Name
       textSize(18);
       textAlign(LEFT, TOP);
       this.drawTextWithOutline(
@@ -351,25 +577,23 @@ class UIRenderer {
         btn.cardX + 14,
         btn.cardY + 12,
         255,
-        230,
-        160,
+        255,
+        255,
         2,
       );
 
-      // Level Indicator
       textSize(14);
       textAlign(LEFT, BOTTOM);
       this.drawTextWithOutline(
-        "Lv. " + stat.purchased,
+        "LV. " + stat.purchased,
         btn.cardX + 14,
         btn.cardY + btn.cardH - 12,
-        200,
-        160,
-        80,
+        255,
+        255,
+        255,
         1,
       );
 
-      // Upgrade Button (Wood Panel Style)
       let hover =
         mx >= btn.x &&
         mx <= btn.x + btn.w &&
@@ -378,80 +602,68 @@ class UIRenderer {
       this._drawPixelWoodPanel(btn.x, btn.y, btn.w, btn.h);
 
       if (!canAfford) {
-        // Disabled overlay
         fill(0, 0, 0, 150);
         rect(btn.x + 2, btn.y + 2, btn.w - 4, btn.h - 4);
       } else if (hover) {
-        // Hover highlight
         fill(255, 255, 255, 50);
         rect(btn.x + 2, btn.y + 2, btn.w - 4, btn.h - 4);
       }
 
-      // Upgrade Button Texts
       textSize(11);
       textAlign(CENTER, CENTER);
-      let tColBtn = canAfford ? [200, 255, 180] : [150, 150, 150];
       this.drawTextWithOutline(
         "UPGRADE",
         btn.x + btn.w / 2,
         btn.y + btn.h / 2 - 8,
-        tColBtn[0],
-        tColBtn[1],
-        tColBtn[2],
+        255,
+        255,
+        255,
         1,
       );
 
       textSize(12);
-      let cColBtn = canAfford ? [255, 220, 50] : [150, 150, 150];
       this.drawTextWithOutline(
         "¢ " + cost,
         btn.x + btn.w / 2,
         btn.y + btn.h / 2 + 8,
-        cColBtn[0],
-        cColBtn[1],
-        cColBtn[2],
+        255,
+        255,
+        255,
         1,
       );
     }
 
-    // Bottom Hint
     textSize(11);
     textAlign(CENTER, CENTER);
     this.drawTextWithOutline(
-      "[B] close shop",
+      "[B] CLOSE SHOP",
       panelX + panelW / 2,
       panelY + panelH - 16,
-      160,
-      140,
-      110,
+      255,
+      255,
+      255,
       1,
     );
   }
 
-  // ── Returns computed pixel height for numPlanks ───────────────────────────
   _panelH(numPlanks) {
     return numPlanks * 26 + 4;
   }
 
-  // ── Pixel wood panel (SOLID + DETAILS) ────────────────────────────────────
   _drawPixelWoodPanel(x, y, w, h) {
     push();
     noStroke();
 
-    let outlineSize = 2; // Pixel border thickness
+    let outlineSize = 2;
+    let outlineCol = color(0);
+    let mainCol = color("#AB6A38");
+    let highlightCol = color("#D49A59");
+    let shadowCol = color("#7D4722");
 
-    // WARM OAK PALETTE
-    let outlineCol = color(0); // Black outer border
-    let mainCol = color("#AB6A38"); // Main wood body
-    let highlightCol = color("#D49A59"); // Light outline
-    let shadowCol = color("#7D4722"); // Dark shadow / Grooves
-
-    // 1. Chunky Outer Shadow (Binawasan ko na: 3px na lang!)
     fill(outlineCol);
     let chunkY = 3;
     rect(x, y, w, h + chunkY);
 
-    // 2. Base Wood Layer
     fill(mainCol);
     rect(
       x + outlineSize,
@@ -460,12 +672,11 @@ class UIRenderer {
       h - outlineSize * 2,
     );
 
-    let innerX = x + outlineSize;
-    let innerY = y + outlineSize;
-    let innerW = w - outlineSize * 2;
-    let innerH = h - outlineSize * 2;
+    let innerX = x + outlineSize,
+      innerY = y + outlineSize;
+    let innerW = w - outlineSize * 2,
+      innerH = h - outlineSize * 2;
 
-    // ── DETAILS: Plank Grooves & Rivets ──
     let plankSpacing = 24;
     for (
       let py = innerY + plankSpacing;
@@ -474,26 +685,23 @@ class UIRenderer {
     ) {
       fill(shadowCol);
       rect(innerX, py, innerW, outlineSize);
-
       fill(highlightCol);
       rect(innerX, py + outlineSize, innerW, 1);
     }
 
-    // Corner Rivets
     fill(outlineCol);
-    rect(innerX + 2, innerY + 2, outlineSize, outlineSize); // Top-Left
-    rect(innerX + innerW - 4, innerY + 2, outlineSize, outlineSize); // Top-Right
-    rect(innerX + 2, innerY + innerH - 4, outlineSize, outlineSize); // Bottom-Left
-    rect(innerX + innerW - 4, innerY + innerH - 4, outlineSize, outlineSize); // Bottom-Right
+    rect(innerX + 2, innerY + 2, outlineSize, outlineSize);
+    rect(innerX + innerW - 4, innerY + 2, outlineSize, outlineSize);
+    rect(innerX + 2, innerY + innerH - 4, outlineSize, outlineSize);
+    rect(innerX + innerW - 4, innerY + innerH - 4, outlineSize, outlineSize);
 
-    // 3. Inner Bevel Highlights and Shadows
     fill(highlightCol);
-    rect(innerX, innerY, innerW, outlineSize); // Top highlight
-    rect(innerX, innerY, outlineSize, innerH); // Left highlight
+    rect(innerX, innerY, innerW, outlineSize);
+    rect(innerX, innerY, outlineSize, innerH);
 
     fill(shadowCol);
-    rect(innerX, innerY + innerH - outlineSize, innerW, outlineSize); // Bottom shadow
-    rect(innerX + innerW - outlineSize, innerY, outlineSize, innerH); // Right shadow
+    rect(innerX, innerY + innerH - outlineSize, innerW, outlineSize);
+    rect(innerX + innerW - outlineSize, innerY, outlineSize, innerH);
 
     pop();
   }
@@ -591,24 +799,34 @@ class UIRenderer {
   }
 
   _drawClearedText(roundNum, alpha) {
-    textSize(72);
+    let displayText = "ROUND " + roundNum + " CLEARED!";
+
+    textSize(86); // Pinalaki mula 72
     textAlign(CENTER, CENTER);
+
     fill(0, 0, 0, alpha);
-    for (let ox = -4; ox <= 4; ox++)
-      for (let oy = -4; oy <= 4; oy++)
-        if (ox || oy)
-          text("ROUND " + roundNum, width / 2 + ox, height / 2 + oy);
+    for (let ox = -5; ox <= 5; ox++) {
+      for (let oy = -5; oy <= 5; oy++) {
+        if (ox || oy) {
+          text(displayText, width / 2 + ox, height / 2 + oy);
+        }
+      }
+    }
+
+    // Binalik sa kulay Green
     fill(100, 255, 120, alpha);
-    text("ROUND " + roundNum + " CLEARED!", width / 2, height / 2);
+    text(displayText, width / 2, height / 2);
   }
 
   _drawCountdownCenter(sec) {
-    textSize(130);
+    textSize(160); // Pinalaki mula 130
     textAlign(CENTER, CENTER);
     fill(0, 0, 0, 220);
-    for (let ox = -5; ox <= 5; ox++)
-      for (let oy = -5; oy <= 5; oy++)
-        if (ox || oy) text(sec, width / 2 + ox, height / 2 - 40 + oy);
+    for (let ox = -6; ox <= 6; ox++)
+      for (let oy = -6; oy <= 6; oy++)
+        if (ox || oy) text(sec, width / 2 + ox, height / 2 - 50 + oy);
+
+    // Binalik yung nag-iibang kulay ng timer (Green -> Yellow -> Red)
     let c =
       sec > 8
         ? color(100, 255, 120)
@@ -616,25 +834,31 @@ class UIRenderer {
           ? color(255, 220, 60)
           : color(255, 80, 80);
     fill(c);
-    text(sec, width / 2, height / 2 - 40);
-    textSize(24);
+    text(sec, width / 2, height / 2 - 50);
+
+    textSize(28); // Pinalaki mula 24
     textAlign(CENTER, CENTER);
     fill(0, 0, 0, 200);
-    for (let ox = -2; ox <= 2; ox++)
-      for (let oy = -2; oy <= 2; oy++)
+    for (let ox = -3; ox <= 3; ox++)
+      for (let oy = -3; oy <= 3; oy++)
         if (ox || oy)
-          text("[B]  Open Shop", width / 2 + ox, height / 2 + 95 + oy);
-    fill(220, 210, 180);
-    text("[B]  Open Shop", width / 2, height / 2 + 95);
-    textSize(20);
+          text("[B]  OPEN SHOP", width / 2 + ox, height / 2 + 105 + oy);
+
+    // Binalik ang kulay
+    fill(255, 255, 255);
+    text("[B]  OPEN SHOP", width / 2, height / 2 + 105);
+
+    textSize(28); // Pinalaki mula 24
     textAlign(CENTER, CENTER);
     fill(0, 0, 0, 180);
-    for (let ox = -2; ox <= 2; ox++)
-      for (let oy = -2; oy <= 2; oy++)
+    for (let ox = -3; ox <= 3; ox++)
+      for (let oy = -3; oy <= 3; oy++)
         if (ox || oy)
-          text("[ENTER]  Start Now", width / 2 + ox, height / 2 + 130 + oy);
-    fill(180, 200, 160);
-    text("[ENTER]  Start Now", width / 2, height / 2 + 130);
+          text("[ENTER]  START NOW", width / 2 + ox, height / 2 + 145 + oy);
+
+    // Binalik ang kulay
+    fill(255, 255, 255);
+    text("[ENTER]  START NOW", width / 2, height / 2 + 145);
   }
 
   updateAndDrawRoundStart() {
@@ -669,34 +893,41 @@ class UIRenderer {
         return;
       }
     }
-    textSize(72);
+
+    textSize(86); // Pinalaki mula 72
     textAlign(CENTER, CENTER);
     fill(0, 0, 0, alpha);
-    for (let ox = -4; ox <= 4; ox++)
-      for (let oy = -4; oy <= 4; oy++)
+    for (let ox = -5; ox <= 5; ox++)
+      for (let oy = -5; oy <= 5; oy++)
         if (ox || oy)
           text(
             "ROUND " + this._roundStartNum,
             width / 2 + ox,
-            height / 2 - 20 + oy,
+            height / 2 - 30 + oy,
           );
     fill(255, 255, 255, alpha);
-    text("ROUND " + this._roundStartNum, width / 2, height / 2 - 20);
+    text("ROUND " + this._roundStartNum, width / 2, height / 2 - 30);
+
     let diffLabel = this._roundStartDiff.toUpperCase();
+
+    // Binalik ang kulay base sa difficulty (Green = Easy, Orange = Hard, Red = Hell)
     let diffColor =
       this._roundStartDiff === "hell"
         ? color(255, 60, 60, alpha)
         : this._roundStartDiff === "hard"
           ? color(255, 180, 40, alpha)
           : color(100, 220, 100, alpha);
-    textSize(28);
+
+    textSize(36); // Pinalaki mula 28
     textAlign(CENTER, CENTER);
     fill(0, 0, 0, alpha);
-    for (let ox = -2; ox <= 2; ox++)
-      for (let oy = -2; oy <= 2; oy++)
-        if (ox || oy) text(diffLabel, width / 2 + ox, height / 2 + 40 + oy);
+    for (let ox = -3; ox <= 3; ox++)
+      for (let oy = -3; oy <= 3; oy++)
+        if (ox || oy) text(diffLabel, width / 2 + ox, height / 2 + 45 + oy);
+
+    // In-apply ang difficulty color
     fill(diffColor);
-    text(diffLabel, width / 2, height / 2 + 40);
+    text(diffLabel, width / 2, height / 2 + 45);
   }
 
   static get FS_HP_TEXT() {
@@ -745,14 +976,11 @@ class UIRenderer {
 
     let innerX = px + 10;
     let rightEdge = px + pW - 10;
-
     let iconSize = 34;
     let stIconSize = 28;
-
     let hBx = innerX + floor(iconSize / 2);
     let barW = rightEdge - hBx;
 
-    // ── Health bar ───────────────────────────────────────
     let hy = py + 8;
     let hBH = 20;
     let hBy = hy + floor((iconSize - hBH) / 2);
@@ -809,7 +1037,6 @@ class UIRenderer {
       pop();
     }
 
-    // ── Stamina bar ──────────────────────────────────────
     let sy = hy + 26;
     let sBH = 16;
     let sBx = hBx;
@@ -842,8 +1069,8 @@ class UIRenderer {
         sBx + barW + 4,
         sBy + sBH / 2,
         255,
-        220,
-        0,
+        255,
+        255,
         1,
       );
     else if (player.isInBase && !player.isSprinting && sPct < 1)
@@ -851,9 +1078,9 @@ class UIRenderer {
         "RECHARGING",
         sBx + barW + 4,
         sBy + sBH / 2,
-        100,
         255,
-        180,
+        255,
+        255,
         1,
       );
 
@@ -878,8 +1105,7 @@ class UIRenderer {
       pop();
     }
 
-    // ── EXP bar ───────────────────────────────────────────────────────────
-    let ey = sy + 24;
+    let ey = sy + 32;
     let eBx = innerX,
       eBH = 18,
       eBy = ey + 4;
@@ -904,11 +1130,11 @@ class UIRenderer {
     textSize(UIRenderer.FS_HP_TEXT);
     textAlign(CENTER, CENTER);
     this.drawTextWithOutline(
-      "Level " + this.gameState.level,
+      "LEVEL " + this.gameState.level,
       eBx + eBW / 2,
       eBy + eBH / 2,
-      220,
-      200,
+      255,
+      255,
       255,
       2,
     );
@@ -948,8 +1174,8 @@ class UIRenderer {
       px + 46,
       py + pH / 2,
       255,
-      230,
-      60,
+      255,
+      255,
       2,
     );
   }
@@ -980,9 +1206,7 @@ class UIRenderer {
         y = slotY,
         isActive = player.currentWeapon === s.key,
         w = player.weapons[s.key];
-
       this._drawPixelWoodPanel(x, y, slotW, slotH);
-
       if (isActive) {
         noStroke();
         fill(255, 220, 0, 50);
@@ -1062,7 +1286,7 @@ class UIRenderer {
         textSize(UIRenderer.FS_WEAPON_NAME);
         textAlign(CENTER, CENTER);
         this.drawTextWithOutline(
-          w.name,
+          w.name.toUpperCase(),
           x + slotW / 2,
           y + slotH / 2 - 12,
           255,
@@ -1094,8 +1318,8 @@ class UIRenderer {
             x + slotW / 2,
             y + slotH - 10,
             255,
-            200,
-            0,
+            255,
+            255,
             1,
           );
         } else {
@@ -1103,13 +1327,18 @@ class UIRenderer {
           let curStr = "" + w.currentAmmo,
             sepStr = "/",
             magStr = "" + w.magSize;
-          let totalStr = w.unlimited ? "∞" : "" + (w.totalAmmo || 0);
+
+          // Tinanggal ang infinity symbol (∞) pag unlimited ang ammo
+          let totalStr = w.unlimited ? "" : "" + (w.totalAmmo || 0);
+          let gap = w.unlimited ? 0 : 10;
+
           textSize(UIRenderer.FS_AMMO);
           let curW = textWidth(curStr),
             groupW = curW + textWidth(sepStr) + textWidth(magStr);
-          let fullW = groupW + 10 + textWidth(totalStr),
+          let fullW = groupW + gap + textWidth(totalStr),
             startX = cx - fullW / 2;
           textAlign(LEFT, CENTER);
+          // AMMO IS EXEMPT FROM WHITE RULE - nanatiling kulay
           this.drawTextWithOutline(curStr, startX, ammoY, 255, 220, 50, 1);
           this.drawTextWithOutline(
             sepStr + magStr,
@@ -1120,26 +1349,30 @@ class UIRenderer {
             255,
             1,
           );
-          this.drawTextWithOutline(
-            totalStr,
-            startX + groupW + 10,
-            ammoY,
-            200,
-            200,
-            200,
-            1,
-          );
+
+          // Id-draw lang ang reserve ammo kung hindi unlimited
+          if (!w.unlimited) {
+            this.drawTextWithOutline(
+              totalStr,
+              startX + groupW + gap,
+              ammoY,
+              200, // Reserve ammo nanatiling kulay
+              200,
+              200,
+              1,
+            );
+          }
         }
       } else if (s.key === "melee") {
         textSize(18);
         textAlign(CENTER, CENTER);
         this.drawTextWithOutline(
-          w.name,
+          w.name.toUpperCase(),
           x + slotW / 2,
           y + slotH - 28,
-          220,
-          200,
-          160,
+          255,
+          255,
+          255,
           2,
         );
       }
@@ -1349,6 +1582,10 @@ class UIRenderer {
       if (alpha <= 0) continue;
       let sx = p.x - camX,
         sy = p.y - camY - 40 * progress;
+
+      // LAHAT NG POPUPS AY PUTI NA DIN
+      fill(255, 255, 255, alpha);
+
       if (p.isCoin) {
         let iconSize = 16,
           label = "+" + p.value;
@@ -1379,7 +1616,7 @@ class UIRenderer {
         for (let ox = -1; ox <= 1; ox++)
           for (let oy = -1; oy <= 1; oy++)
             if (ox || oy) text(label, startX + iconSize + 4 + ox, sy + oy);
-        fill(255, 220, 50, alpha);
+        fill(255, 255, 255, alpha);
         text(label, startX + iconSize + 4, sy);
       } else if (p.isExp) {
         let label = "+" + p.value + " EXP";
@@ -1389,7 +1626,7 @@ class UIRenderer {
         for (let ox = -1; ox <= 1; ox++)
           for (let oy = -1; oy <= 1; oy++)
             if (ox || oy) text(label, sx + ox, sy + oy);
-        fill(80, 160, 255, alpha);
+        fill(255, 255, 255, alpha);
         text(label, sx, sy);
       } else if (p.isDamage) {
         let label = "-" + p.value;
@@ -1409,7 +1646,7 @@ class UIRenderer {
         for (let ox = -2; ox <= 2; ox++)
           for (let oy = -2; oy <= 2; oy++)
             if (ox || oy) text(label, sx + ox, sy + oy);
-        fill(255, 60, 60, alpha);
+        fill(255, 255, 255, alpha);
         text(label, sx, sy);
       } else if (p.isLevelUp) {
         let label = p.value;
@@ -1419,7 +1656,7 @@ class UIRenderer {
         for (let ox = -3; ox <= 3; ox++)
           for (let oy = -3; oy <= 3; oy++)
             if (ox || oy) text(label, sx + ox, sy + oy);
-        fill(255, 220, 50, alpha);
+        fill(255, 255, 255, alpha);
         text(label, sx, sy);
       } else {
         textSize(20);
@@ -1428,13 +1665,12 @@ class UIRenderer {
         for (let ox = -2; ox <= 2; ox++)
           for (let oy = -2; oy <= 2; oy++)
             if (ox || oy) text(p.value, sx + ox, sy + oy);
-        fill(255, 230, 0, alpha);
+        fill(255, 255, 255, alpha);
         text(p.value, sx, sy);
       }
     }
   }
 
-  // ── Pause screen ──────────────────────────────────────────────────────────
   drawPauseScreen() {
     noStroke();
     fill(0, 0, 0, 190);
@@ -1449,7 +1685,6 @@ class UIRenderer {
       PLANKS = 2,
       pH = this._panelH(PLANKS);
     let btnX = cx - btnW / 2;
-
     let totalH = 3 * pH + 2 * 10;
     let startY = height / 2 - totalH / 2;
 
@@ -1462,7 +1697,6 @@ class UIRenderer {
       { id: "volume", label: "VOLUME" },
       { id: "exit", label: "EXIT" },
     ];
-
     this._pauseBtnRects = {};
 
     for (let i = 0; i < buttons.length; i++) {
@@ -1473,30 +1707,35 @@ class UIRenderer {
         mouseX <= btnX + btnW &&
         mouseY >= btnY &&
         mouseY <= btnY + pH;
-
       this._pauseBtnRects[btn.id] = { x: btnX, y: btnY, w: btnW, h: pH };
       this._drawPixelWoodPanel(btnX, btnY, btnW, pH);
-
       if (isHovered) {
         noStroke();
         fill(255, 255, 255, 50);
         rect(btnX + 2, btnY + 2, btnW - 4, pH - 4);
       }
-
       textSize(22);
       textAlign(CENTER, CENTER);
-      this.drawTextWithOutline(btn.label, cx, btnY + pH / 2, 255, 230, 160, 2);
+      this.drawTextWithOutline(
+        btn.label.toUpperCase(),
+        cx,
+        btnY + pH / 2,
+        255,
+        255,
+        255,
+        2,
+      );
     }
 
     textSize(14);
     textAlign(CENTER, CENTER);
     this.drawTextWithOutline(
-      "WASD  |  Shift sprint  |  R reload  |  1/2/3 scroll weapon",
+      "WASD | SHIFT SPRINT | R RELOAD | 1/2/3 SCROLL WEAPON",
       cx,
       height - 30,
-      140,
-      140,
-      140,
+      255,
+      255,
+      255,
       1,
     );
   }
@@ -1506,8 +1745,8 @@ class UIRenderer {
     let panelW = 380,
       PLANKS = 10,
       panelH = this._panelH(PLANKS);
-    let panelX = cx - panelW / 2;
-    let panelY = height / 2 - panelH / 2;
+    let panelX = cx - panelW / 2,
+      panelY = height / 2 - panelH / 2;
     this._drawPixelWoodPanel(panelX, panelY, panelW, panelH);
 
     textSize(26);
@@ -1517,8 +1756,8 @@ class UIRenderer {
       cx,
       panelY + 22,
       255,
-      230,
-      160,
+      255,
+      255,
       2,
     );
 
@@ -1549,14 +1788,13 @@ class UIRenderer {
       },
     ];
 
-    let labelW = 80;
-    let valW = 46;
+    let labelW = 80,
+      valW = 46;
     let trackW = panelW - labelW - valW - 40;
-    let trackX = panelX + 20 + labelW + 6;
-    let trackH = 14;
-    let rowGap = 50;
-    let firstY = panelY + 58;
-
+    let trackX = panelX + 20 + labelW + 6,
+      trackH = 14;
+    let rowGap = 50,
+      firstY = panelY + 58;
     this._sliderRects = {};
 
     for (let i = 0; i < volData.length; i++) {
@@ -1569,12 +1807,12 @@ class UIRenderer {
       textSize(15);
       textAlign(RIGHT, CENTER);
       this.drawTextWithOutline(
-        s.label,
+        s.label.toUpperCase(),
         panelX + 20 + labelW,
         rowCY,
         255,
-        230,
-        160,
+        255,
+        255,
         1,
       );
 
@@ -1593,8 +1831,7 @@ class UIRenderer {
         rect(trackX + 2, trackY + 2, fillW - 2, floor((trackH - 4) * 0.45), 1);
       }
 
-      let thumbX = trackX + fillW - 5;
-      thumbX = constrain(thumbX, trackX, trackX + trackW - 10);
+      let thumbX = constrain(trackX + fillW - 5, trackX, trackX + trackW - 10);
       fill(isDragging ? color(255, 240, 180) : color(255, 210, 100));
       rect(thumbX, trackY - 3, 10, trackH + 6, 2);
 
@@ -1604,9 +1841,9 @@ class UIRenderer {
         floor(s.value * 100) + "%",
         trackX + trackW + 8,
         rowCY,
-        200,
-        180,
-        140,
+        255,
+        255,
+        255,
         1,
       );
 
@@ -1623,14 +1860,13 @@ class UIRenderer {
     let backW = 160,
       backPlanks = 2,
       backH = this._panelH(backPlanks);
-    let backX = cx - backW / 2;
-    let backY = panelY + panelH - backH - 12;
+    let backX = cx - backW / 2,
+      backY = panelY + panelH - backH - 12;
     let backHovered =
       mouseX >= backX &&
       mouseX <= backX + backW &&
       mouseY >= backY &&
       mouseY <= backY + backH;
-
     this._pauseVolRects = { back: { x: backX, y: backY, w: backW, h: backH } };
     this._drawPixelWoodPanel(backX, backY, backW, backH);
     if (backHovered) {
@@ -1640,7 +1876,7 @@ class UIRenderer {
     }
     textSize(20);
     textAlign(CENTER, CENTER);
-    this.drawTextWithOutline("< BACK", cx, backY + backH / 2, 255, 230, 160, 2);
+    this.drawTextWithOutline("< BACK", cx, backY + backH / 2, 255, 255, 255, 2);
   }
 
   drawMinimap(player, roundManager) {
@@ -1694,10 +1930,9 @@ class UIRenderer {
     strokeWeight(1);
     rect(mx, my, mw, mh);
     noStroke();
-
     textSize(20);
     textAlign(CENTER, TOP);
-    this.drawTextWithOutline("MAP", mmX + mmW / 2, mmY + 6, 255, 240, 180, 2);
+    this.drawTextWithOutline("MAP", mmX + mmW / 2, mmY + 6, 255, 255, 255, 2);
     noStroke();
   }
 

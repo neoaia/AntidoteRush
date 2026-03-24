@@ -145,7 +145,16 @@ function windowResized() {
 }
 
 function draw() {
-  if (gameState.gameOver) return;
+  if (gameState.gameOver) {
+    // Still render the world frozen in the background while dead
+    displayGame();
+    uiRenderer.drawGameOverScreen(
+      gameState.player,
+      gameState.roundManager,
+      gameState,
+    );
+    return;
+  }
   if (isPaused) {
     displayGame();
     uiRenderer.drawPauseScreen();
@@ -215,17 +224,30 @@ function updateGame() {
   gameState.updateScorePopups();
 
   if (player.health <= 0 && !gameState.gameOver) {
-    gameState.gameOver = true;
-    localStorage.setItem("lastRound", gameState.roundManager.currentRound);
-    localStorage.setItem("lastScore", gameState.score || 0);
-    localStorage.setItem("lastCoins", gameState.coins);
-    setTimeout(() => {
-      _intentionalUnlock = true;
-      document.exitPointerLock();
-      if (typeof bgmManager !== "undefined") bgmManager.stop();
-      window.location.href = "../pages/game-over.html";
-    }, 1200);
+    _triggerDeath();
   }
+}
+
+function _triggerDeath() {
+  gameState.gameOver = true;
+
+  // Save run stats for the in-game panel and for game-over.html if needed
+  localStorage.setItem("lastRound", gameState.roundManager.currentRound);
+  localStorage.setItem("lastScore", gameState.score || 0);
+  localStorage.setItem("lastCoins", gameState.coins);
+
+  // Release pointer lock and stop BGM
+  _intentionalUnlock = true;
+  document.exitPointerLock();
+  if (typeof bgmManager !== "undefined") bgmManager.stop();
+  cursor(ARROW);
+
+  // Tell uiRenderer to start the 2s delay → panel slide-down sequence
+  uiRenderer.startGameOverSequence(
+    gameState.player,
+    gameState.roundManager,
+    gameState,
+  );
 }
 
 function _endIntermission() {
@@ -270,14 +292,27 @@ function displayGame() {
   );
   weaponPickupManager.display();
   pop();
-  uiRenderer.drawScorePopupsScreenSpace(camX, camY);
-  uiRenderer.renderAll(gameState.player, gameState.roundManager, shopManager);
-  let rm = gameState.roundManager;
-  if (rm.inIntermission && !uiRenderer.isShopOpen())
-    uiRenderer.drawIntermissionCenter(rm.currentRound, rm.intermissionTimeLeft);
+
+  // Don't draw normal HUD when game is over — panel handles everything
+  if (!gameState.gameOver) {
+    uiRenderer.drawScorePopupsScreenSpace(camX, camY);
+    uiRenderer.renderAll(gameState.player, gameState.roundManager, shopManager);
+    let rm = gameState.roundManager;
+    if (rm.inIntermission && !uiRenderer.isShopOpen())
+      uiRenderer.drawIntermissionCenter(
+        rm.currentRound,
+        rm.intermissionTimeLeft,
+      );
+  }
 }
 
 function mousePressed() {
+  // Game over panel button clicks
+  if (gameState.gameOver) {
+    uiRenderer.handleGameOverClick(mouseX, mouseY);
+    return;
+  }
+
   if (uiRenderer.isShopOpen()) {
     uiRenderer.shopClick(mouseX, mouseY, shopManager, gameState.player);
     return;
@@ -290,7 +325,11 @@ function mousePressed() {
       _intentionalUnlock = true;
       document.exitPointerLock();
       if (typeof bgmManager !== "undefined") bgmManager.stop();
-      window.location.href = "../pages/menu.html";
+      if (typeof window.fadeNavigateTo === "function") {
+        window.fadeNavigateTo("../pages/menu.html");
+      } else {
+        window.location.href = "../pages/menu.html";
+      }
     }
     return;
   }
