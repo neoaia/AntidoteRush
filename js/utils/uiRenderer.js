@@ -423,23 +423,24 @@ class UIRenderer {
   }
 
   _getShopLayout() {
-    let panelW = 460,
-      panelH = 460;
+    let panelW = 680,
+      panelH = 620; // Binaliit natin nang konti para hindi lumagpas sa screen
     let panelX = width / 2 - panelW / 2;
     let panelY = height / 2 - panelH / 2;
-    let headerH = 60;
-    let contentX = panelX + 20,
+    let headerH = 80;
+    let contentX = panelX + 25,
       contentY = panelY + headerH + 10,
-      contentW = panelW - 40;
+      contentW = panelW - 50;
     let keys = ["health", "stamina", "speed", "strength", "precision"];
-    let itemH = 60,
-      gapY = 8,
+    let itemH = 82,
+      gapY = 14,
       btnRects = [];
+
     for (let i = 0; i < keys.length; i++) {
       let itemY = contentY + i * (itemH + gapY);
-      let btnW = 120,
-        btnH = 40;
-      let btnX = contentX + contentW - btnW - 10;
+      let btnW = 160,
+        btnH = 52;
+      let btnX = contentX + contentW - btnW - 15;
       let btnY = itemY + itemH / 2 - btnH / 2;
       btnRects.push({
         cardX: contentX,
@@ -459,7 +460,7 @@ class UIRenderer {
       panelH,
       headerH,
       btnRects,
-      closeBtn: { x: panelX + panelW - 44, y: panelY + 12, w: 32, h: 32 },
+      closeBtn: { x: panelX + panelW - 55, y: panelY + 15, w: 40, h: 40 },
     };
   }
 
@@ -474,13 +475,29 @@ class UIRenderer {
     fill(0, 0, 0, 180);
     rect(0, 0, width, height);
 
-    this._drawPixelWoodPanel(panelX, panelY, panelW, panelH);
+    // Plain wood background
+    this._drawPlainPixelWoodPanel(panelX, panelY, panelW, panelH);
 
-    textSize(28);
+    textSize(46);
     textAlign(LEFT, CENTER);
     this.drawTextWithOutline(
       "SHOP",
-      panelX + 20,
+      panelX + 30,
+      panelY + headerH / 2,
+      255,
+      255,
+      255,
+      3,
+    );
+
+    let sec = roundManager
+      ? Math.ceil(roundManager.intermissionTimeLeft / 1000)
+      : 0;
+    textSize(24);
+    textAlign(CENTER, CENTER);
+    this.drawTextWithOutline(
+      "NEXT ROUND IN " + sec + "S",
+      panelX + panelW / 2 - 20,
       panelY + headerH / 2,
       255,
       255,
@@ -488,63 +505,54 @@ class UIRenderer {
       2,
     );
 
-    let sec = roundManager
-      ? Math.ceil(roundManager.intermissionTimeLeft / 1000)
-      : 0;
-    textSize(14);
-    textAlign(CENTER, CENTER);
-    this.drawTextWithOutline(
-      "NEXT ROUND IN " + sec + "S",
-      panelX + panelW / 2 - 10,
-      panelY + headerH / 2,
-      255,
-      255,
-      255,
-      1,
-    );
-
+    // KINUHA NANG TAMA ANG COIN SPRITE DITO
     let coinSheet =
       typeof spriteManager !== "undefined"
         ? spriteManager.get("icon_coin")
         : null;
-    let coinX = panelX + panelW - 140;
+    let coinX = panelX + panelW - 170;
+    let headerCoinSize = 32;
+
     if (coinSheet && coinSheet.img) {
       push();
       imageMode(CORNER);
       image(
         coinSheet.img,
         coinX,
-        panelY + headerH / 2 - 12,
-        24,
-        24,
+        panelY + headerH / 2 - headerCoinSize / 2,
+        headerCoinSize,
+        headerCoinSize,
         0,
         0,
         coinSheet.frameW,
         coinSheet.frameH,
       );
       pop();
-      textSize(20);
+
+      textSize(32);
       textAlign(LEFT, CENTER);
       this.drawTextWithOutline(
         this.gameState.coins,
-        coinX + 30,
+        coinX + headerCoinSize + 12,
         panelY + headerH / 2,
         255,
         255,
         255,
-        2,
+        3,
       );
     }
 
     let cb = layout.closeBtn;
     let cbHover =
       mx >= cb.x && mx <= cb.x + cb.w && my >= cb.y && my <= cb.y + cb.h;
+
+    // Detailed wood para sa close button
     this._drawPixelWoodPanel(cb.x, cb.y, cb.w, cb.h);
     if (cbHover) {
       fill(255, 255, 255, 50);
       rect(cb.x + 2, cb.y + 2, cb.w - 4, cb.h - 4);
     }
-    textSize(18);
+    textSize(26);
     textAlign(CENTER, CENTER);
     this.drawTextWithOutline(
       "X",
@@ -556,9 +564,6 @@ class UIRenderer {
       2,
     );
 
-    fill(0, 0, 0, 80);
-    rect(panelX + 16, panelY + headerH, panelW - 32, 4);
-
     let keys = Object.keys(shopManager.statShop);
     for (let i = 0; i < keys.length; i++) {
       let key = keys[i],
@@ -568,30 +573,30 @@ class UIRenderer {
       let btn = btnRects[i];
 
       fill(0, 0, 0, 40);
-      rect(btn.cardX, btn.cardY, btn.cardW, btn.cardH, 4);
+      rect(btn.cardX, btn.cardY, btn.cardW, btn.cardH, 6);
 
-      textSize(18);
+      textSize(28);
       textAlign(LEFT, TOP);
       this.drawTextWithOutline(
         stat.label.toUpperCase(),
-        btn.cardX + 14,
-        btn.cardY + 12,
+        btn.cardX + 18,
+        btn.cardY + 14,
         255,
         255,
         255,
         2,
       );
 
-      textSize(14);
+      textSize(18);
       textAlign(LEFT, BOTTOM);
       this.drawTextWithOutline(
         "LV. " + stat.purchased,
-        btn.cardX + 14,
+        btn.cardX + 18,
         btn.cardY + btn.cardH - 12,
         255,
         255,
         255,
-        1,
+        2,
       );
 
       let hover =
@@ -599,6 +604,8 @@ class UIRenderer {
         mx <= btn.x + btn.w &&
         my >= btn.y &&
         my <= btn.y + btn.h;
+
+      // Detailed wood para sa Upgrade Button
       this._drawPixelWoodPanel(btn.x, btn.y, btn.w, btn.h);
 
       if (!canAfford) {
@@ -609,40 +616,73 @@ class UIRenderer {
         rect(btn.x + 2, btn.y + 2, btn.w - 4, btn.h - 4);
       }
 
-      textSize(11);
+      textSize(18);
       textAlign(CENTER, CENTER);
       this.drawTextWithOutline(
         "UPGRADE",
         btn.x + btn.w / 2,
-        btn.y + btn.h / 2 - 8,
+        btn.y + btn.h / 2 - 10,
         255,
         255,
         255,
-        1,
+        2,
       );
 
-      textSize(12);
+      // COIN ICON SA LOOB NG BUTTON (Centred with the text)
+      let costText = "" + cost;
+      textSize(18);
+      let tw = textWidth(costText);
+      let btnCoinSize = 18;
+      let gap = 6;
+      let totalW = btnCoinSize + gap + tw;
+      let startX = btn.x + btn.w / 2 - totalW / 2;
+      let bottomRowY = btn.y + btn.h / 2 + 10;
+
+      if (coinSheet && coinSheet.img) {
+        push();
+        imageMode(CORNER);
+        image(
+          coinSheet.img,
+          startX,
+          bottomRowY - btnCoinSize / 2,
+          btnCoinSize,
+          btnCoinSize,
+          0,
+          0,
+          coinSheet.frameW,
+          coinSheet.frameH,
+        );
+        pop();
+      }
+
+      textAlign(LEFT, CENTER);
       this.drawTextWithOutline(
-        "¢ " + cost,
-        btn.x + btn.w / 2,
-        btn.y + btn.h / 2 + 8,
+        costText,
+        startX + btnCoinSize + gap,
+        bottomRowY,
         255,
         255,
         255,
-        1,
+        2,
       );
+
+      // Divider sa bawat stat (maliban sa pinakahuli)
+      if (i < keys.length - 1) {
+        fill(62, 39, 35, 180);
+        rect(btn.cardX, btn.cardY + btn.cardH + 6, btn.cardW, 2);
+      }
     }
 
-    textSize(11);
+    textSize(20);
     textAlign(CENTER, CENTER);
     this.drawTextWithOutline(
       "[B] CLOSE SHOP",
       panelX + panelW / 2,
-      panelY + panelH - 16,
+      panelY + panelH - 24,
       255,
       255,
       255,
-      1,
+      2,
     );
   }
 
@@ -689,11 +729,46 @@ class UIRenderer {
       rect(innerX, py + outlineSize, innerW, 1);
     }
 
+    // TINANGGAL NA ANG MGA NAILS DITO SA CORNERS
+
+    fill(highlightCol);
+    rect(innerX, innerY, innerW, outlineSize);
+    rect(innerX, innerY, outlineSize, innerH);
+
+    fill(shadowCol);
+    rect(innerX, innerY + innerH - outlineSize, innerW, outlineSize);
+    rect(innerX + innerW - outlineSize, innerY, outlineSize, innerH);
+
+    pop();
+  }
+
+  _drawPlainPixelWoodPanel(x, y, w, h) {
+    push();
+    noStroke();
+
+    let outlineSize = 4;
+    let outlineCol = color(0);
+    let mainCol = color("#AB6A38");
+    let highlightCol = color("#D49A59");
+    let shadowCol = color("#7D4722");
+
     fill(outlineCol);
-    rect(innerX + 2, innerY + 2, outlineSize, outlineSize);
-    rect(innerX + innerW - 4, innerY + 2, outlineSize, outlineSize);
-    rect(innerX + 2, innerY + innerH - 4, outlineSize, outlineSize);
-    rect(innerX + innerW - 4, innerY + innerH - 4, outlineSize, outlineSize);
+    rect(x, y, w, h + 6);
+
+    fill(mainCol);
+    rect(
+      x + outlineSize,
+      y + outlineSize,
+      w - outlineSize * 2,
+      h - outlineSize * 2,
+    );
+
+    let innerX = x + outlineSize,
+      innerY = y + outlineSize;
+    let innerW = w - outlineSize * 2,
+      innerH = h - outlineSize * 2;
+
+    // TINANGGAL NA RIN ANG MGA NAILS DITO SA PLAIN PANEL
 
     fill(highlightCol);
     rect(innerX, innerY, innerW, outlineSize);
@@ -1681,16 +1756,15 @@ class UIRenderer {
 
   _drawPauseMain() {
     let cx = width / 2;
-    let btnW = 260,
-      PLANKS = 2,
-      pH = this._panelH(PLANKS);
+    let btnW = 400; // Super laki mula 260
+    let btnH = 86; // Super laki mula 56
     let btnX = cx - btnW / 2;
-    let totalH = 3 * pH + 2 * 10;
-    let startY = height / 2 - totalH / 2;
+    let totalH = 3 * btnH + 2 * 20; // 20px gap
+    let startY = height / 2 - totalH / 2 + 30; // Binaba ng onti para may space ang Title
 
-    textSize(64);
+    textSize(96); // Linalakihan din natin to para mag-scale sa laki ng buttons
     textAlign(CENTER, CENTER);
-    this.drawTextWithOutline("PAUSED", cx, startY - 50, 255, 255, 255, 5);
+    this.drawTextWithOutline("PAUSED", cx, startY - 100, 255, 255, 255, 6);
 
     let buttons = [
       { id: "resume", label: "RESUME" },
@@ -1701,69 +1775,59 @@ class UIRenderer {
 
     for (let i = 0; i < buttons.length; i++) {
       let btn = buttons[i];
-      let btnY = startY + i * (pH + 10);
+      let btnY = startY + i * (btnH + 20);
       let isHovered =
         mouseX >= btnX &&
         mouseX <= btnX + btnW &&
         mouseY >= btnY &&
-        mouseY <= btnY + pH;
-      this._pauseBtnRects[btn.id] = { x: btnX, y: btnY, w: btnW, h: pH };
-      this._drawPixelWoodPanel(btnX, btnY, btnW, pH);
+        mouseY <= btnY + btnH;
+
+      this._pauseBtnRects[btn.id] = { x: btnX, y: btnY, w: btnW, h: btnH };
+
+      // Ginamit na natin yung plain wood panel
+      this._drawPixelWoodPanel(btnX, btnY, btnW, btnH);
+
       if (isHovered) {
         noStroke();
         fill(255, 255, 255, 50);
-        rect(btnX + 2, btnY + 2, btnW - 4, pH - 4);
+        rect(btnX + 4, btnY + 4, btnW - 8, btnH - 8);
       }
-      textSize(22);
+
+      textSize(48); // Super laking font size
       textAlign(CENTER, CENTER);
       this.drawTextWithOutline(
         btn.label.toUpperCase(),
         cx,
-        btnY + pH / 2,
+        btnY + btnH / 2,
         255,
         255,
         255,
-        2,
+        4,
       );
     }
-
-    textSize(14);
-    textAlign(CENTER, CENTER);
-    this.drawTextWithOutline(
-      "WASD | SHIFT SPRINT | R RELOAD | 1/2/3 SCROLL WEAPON",
-      cx,
-      height - 30,
-      255,
-      255,
-      255,
-      1,
-    );
   }
 
   _drawVolumeSettings() {
     let cx = width / 2;
-    let panelW = 380,
-      PLANKS = 10,
-      panelH = this._panelH(PLANKS);
-    let panelX = cx - panelW / 2,
-      panelY = height / 2 - panelH / 2;
-    this._drawPixelWoodPanel(panelX, panelY, panelW, panelH);
+    let panelW = 640;
+    let panelH = 500;
+    let panelX = cx - panelW / 2;
+    let panelY = height / 2 - panelH / 2;
 
-    textSize(26);
+    // Background panel
+    this._drawPlainPixelWoodPanel(panelX, panelY, panelW, panelH);
+
+    textSize(46);
     textAlign(CENTER, CENTER);
     this.drawTextWithOutline(
       "VOLUME SETTINGS",
       cx,
-      panelY + 22,
+      panelY + 45,
       255,
       255,
       255,
-      2,
+      4,
     );
-
-    noStroke();
-    fill(62, 39, 35, 180);
-    rect(panelX + 16, panelY + 38, panelW - 32, 2);
 
     let volData = [
       {
@@ -1788,13 +1852,20 @@ class UIRenderer {
       },
     ];
 
-    let labelW = 80,
-      valW = 46;
-    let trackW = panelW - labelW - valW - 40;
-    let trackX = panelX + 20 + labelW + 6,
-      trackH = 14;
-    let rowGap = 50,
-      firstY = panelY + 58;
+    // INAYOS NA MATH PARA SENTRO:
+    let labelW = 140;
+    let trackW = 280;
+    let valW = 90;
+    let gap = 25; // Spacing sa gitna ng label, track, at text
+
+    // Compute natin yung total width ng isang row at kunin yung tamang left margin
+    let totalRowW = labelW + gap + trackW + gap + valW;
+    let startX = panelX + (panelW - totalRowW) / 2;
+
+    let trackX = startX + labelW + gap;
+    let trackH = 24;
+    let rowGap = 80;
+    let firstY = panelY + 145;
     this._sliderRects = {};
 
     for (let i = 0; i < volData.length; i++) {
@@ -1804,79 +1875,92 @@ class UIRenderer {
       let fillW = trackW * s.value;
       let isDragging = this._volumeDragging === s.id;
 
-      textSize(15);
+      textSize(36);
       textAlign(RIGHT, CENTER);
       this.drawTextWithOutline(
         s.label.toUpperCase(),
-        panelX + 20 + labelW,
+        startX + labelW,
         rowCY,
         255,
         255,
         255,
-        1,
+        3,
       );
 
       noFill();
       stroke(62, 39, 35);
-      strokeWeight(1);
-      rect(trackX, trackY, trackW, trackH, 2);
+      strokeWeight(3);
+      rect(trackX, trackY, trackW, trackH, 4);
       noStroke();
-      fill(20, 12, 4);
-      rect(trackX + 1, trackY + 1, trackW - 2, trackH - 2, 1);
 
-      if (fillW > 2) {
+      // Track background
+      fill(20, 12, 4);
+      rect(trackX + 2, trackY + 2, trackW - 4, trackH - 4, 2);
+
+      // Track fill
+      if (fillW > 4) {
         fill(isDragging ? color(255, 200, 80) : color(200, 150, 60));
-        rect(trackX + 2, trackY + 2, fillW - 2, trackH - 4, 1);
+        rect(trackX + 2, trackY + 2, fillW - 4, trackH - 4, 2);
         fill(255, 220, 130, 120);
-        rect(trackX + 2, trackY + 2, fillW - 2, floor((trackH - 4) * 0.45), 1);
+        rect(trackX + 2, trackY + 2, fillW - 4, floor((trackH - 4) * 0.45), 2);
       }
 
-      let thumbX = constrain(trackX + fillW - 5, trackX, trackX + trackW - 10);
+      // Slider thumb
+      let thumbW = 18;
+      let thumbX = constrain(
+        trackX + fillW - thumbW / 2,
+        trackX,
+        trackX + trackW - thumbW,
+      );
       fill(isDragging ? color(255, 240, 180) : color(255, 210, 100));
-      rect(thumbX, trackY - 3, 10, trackH + 6, 2);
+      rect(thumbX, trackY - 6, thumbW, trackH + 12, 4);
 
-      textSize(13);
+      textSize(32);
       textAlign(LEFT, CENTER);
       this.drawTextWithOutline(
         floor(s.value * 100) + "%",
-        trackX + trackW + 8,
+        trackX + trackW + gap,
         rowCY,
         255,
         255,
         255,
-        1,
+        3,
       );
 
       this._sliderRects[s.id] = {
         x: trackX,
-        y: trackY - 8,
+        y: trackY - 12,
         w: trackW,
-        h: trackH + 16,
+        h: trackH + 24,
         trackX,
         trackW,
       };
     }
 
-    let backW = 160,
-      backPlanks = 2,
-      backH = this._panelH(backPlanks);
-    let backX = cx - backW / 2,
-      backY = panelY + panelH - backH - 12;
+    let backW = 320;
+    let backH = 80;
+    let backX = cx - backW / 2;
+    let backY = panelY + panelH - backH - 25;
     let backHovered =
       mouseX >= backX &&
       mouseX <= backX + backW &&
       mouseY >= backY &&
       mouseY <= backY + backH;
+
     this._pauseVolRects = { back: { x: backX, y: backY, w: backW, h: backH } };
+
+    // Back button
     this._drawPixelWoodPanel(backX, backY, backW, backH);
+
     if (backHovered) {
       noStroke();
       fill(255, 255, 255, 50);
-      rect(backX + 2, backY + 2, backW - 4, backH - 4);
+      rect(backX + 4, backY + 4, backW - 8, backH - 8);
     }
-    textSize(20);
+
+    textSize(42);
     textAlign(CENTER, CENTER);
-    this.drawTextWithOutline("< BACK", cx, backY + backH / 2, 255, 255, 255, 2);
+    this.drawTextWithOutline("< BACK", cx, backY + backH / 2, 255, 255, 255, 4);
   }
 
   drawMinimap(player, roundManager) {
@@ -1887,30 +1971,54 @@ class UIRenderer {
       mmH = this._panelH(PLANKS);
     let mmX = width - mmW - 8,
       mmY = 8 + this._panelH(2) + 6;
+
     this._drawPixelWoodPanel(mmX, mmY, mmW, mmH);
+
     let mx = mmX + 10,
       my = mmY + 10,
       mw = mmW - 20,
       mh = mmH - 20;
+
     noStroke();
     fill(40, 90, 35, 200);
     rect(mx, my, mw, mh);
+
     let sx = mw / W,
       sy = mh / H;
+
     if (this.gameState.base) {
-      fill(180, 160, 80, 220);
+      let b = this.gameState.base;
+
+      // 1. I-draw yung yellow zone (Collision Box)
+      fill(180, 160, 80, 80);
       noStroke();
       rect(
-        mx + this.gameState.base.x * sx,
-        my + this.gameState.base.y * sy,
-        max(4, this.gameState.base.width * sx),
-        max(4, this.gameState.base.height * sy),
+        mx + b.x * sx,
+        my + b.y * sy,
+        max(4, b.width * sx),
+        max(4, b.height * sy),
       );
+
+      // 2. I-draw yung Blue Dot SA PINAKAGITNA MISMO NG YELLOW BOX
+      fill(100, 200, 255);
+      stroke(255);
+      strokeWeight(1);
+
+      let dotX = b.x + b.width / 2;
+      let dotY = b.y + b.height / 2;
+
+      circle(mx + dotX * sx, my + dotY * sy, 6);
+
+      // I-reset ang stroke para di madamay yung iba
+      noStroke();
     }
+
     fill(220, 40, 40, 180);
     noStroke();
-    for (let z of this.gameState.zombies)
+    for (let z of this.gameState.zombies) {
       circle(mx + z.x * sx, my + z.y * sy, 3);
+    }
+
     if (this.gameState.currentAntidote) {
       fill(80, 220, 80, 220);
       noStroke();
@@ -1920,15 +2028,18 @@ class UIRenderer {
         4,
       );
     }
+
     fill(0, 0, 0, 180);
     noStroke();
     circle(mx + player.x * sx, my + player.y * sy, 7);
     fill(255, 255, 255, 240);
     circle(mx + player.x * sx, my + player.y * sy, 5);
+
     noFill();
     stroke(80, 50, 18);
     strokeWeight(1);
     rect(mx, my, mw, mh);
+
     noStroke();
     textSize(20);
     textAlign(CENTER, TOP);

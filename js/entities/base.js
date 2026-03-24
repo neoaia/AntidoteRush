@@ -1,11 +1,21 @@
 class Base {
   constructor(x, y) {
-    this.x = x;
-    this.y = y;
+    // DITO MO ILAGAY YUNG NAKUHA MONG OFFSET PARA SA COLLISION BOX
+    // Try mo muna yung nakuha mong -70 at -50, kapag baligtad ang punta ng yellow box, gawin mong positive (70 at 50)
+    let boxOffsetX = -70;
+    let boxOffsetY = -50;
+
+    // I-mo-move natin yung mismong Collision Box (Yellow Zone)
+    this.x = x + boxOffsetX;
+    this.y = y + boxOffsetY;
     this.width = 230;
     this.height = 230;
 
-    // Sprite — single frame 128x128, drawn centered on base rect center
+    // Kinukuha natin yung original na gitna para DITO i-drawing yung sprite.
+    // Ibig sabihin, NAKAPAKO LANG YUNG IMAGE KUNG NASAAN SIYA KANINA!
+    this.spriteCX = x + 230 / 2;
+    this.spriteCY = y + 230 / 2;
+
     this.spriteSheet = null;
     this.spriteState = new SpriteState(8, 1);
 
@@ -14,7 +24,6 @@ class Base {
     }
   }
 
-  // Wire sprite after spriteManager.init() — called from game.js setup
   initSprite() {
     if (typeof spriteManager !== "undefined") {
       this.spriteSheet = spriteManager.get("base");
@@ -22,19 +31,28 @@ class Base {
   }
 
   display() {
-    let cx = this.x + this.width / 2;
-    let cy = this.y + this.height / 2;
+    let drawn = false;
 
-    let drawn = SpriteRenderer.draw(
-      this.spriteSheet,
-      this.spriteState,
-      cx,
-      cy,
-      1.4, // 128 * 1.5 = 192px on screen
-    );
+    // --- DITO MO I-ADJUST YUNG PICTURE (IMAGE) ---
+    // Lakihan mo 'to (e.g., 100, 500) para i-usog ang picture sa WORLD
+    // Positive = Pakanan / Pababa
+    // Negative = Pakaliwa / Pataas
+    let adjustX = -70;
+    let adjustY = -50;
+    // --------------------------------------------
+
+    if (this.spriteSheet && typeof SpriteRenderer !== "undefined") {
+      drawn = SpriteRenderer.draw(
+        this.spriteSheet,
+        this.spriteState,
+        this.spriteCX + adjustX, // Dito natin idadagdag yung usog
+        this.spriteCY + adjustY,
+        1.4,
+      );
+    }
 
     if (!drawn) {
-      // Fallback rect
+      // ... (itutuloy lang yung fallback rect code mo dito)
       fill(100, 200, 100, 180);
       stroke(0, 180, 0);
       strokeWeight(2);
@@ -43,7 +61,7 @@ class Base {
       noStroke();
       textSize(10);
       textAlign(CENTER, CENTER);
-      text("BASE", cx, cy);
+      text("BASE", this.x + this.width / 2, this.y + this.height / 2);
     }
   }
 
