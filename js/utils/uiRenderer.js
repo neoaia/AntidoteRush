@@ -89,8 +89,9 @@ class UIRenderer {
     }
 
     if (this._goPhase === "sliding" || this._goPhase === "visible") {
-      let panelW = min(520, width - 60);
-      let panelH = 420;
+      // Pinalaki natin ang panel para mag-match sa Shop
+      let panelW = min(600, width - 60);
+      let panelH = 500;
       let panelX = width / 2 - panelW / 2;
       let panelFinalY = height / 2 - panelH / 2;
 
@@ -110,28 +111,30 @@ class UIRenderer {
 
       this._goPanelY = panelY;
 
+      // Dim screen background (katulad sa shop)
       noStroke();
-      fill(0, 0, 0, 160);
+      fill(0, 0, 0, 180);
       rect(0, 0, width, height);
 
-      this._drawPixelWoodPanel(panelX, panelY, panelW, panelH);
+      // Ginamit natin ang plain wood para mas malinis (walang strong black lines)
+      this._drawPlainPixelWoodPanel(panelX, panelY, panelW, panelH);
 
-      let titleY = panelY + 38;
-      textSize(28);
+      let titleY = panelY + 50;
+      textSize(46); // Parehas na ng size ng SHOP title
       textAlign(CENTER, CENTER);
       this.drawTextWithOutline(
         "GAME OVER",
         width / 2,
         titleY,
         255,
-        255,
-        255,
+        70,
+        70, // Red tint para bagay sa game over vibe
         3,
       );
 
-      noStroke();
-      fill(0, 0, 0, 80);
-      rect(panelX + 16, panelY + 56, panelW - 32, 3);
+      // Divider line (gaya nung divider ng upgrades sa shop)
+      fill(62, 39, 35, 180);
+      rect(panelX + 30, panelY + 85, panelW - 60, 4);
 
       let stats = this._goStats || {};
       let statRows = [
@@ -142,48 +145,56 @@ class UIRenderer {
         { label: "ZOMBIES KILLED", value: "" + (stats.zombiesKilled || 0) },
       ];
 
-      let rowStartY = panelY + 76;
-      let rowH = 38;
+      // Gagawa tayo ng dark container box para sa stats (tulad ng stat cards sa shop)
+      let contentX = panelX + 30;
+      let contentY = panelY + 110;
+      let contentW = panelW - 60;
+      let rowH = 44;
+
+      fill(0, 0, 0, 40);
+      rect(contentX, contentY, contentW, statRows.length * rowH + 10, 6);
+
       for (let i = 0; i < statRows.length; i++) {
         let row = statRows[i];
-        let rowY = rowStartY + i * rowH + rowH / 2;
+        let rowY = contentY + 5 + i * rowH + rowH / 2;
 
-        textSize(9);
+        textSize(22); // Mas malaki at mababasa na
         textAlign(LEFT, CENTER);
         this.drawTextWithOutline(
           row.label,
-          panelX + 28,
+          contentX + 20,
           rowY,
           255,
           255,
           255,
-          1,
+          2,
         );
 
-        textSize(12);
+        textSize(24);
         textAlign(RIGHT, CENTER);
+        // Highlight natin ang values ng konting yellow
         this.drawTextWithOutline(
           row.value,
-          panelX + panelW - 28,
+          contentX + contentW - 20,
           rowY,
           255,
-          255,
-          255,
-          1,
+          220,
+          100,
+          2,
         );
 
+        // Line separator sa bawat stat
         if (i < statRows.length - 1) {
-          noStroke();
-          fill(0, 0, 0, 40);
-          rect(panelX + 20, rowY + rowH / 2, panelW - 40, 2);
+          fill(62, 39, 35, 120);
+          rect(contentX + 15, contentY + 5 + (i + 1) * rowH, contentW - 30, 2);
         }
       }
 
-      let btnY = panelY + panelH - 88;
-      let btnH = 52;
-      let btnGap = 16;
-      let btnW = (panelW - 56 - btnGap) / 2;
-      let btn1X = panelX + 28;
+      let btnY = panelY + panelH - 95;
+      let btnH = 60;
+      let btnGap = 20;
+      let btnW = (panelW - 60 - btnGap) / 2;
+      let btn1X = panelX + 30;
       let btn2X = btn1X + btnW + btnGap;
 
       this._goBtnRects = {
@@ -192,62 +203,56 @@ class UIRenderer {
       };
 
       if (this._goPhase === "visible") {
+        // --- PLAY AGAIN BUTTON ---
         this._drawPixelWoodPanel(btn1X, btnY, btnW, btnH);
         let h1 =
           mouseX >= btn1X &&
           mouseX <= btn1X + btnW &&
           mouseY >= btnY &&
           mouseY <= btnY + btnH;
+
         if (h1) {
           noStroke();
-          fill(255, 255, 255, 40);
-          rect(btn1X + 3, btnY + 3, btnW - 6, btnH - 6);
+          fill(255, 255, 255, 50); // Match ng hover effect sa shop
+          rect(btn1X + 2, btnY + 2, btnW - 4, btnH - 4);
         }
-        textSize(10);
+
+        textSize(22);
         textAlign(CENTER, CENTER);
         this.drawTextWithOutline(
           "PLAY AGAIN",
           btn1X + btnW / 2,
-          btnY + btnH / 2,
+          btnY + btnH / 2 - 2,
           255,
           255,
           255,
           2,
         );
 
+        // --- TITLE SCREEN BUTTON ---
         this._drawPixelWoodPanel(btn2X, btnY, btnW, btnH);
         let h2 =
           mouseX >= btn2X &&
           mouseX <= btn2X + btnW &&
           mouseY >= btnY &&
           mouseY <= btnY + btnH;
+
         if (h2) {
           noStroke();
-          fill(255, 255, 255, 40);
-          rect(btn2X + 3, btnY + 3, btnW - 6, btnH - 6);
+          fill(255, 255, 255, 50);
+          rect(btn2X + 2, btnY + 2, btnW - 4, btnH - 4);
         }
-        textSize(10);
+
+        textSize(22);
         textAlign(CENTER, CENTER);
         this.drawTextWithOutline(
           "TITLE SCREEN",
           btn2X + btnW / 2,
-          btnY + btnH / 2,
+          btnY + btnH / 2 - 2,
           255,
           255,
           255,
           2,
-        );
-
-        textSize(8);
-        textAlign(CENTER, CENTER);
-        this.drawTextWithOutline(
-          "PLAY AGAIN KEEPS YOUR NAME",
-          width / 2,
-          btnY + btnH + 20,
-          255,
-          255,
-          255,
-          1,
         );
       }
     }

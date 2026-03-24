@@ -236,6 +236,43 @@ function _triggerDeath() {
   localStorage.setItem("lastScore", gameState.score || 0);
   localStorage.setItem("lastCoins", gameState.coins);
 
+  // --- LEADERBOARD LOGIC ---
+  let lb = JSON.parse(localStorage.getItem("leaderboard") || "[]");
+
+  let currentRun = {
+    name: gameState.playerName || "???",
+    difficulty: localStorage.getItem("difficulty") || "easy",
+    round: gameState.roundManager.currentRound,
+    level: gameState.level || 1,
+    zombiesKilled: gameState.zombiesKilled || 0,
+    score: gameState.score || 0,
+  };
+
+  // Hanapin kung may record na yung same player sa SAME DIFFICULTY
+  let existingIndex = lb.findIndex(
+    (entry) =>
+      entry.name.toUpperCase() === currentRun.name.toUpperCase() &&
+      entry.difficulty === currentRun.difficulty,
+  );
+
+  if (existingIndex !== -1) {
+    // I-update lang kung mas mataas yung score o round
+    let existingRun = lb[existingIndex];
+    if (
+      currentRun.score > existingRun.score ||
+      (currentRun.score === existingRun.score &&
+        currentRun.round > existingRun.round)
+    ) {
+      lb[existingIndex] = currentRun;
+    }
+  } else {
+    // Bagong pasok sa difficulty na 'to
+    lb.push(currentRun);
+  }
+
+  localStorage.setItem("leaderboard", JSON.stringify(lb));
+  // ------------------------------------------
+
   // Release pointer lock and stop BGM
   _intentionalUnlock = true;
   document.exitPointerLock();

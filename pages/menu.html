@@ -230,7 +230,6 @@
             letter-spacing: 2px;
             border: 6px solid #000;
 
-            /* Add this text-shadow for the black outline */
             text-shadow:
                 -2px -2px 0 #000,
                 2px -2px 0 #000,
@@ -299,6 +298,30 @@
             background-size: 100% calc(100% / 2);
         }
 
+        /* ── Tutorial Button (Upper Right) ── */
+        .btn-top-right {
+            position: fixed;
+            top: 25px;
+            right: 25px;
+            max-width: 150px;
+            font-size: 0.8rem;
+            padding: 0.8rem 1rem;
+            margin: 0;
+            z-index: 100;
+            border-width: 4px;
+            box-shadow:
+                inset 0 4px 0 0 #d49a59,
+                inset 0 -4px 0 0 #7d4722,
+                inset 4px 0 0 0 #d49a59,
+                inset -4px 0 0 0 #7d4722,
+                0 6px 0 #000;
+        }
+
+        .btn-top-right::after {
+            inset: 4px;
+            background-size: 100% calc(100% / 2);
+        }
+
         @media (max-width: 768px) {
             .title {
                 font-size: 3rem;
@@ -319,13 +342,21 @@
                 max-width: 100px;
             }
 
+            .btn-top-right {
+                top: 15px;
+                right: 15px;
+                font-size: 0.6rem;
+                padding: 0.6rem;
+                max-width: 100px;
+            }
+
             .cards {
                 flex-direction: column;
                 align-items: center;
             }
         }
 
-        /* ── Modal ── */
+        /* ── Modals ── */
         .modal-overlay {
             display: none;
             position: fixed;
@@ -355,6 +386,13 @@
                 inset -8px 0 0 0 #7d4722,
                 0 20px 0 #000;
             position: relative;
+            display: flex;
+            flex-direction: column;
+        }
+
+        #modal-leaderboard .modal-content {
+            max-width: 900px;
+            padding: 3rem 1.5rem;
         }
 
         .modal-content::after {
@@ -370,52 +408,145 @@
 
         .modal-content-inner {
             margin-bottom: 2rem;
-            max-height: 350px;
+            max-height: 400px;
             overflow-y: auto;
+            overflow-x: auto;
             color: #000;
-            background-color: rgba(255, 255, 255, 0.7);
-            padding: 1rem;
+            background-color: rgba(255, 255, 255, 0.95);
             border: 4px solid #000;
             font-size: 0.8rem;
             line-height: 1.6;
+            position: relative;
         }
 
         .modal-content-inner::-webkit-scrollbar {
             width: 12px;
+            height: 12px;
         }
 
         .modal-content-inner::-webkit-scrollbar-track {
             background: #ab6a38;
             border: 4px solid #000;
+            border-top: none;
+            border-bottom: none;
         }
 
         .modal-content-inner::-webkit-scrollbar-thumb {
             background: #d49a59;
             border: 4px solid #000;
+            border-top: none;
+            border-bottom: none;
         }
 
         .btn-modal-close {
             margin: 0 auto;
             display: block;
         }
+
+        /* ── Leaderboard Tabs ── */
+        .lb-tabs {
+            display: flex;
+            justify-content: center;
+            gap: 1rem;
+            margin-bottom: 1.5rem;
+            position: relative;
+            z-index: 10;
+        }
+
+        .lb-tab {
+            padding: 0.8rem;
+            font-size: 0.75rem;
+            max-width: 120px;
+            border-width: 4px;
+        }
+
+        /* 1. White text para kita pa rin sa kulay, and remove the wood texture kapag active */
+        .lb-tab.selected {
+            color: #fff;
+            text-shadow:
+                -2px -2px 0 #000,
+                2px -2px 0 #000,
+                -2px 2px 0 #000,
+                2px 2px 0 #000;
+        }
+
+        .lb-tab.selected::after {
+            display: none;
+        }
+
+        /* 2. Specific colors per difficulty */
+        #tab-easy.selected {
+            background-color: #4caf50;
+            box-shadow:
+                inset 0 4px 0 0 #81c784,
+                inset 0 -4px 0 0 #388e3c,
+                inset 4px 0 0 0 #81c784,
+                inset -4px 0 0 0 #388e3c,
+                0 6px 0 #000;
+        }
+
+        #tab-hard.selected {
+            background-color: #ff9800;
+            box-shadow:
+                inset 0 4px 0 0 #ffb74d,
+                inset 0 -4px 0 0 #f57c00,
+                inset 4px 0 0 0 #ffb74d,
+                inset -4px 0 0 0 #f57c00,
+                0 6px 0 #000;
+        }
+
+        #tab-hell.selected {
+            background-color: #f44336;
+            box-shadow:
+                inset 0 4px 0 0 #e57373,
+                inset 0 -4px 0 0 #d32f2f,
+                inset 4px 0 0 0 #e57373,
+                inset -4px 0 0 0 #d32f2f,
+                0 6px 0 #000;
+        }
+
+        /* ── Leaderboard Table ── */
+        .leaderboard-table {
+            width: 100%;
+            border-collapse: collapse;
+            text-align: center;
+            font-size: 0.75rem;
+            white-space: nowrap;
+        }
+
+        .leaderboard-table th {
+            position: sticky;
+            top: 0;
+            background-color: #ffffff;
+            padding: 1rem 0.5rem;
+            border-bottom: 4px solid #000;
+            color: #7d4722;
+            z-index: 2;
+        }
+
+        .leaderboard-table td {
+            padding: 0.8rem 0.5rem;
+            border-bottom: 2px solid rgba(0, 0, 0, 0.1);
+        }
+
+        .leaderboard-table tr:nth-child(even) {
+            background-color: rgba(0, 0, 0, 0.03);
+        }
     </style>
 </head>
 
 <body>
 
-    <!-- Fade transition overlay -->
     <div id="fade-overlay"></div>
 
-    <!-- ── TITLE SCREEN ── -->
     <div id="screen-title" class="screen active">
         <h1 class="title">ANTIDOTE<br>RUSH</h1>
         <div class="btn-group">
             <button onclick="showScreen('name')">PLAY</button>
-            <button class="btn-info" onclick="openHowToPlay()">HOW TO PLAY?</button>
+            <button onclick="openLeaderboard()">LEADERBOARD</button>
         </div>
     </div>
 
-    <!-- ── NAME SCREEN ── -->
     <div id="screen-name" class="screen">
         <button class="btn-back" onclick="showScreen('title')">◀ BACK</button>
         <p class="screen-title">ENTER YOUR NAME</p>
@@ -425,34 +556,31 @@
         </div>
     </div>
 
-    <!-- ── DIFFICULTY SCREEN ── -->
     <div id="screen-difficulty" class="screen">
         <button class="btn-back" onclick="goBackFromDifficulty()">◀ BACK</button>
+        <button class="btn-top-right" onclick="openTutorial()">TUTORIAL</button>
+
         <p class="screen-title">SELECT DIFFICULTY</p>
         <div class="cards">
             <div class="card easy" onclick="selectDifficulty('easy', this)">
                 <div class="label">EASY</div>
                 <div class="desc">Standard zombie rush.<br>Good for learning.</div>
-                <div class="stats">Zombies/Round: base<br>Speed: normal<br>Health: normal</div>
             </div>
             <div class="card hard" onclick="selectDifficulty('hard', this)">
                 <div class="label">HARD</div>
                 <div class="desc">More zombies, faster.<br>For the prepared.</div>
-                <div class="stats">Zombies/Round: +10<br>Speed: +0.5<br>Health: normal</div>
             </div>
             <div class="card hell" onclick="selectDifficulty('hell', this)">
                 <div class="label">HELL</div>
                 <div class="desc">Maximum chaos.<br>You will not survive.</div>
-                <div class="stats">Zombies/Round: +20<br>Speed: +1.5<br>Health: +20 base</div>
             </div>
         </div>
         <button id="diffBtn" onclick="startGame()" disabled>START</button>
     </div>
 
-    <!-- ── HOW TO PLAY MODAL ── -->
-    <div id="modal-howto" class="modal-overlay">
+    <div id="modal-tutorial" class="modal-overlay">
         <div class="modal-content">
-            <p class="screen-title">HOW TO PLAY</p>
+            <p class="screen-title">TUTORIAL</p>
             <div class="modal-content-inner">
                 <p>Welcome to Antidote Rush!</p>
                 <br>
@@ -463,7 +591,38 @@
                 <p>3. Point and click to shoot.</p>
                 <p>4. Press 1, 2, 3 to switch weapons.</p>
             </div>
-            <button class="btn-back btn-modal-close" onclick="closeHowToPlay()"
+            <button class="btn-back btn-modal-close" onclick="closeTutorial()"
+                style="position:relative; top:0; left:0;">CLOSE</button>
+        </div>
+    </div>
+
+    <div id="modal-leaderboard" class="modal-overlay">
+        <div class="modal-content">
+            <p class="screen-title" style="margin-bottom: 1.5rem;">LEADERBOARD</p>
+
+            <div class="lb-tabs">
+                <button id="tab-easy" class="lb-tab selected" onclick="switchLbTab('easy')">EASY</button>
+                <button id="tab-hard" class="lb-tab" onclick="switchLbTab('hard')">HARD</button>
+                <button id="tab-hell" class="lb-tab" onclick="switchLbTab('hell')">HELL</button>
+            </div>
+
+            <div class="modal-content-inner">
+                <table class="leaderboard-table">
+                    <thead>
+                        <tr>
+                            <th>RANK</th>
+                            <th>PLAYER</th>
+                            <th>ROUND</th>
+                            <th>LVL</th>
+                            <th>KILLS</th>
+                            <th>SCORE</th>
+                        </tr>
+                    </thead>
+                    <tbody id="leaderboard-body">
+                    </tbody>
+                </table>
+            </div>
+            <button class="btn-back btn-modal-close" onclick="closeLeaderboard()"
                 style="position:relative; top:0; left:0;">CLOSE</button>
         </div>
     </div>
@@ -489,14 +648,12 @@
         var fadeOverlay = document.getElementById('fade-overlay');
 
         function revealPage() {
-            // Start opaque (black), fade out to reveal the page
             requestAnimationFrame(function () {
                 fadeOverlay.classList.add('transparent');
             });
         }
 
         function navigateTo(url) {
-            // Fade to black, then navigate
             fadeOverlay.classList.remove('transparent');
             fadeOverlay.addEventListener('transitionend', function handler() {
                 fadeOverlay.removeEventListener('transitionend', handler);
@@ -513,22 +670,16 @@
             }
         }
 
-        // If coming from Play Again, jump straight to difficulty screen
         var params = new URLSearchParams(window.location.search);
         if (params.get('screen') === 'difficulty') {
-            // Pre-fill the name display if we have it, skip name screen
             showScreen('difficulty');
             revealPage();
         } else {
-            // Normal load — just reveal
             revealPage();
         }
 
-        // ── Back button on difficulty screen ──────────────────────────────
-        // Coming from Play Again we skip name, so back goes to name only if name wasn't pre-set
         function goBackFromDifficulty() {
             if (params.get('screen') === 'difficulty') {
-                // Came from game-over; back goes to name screen so they can change it
                 showScreen('name');
             } else {
                 showScreen('name');
@@ -539,7 +690,6 @@
         var nameInput = document.getElementById('playerName');
         var nameBtn = document.getElementById('nameBtn');
 
-        // Pre-fill name if returning from a run
         var savedName = localStorage.getItem('playerName');
         if (savedName) {
             nameInput.value = savedName;
@@ -578,11 +728,88 @@
             navigateTo('game.html');
         }
 
-        // ── Modal ─────────────────────────────────────────────────────────
-        var modalHowTo = document.getElementById('modal-howto');
-        function openHowToPlay() { modalHowTo.classList.add('active'); }
-        function closeHowToPlay() { modalHowTo.classList.remove('active'); }
-        window.onclick = function (e) { if (e.target === modalHowTo) closeHowToPlay(); };
+        // ── Modals ─────────────────────────────────────────────────────────
+        var modalTutorial = document.getElementById('modal-tutorial');
+        var modalLeaderboard = document.getElementById('modal-leaderboard');
+
+        function openTutorial() { modalTutorial.classList.add('active'); }
+        function closeTutorial() { modalTutorial.classList.remove('active'); }
+
+        function openLeaderboard() {
+            switchLbTab(lbCurrentDiff);
+            modalLeaderboard.classList.add('active');
+        }
+        function closeLeaderboard() { modalLeaderboard.classList.remove('active'); }
+
+        window.onclick = function (e) {
+            if (e.target === modalTutorial) closeTutorial();
+            if (e.target === modalLeaderboard) closeLeaderboard();
+        };
+
+        // ── Leaderboard Logic ────────────────────────────────────────────
+        var lbCurrentDiff = 'easy';
+
+        function switchLbTab(diff) {
+            lbCurrentDiff = diff;
+            document.querySelectorAll('.lb-tab').forEach(function (b) {
+                b.classList.remove('selected');
+            });
+            document.getElementById('tab-' + diff).classList.add('selected');
+            updateLeaderboardTable();
+        }
+
+        function updateLeaderboardTable() {
+            var tbody = document.getElementById('leaderboard-body');
+            tbody.innerHTML = '';
+
+            var lbData = [];
+            try {
+                var stored = localStorage.getItem('leaderboard');
+                if (stored) {
+                    lbData = JSON.parse(stored);
+                }
+            } catch (e) {
+                console.error("Error parsing leaderboard data", e);
+            }
+
+            var filteredData = lbData.filter(function (entry) {
+                var diff = entry.difficulty || 'easy';
+                return diff === lbCurrentDiff;
+            });
+
+            if (filteredData.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="6" style="padding: 2rem;">NO RECORDS FOUND</td></tr>';
+                return;
+            }
+
+            filteredData.sort(function (a, b) {
+                if (b.score !== a.score) return b.score - a.score;
+                return b.round - a.round;
+            });
+
+            var displayLimit = filteredData.slice(0, 50);
+
+            displayLimit.forEach(function (entry, index) {
+                var rankColor = '#000';
+
+                if (index === 0) rankColor = '#d4af37';      // Gold
+                else if (index === 1) rankColor = '#808080'; // Silver
+                else if (index === 2) rankColor = '#cd7f32'; // Bronze
+
+                var tr = document.createElement('tr');
+                tr.style.color = rankColor;
+                tr.style.fontWeight = (index < 3) ? 'bold' : 'normal';
+
+                tr.innerHTML =
+                    '<td>' + (index + 1) + '</td>' +
+                    '<td>' + (entry.name || '???') + '</td>' +
+                    '<td>' + (entry.round || 0) + '</td>' +
+                    '<td>' + (entry.level || 1) + '</td>' +
+                    '<td>' + (entry.zombiesKilled || 0) + '</td>' +
+                    '<td>' + (entry.score || 0) + '</td>';
+                tbody.appendChild(tr);
+            });
+        }
 
         // ── Menu BGM ─────────────────────────────────────────────────────
         var bgm = new Audio('/assets/audios/bgm/menu.mp3');
