@@ -15,7 +15,7 @@ class WeaponPickupManager {
       { x: canvasWidth - 380, y: canvasHeight - 130, w: 380, h: 130 },
     ];
 
-    this.debugWeapon = "null"; // Set to null for normal gameplay
+    this.debugWeapon = null; 
   }
 
   getRandomWait() {
